@@ -1,10 +1,17 @@
 //! What the integration tests share: the app on a fresh database, with mail caught in memory.
 #![allow(dead_code)]
 
-use tablo::testing::test_db;
+use tablo::{
+    PanelHandle,
+    testing::{TestClient, test_db},
+};
 use tablo_saas::{
+    accounts::{Accounts, User},
+    background,
+    jobs::Worker,
     platform::config::Config,
     router::{App, router},
+    teams::{Member, Team, TeamRole, create_team},
 };
 use toasty::Db;
 use topcoat::{mail::MemoryTransport, router::Router};
@@ -12,8 +19,10 @@ use topcoat::{mail::MemoryTransport, router::Router};
 /// A running app and what a test inspects.
 pub struct Harness {
     pub app: Router,
+    pub panel: PanelHandle,
     pub db: Db,
     pub outbox: MemoryTransport,
+    worker: Option<Worker>,
 }
 
 fn config() -> Config {
@@ -28,17 +37,37 @@ fn config() -> Config {
 pub async fn harness() -> Harness {
     let db = test_db(tablo_saas::models()).await;
     let outbox = MemoryTransport::new();
-    let app = router(App {
+    let config = config();
+    let built = router(App {
         db: db.clone(),
-        config: &config(),
+        config: &config,
         mail: outbox.clone(),
         assets: None,
     })
     .expect("the panels mount");
-    Harness { app, db, outbox }
+    let panel = built.app_panel.clone();
+    let worker = background::worker(
+        db.clone(),
+        &built.app_panel,
+        config.settings(),
+        outbox.clone(),
+    );
+    Harness {
+        app: built.router,
+        panel,
+        db,
+        outbox,
+        worker: Some(worker),
+    }
 }
 
 impl Harness {
+    /// Runs every job due now, as a worker would.
+    pub async fn run_jobs(&mut self) {
+        let worker = self.worker.take().expect("a harness drains once");
+        worker.drain().await.expect("the queue drains");
+    }
+
     /// What the outbox holds once `count` mails arrived. Tablo sends its auth mail after the
     /// response, so a test waits for it rather than racing it.
     pub async fn mail(&self, count: usize) -> Vec<topcoat::mail::Mail> {
@@ -51,4 +80,46 @@ impl Harness {
         }
         panic!("expected {count} mails, got {}", self.outbox.sent().len());
     }
+}
+
+/// A verified account with its personal team, ready for `TestClient::sign_in`.
+pub async fn person(db: &Db, name: &str, email: &str) -> (User, Team) {
+    let mut handle = db.clone();
+    let user = toasty::create!(User {
+        name: name.to_string(),
+        email: email.to_string(),
+        password: "unused".to_string(),
+        email_verified_at: Some(jiff::Timestamp::now()),
+    })
+    .exec(&mut handle)
+    .await
+    .expect("write the account");
+    let team = create_team(&mut handle, &format!("{name}'s team"), &user)
+        .await
+        .expect("write the team");
+    (user, team)
+}
+
+/// Puts `user` on `team`.
+pub async fn seat(db: &Db, user: &User, team: &Team, role: TeamRole) -> Member {
+    toasty::create!(Member {
+        team_id: team.tenant(),
+        user_id: user.id,
+        role: role,
+    })
+    .exec(&mut db.clone())
+    .await
+    .expect("write the seat")
+}
+
+/// A client signed in as `user`, on `team`.
+pub async fn client_for<'a>(harness: &'a Harness, user: &User, team: &Team) -> TestClient<'a> {
+    let signed = Accounts::signed_in(user.clone(), &mut harness.db.clone())
+        .await
+        .expect("load the account");
+    TestClient::new(&harness.app)
+        .panel(&harness.panel)
+        .sign_in(&harness.db, "app", &signed)
+        .await
+        .tenant(team.tenant())
 }

@@ -44,33 +44,43 @@ impl Cli {
             stop.send_replace(true);
         });
 
-        match self.command.unwrap_or(Command::Serve { no_worker: false }) {
-            Command::Migrate => migrate(&db).await,
+        let command = self.command.unwrap_or(Command::Serve { no_worker: false });
+        if let Command::Migrate = command {
+            return migrate(&db).await;
+        }
+        // A development database follows the code; in production the release does it, so two
+        // replicas starting together never race over the schema.
+        if !config.is_production() {
+            migrate(&db).await?;
+        }
+        let assets = matches!(command, Command::Serve { .. })
+            .then(AssetBundle::load)
+            .transpose()?;
+        let built = router(App {
+            db: db.clone(),
+            mail: mail.clone(),
+            assets,
+            config: &config,
+        })
+        .map_err(|error| anyhow::anyhow!("{error:#}"))?;
+        let worker = background::worker(db, &built.app_panel, config.settings(), mail);
+
+        match command {
+            Command::Migrate => unreachable!("handled above"),
             Command::Worker => {
-                background::worker(db, mail).run(stopped).await;
+                worker.run(stopped).await;
                 Ok(())
             }
             Command::Serve { no_worker } => {
-                // A development database follows the code; in production the release does it,
-                // so two replicas starting together never race over the schema.
-                if !config.is_production() {
-                    migrate(&db).await?;
-                }
-                let worker = (!no_worker).then(|| {
-                    tokio::spawn(background::worker(db.clone(), mail.clone()).run(stopped.clone()))
-                });
-                let app = App {
-                    db,
-                    mail,
-                    assets: Some(AssetBundle::load()?),
-                    config: &config,
-                };
-                let router = router(app).map_err(|error| anyhow::anyhow!("{error:#}"))?;
-                let listener = TcpListener::bind(address()?).await?;
+                let worker = (!no_worker).then(|| tokio::spawn(worker.run(stopped.clone())));
                 let mut stopping = stopped;
-                topcoat::serve_until(listener, router, async move {
-                    let _ = stopping.changed().await;
-                })
+                topcoat::serve_until(
+                    TcpListener::bind(address()?).await?,
+                    built.router,
+                    async move {
+                        let _ = stopping.changed().await;
+                    },
+                )
                 .await?;
                 if let Some(worker) = worker {
                     worker.await?;

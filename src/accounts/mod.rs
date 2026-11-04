@@ -9,4 +9,4 @@ mod sign_in;
 
 pub use models::{StaffRole, User, normalize_email};
 pub use profile::{AccountResetter, AccountVerifier};
-pub use sign_in::{Accounts, SignUp, SignedIn};
+pub use sign_in::{Accounts, Seat, SignUp, SignedIn, UserResource};

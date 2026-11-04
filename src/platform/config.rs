@@ -29,6 +29,13 @@ pub struct Config {
     pub mail: MailSettings,
 }
 
+/// What a job or a page needs of the configuration, without the secrets.
+#[derive(Clone)]
+pub struct Settings {
+    pub base_url: String,
+    pub mail_from: Mailbox,
+}
+
 /// Where mail comes from and how it leaves.
 pub struct MailSettings {
     /// The sender, an address the mail provider has verified.
@@ -96,6 +103,13 @@ impl Config {
                 .unwrap_or_default(),
             mail,
         })
+    }
+
+    pub fn settings(&self) -> Settings {
+        Settings {
+            base_url: self.base_url.clone(),
+            mail_from: self.mail.from.clone(),
+        }
     }
 
     pub fn is_production(&self) -> bool {

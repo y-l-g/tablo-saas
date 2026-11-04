@@ -1,18 +1,30 @@
 //! Signing in and signing up.
 
 use tablo::{
-    Authenticator, FieldErrors, PanelUser, Registrar,
+    Authenticator, FieldErrors, Membership, PanelUser, Registrar, TenantId,
     auth::{hash_password, new_password_errors, verify_password},
     db::db,
+    prelude::*,
 };
 use topcoat::context::Cx;
 
 use super::{User, normalize_email};
+use crate::teams::{Member, Team, TeamRole, create_team};
 
-/// The signed-in user.
+/// The signed-in user and the teams they sit on, reloaded on every request, so removing a member
+/// takes effect at once.
 #[derive(Debug)]
 pub struct SignedIn {
     pub user: User,
+    pub teams: Vec<Membership>,
+    pub seats: Vec<Seat>,
+}
+
+/// What a user is on one team.
+#[derive(Debug, Clone, Copy)]
+pub struct Seat {
+    pub team: TenantId,
+    pub role: TeamRole,
 }
 
 impl PanelUser for SignedIn {
@@ -37,6 +49,27 @@ impl PanelUser for SignedIn {
     fn can_access_panel(&self, panel: &str) -> bool {
         matches!(panel, "/app")
     }
+
+    fn tenants(&self) -> &[Membership] {
+        &self.teams
+    }
+}
+
+/// How a member's name reads on another record: name and address, nothing else of the account.
+pub struct UserResource;
+
+impl Resource for UserResource {
+    type Model = User;
+    type Form = NoForm<User>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .tenancy(Tenancy::none())
+            .without_navigation()
+            .without_global_search()
+            .record_title(lens!(User.name))
+            .policy(Deny)
+    }
 }
 
 /// Reads users and creates them from the sign-up page.
@@ -47,11 +80,26 @@ impl Accounts {
     ///
     /// Runs on `ex` rather than a fresh handle: sign-up calls this while its transaction holds a
     /// connection, and a single-connection pool would wait forever for a second one.
-    pub(super) async fn signed_in(
-        user: User,
-        _ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<SignedIn> {
-        Ok(SignedIn { user })
+    pub async fn signed_in(user: User, ex: &mut dyn toasty::Executor) -> topcoat::Result<SignedIn> {
+        let members = Member::filter(Member::fields().user_id().eq(user.id))
+            .exec(&mut *ex)
+            .await?;
+        let mut teams = Vec::with_capacity(members.len());
+        let mut seats = Vec::with_capacity(members.len());
+        for member in members {
+            let team = Team::filter_by_id(member.team_id.get())
+                .first()
+                .exec(&mut *ex)
+                .await?;
+            if let Some(team) = team {
+                teams.push(Membership::new(member.team_id, team.name));
+                seats.push(Seat {
+                    team: member.team_id,
+                    role: member.role,
+                });
+            }
+        }
+        Ok(SignedIn { user, teams, seats })
     }
 
     /// The account `email` signs in as.
@@ -135,7 +183,7 @@ impl Registrar for Accounts {
 
     async fn register(
         &self,
-        _cx: &Cx,
+        cx: &Cx,
         sign_up: SignUp,
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<SignedIn> {
@@ -145,6 +193,12 @@ impl Registrar for Accounts {
             password: hash_password(&sign_up.password).await?,
         })
         .exec(&mut *ex)
+        .await?;
+        create_team(
+            &mut *ex,
+            &tablo::t!(cx, "team-personal", name = &user.name),
+            &user,
+        )
         .await?;
         Self::signed_in(user, ex).await
     }

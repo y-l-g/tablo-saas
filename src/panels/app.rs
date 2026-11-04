@@ -4,18 +4,24 @@ use std::time::Duration;
 
 use tablo::{
     Auth, AuthMail, EmailVerification, LoginThrottle, Page, PageDef, Panel, PasswordReset,
-    TwoFactor,
+    TenantRegistration, TwoFactor,
 };
 use topcoat::icon::iconify::iconify_icon;
 
-use crate::accounts::{AccountResetter, AccountVerifier, Accounts, SignedIn};
+use crate::accounts::{AccountResetter, AccountVerifier, Accounts, SignedIn, UserResource};
 use crate::platform::config::Config;
+use crate::teams::{IncomingInvitationResource, InvitationResource, MemberResource, Teams};
 
 /// The panel customers use.
 pub fn app_panel(config: &Config) -> Panel {
     super::shared(Panel::new("app"))
         .auth(auth(config))
+        .notifications()
         .home::<Home>()
+        .resource::<UserResource>()
+        .resource::<MemberResource>()
+        .resource::<InvitationResource>()
+        .resource::<IncomingInvitationResource>()
 }
 
 /// Every auth page Tablo offers: sign-up, a verified address before anything else, reset, the
@@ -34,6 +40,8 @@ fn auth(config: &Config) -> Auth<SignedIn> {
         .email_verification(EmailVerification::new(AccountVerifier))
         .profile(Accounts)
         .two_factor(TwoFactor::new().email_codes())
+        .tenant_registration(TenantRegistration::new(Teams).required())
+        .tenant_profile(Teams)
 }
 
 /// The page a signed-in customer lands on.

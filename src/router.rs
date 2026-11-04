@@ -1,6 +1,6 @@
 //! The app's router: the routes it discovers, the state they read and the panels it mounts.
 
-use tablo::RouterBuilderPanelExt;
+use tablo::{PanelHandle, RouterBuilderPanelExt};
 use toasty::Db;
 use topcoat::{
     asset::{AssetBundle, RouterBuilderAssetExt},
@@ -25,8 +25,14 @@ pub struct App<'a, T> {
     pub assets: Option<AssetBundle>,
 }
 
+/// The router, and the handle a background job reads the panel through.
+pub struct Built {
+    pub router: Router,
+    pub app_panel: PanelHandle,
+}
+
 /// Builds the router the server runs and the tests drive.
-pub fn router<T: Transport + 'static>(app: App<'_, T>) -> topcoat::Result<Router> {
+pub fn router<T: Transport + 'static>(app: App<'_, T>) -> topcoat::Result<Built> {
     let App {
         db,
         config,
@@ -38,6 +44,7 @@ pub fn router<T: Transport + 'static>(app: App<'_, T>) -> topcoat::Result<Router
         .with(db)
         .with(config.cookie_key.clone())
         .with(Https(config.base_url.starts_with("https://")))
+        .with(config.settings())
         .mail(MailConfig::builder().transport(mail).build());
     if !config.trusted_proxies.is_empty() {
         builder =
@@ -54,5 +61,10 @@ pub fn router<T: Transport + 'static>(app: App<'_, T>) -> topcoat::Result<Router
             panel
         }
     };
-    Ok(builder.panel(shell(app_panel(config)))?.build())
+    let builder = builder.panel(shell(app_panel(config)))?;
+    let app_panel = builder.panel_handle("app").expect("mounted above");
+    Ok(Built {
+        router: builder.build(),
+        app_panel,
+    })
 }

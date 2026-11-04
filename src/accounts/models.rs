@@ -1,6 +1,9 @@
 //! The people who sign in.
 
 use jiff::Timestamp;
+use toasty::Deferred;
+
+use crate::teams::Member;
 
 /// A person with an account. A row without a staff role is a customer.
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
@@ -23,6 +26,8 @@ pub struct User {
     pub created_at: Timestamp,
     #[update(Timestamp::now())]
     pub updated_at: Timestamp,
+    #[has_many(pair = user)]
+    pub memberships: Deferred<Vec<Member>>,
 }
 
 /// What a member of staff may do in the back office.

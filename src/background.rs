@@ -2,32 +2,45 @@
 
 use std::time::Duration;
 
+use tablo::PanelHandle;
 use toasty::Db;
-use topcoat::{
-    context::Cx,
-    mail::{MailConfig, Transport},
-};
+use topcoat::mail::{MailConfig, Transport};
 
 use crate::jobs::{Recurring, Registry, Worker, housekeeping::PruneJobs};
+use crate::platform::config::Settings;
+use crate::teams::{PruneInvitations, SendInvitation};
 
 /// Every job kind: a worker that lacks one fails such a job instead of guessing.
 fn registry() -> Registry {
-    Registry::default().register::<PruneJobs>()
+    Registry::default()
+        .register::<PruneJobs>()
+        .register::<SendInvitation>()
+        .register::<PruneInvitations>()
 }
 
 /// What runs on a clock.
 fn schedules() -> Vec<Recurring> {
-    vec![Recurring::every(
-        "prune-jobs",
-        Duration::from_hours(24),
-        PruneJobs,
-    )]
+    vec![
+        Recurring::every("prune-jobs", Duration::from_hours(24), PruneJobs),
+        Recurring::every(
+            "prune-invitations",
+            Duration::from_hours(24),
+            PruneInvitations,
+        ),
+    ]
 }
 
-/// A worker reading the same database and mail transport as the app.
-pub fn worker<T: Transport + 'static>(db: Db, mail: T) -> Worker {
-    let cx = Cx::new()
-        .with(db.clone())
+/// A worker reading what the app reads, through the mounted panel: its database, its catalogs for
+/// the words a mail says, and its resources.
+pub fn worker<T: Transport + 'static>(
+    db: Db,
+    panel: &PanelHandle,
+    settings: Settings,
+    mail: T,
+) -> Worker {
+    let cx = panel
+        .context()
+        .with(settings)
         .with(MailConfig::builder().transport(mail).build());
     Worker::new(db, registry(), schedules(), cx)
 }

@@ -4,11 +4,11 @@ use std::{sync::Arc, time::Duration};
 
 use anyhow::Context;
 use topcoat::{
-    context::Cx,
-    mail::{Mail, Receipt, SmtpTransport, Transport, TransportFuture},
+    context::{Cx, context},
+    mail::{Mail, Receipt, SmtpTransport, Transport, TransportFuture, mail, send},
 };
 
-use super::config::Smtp;
+use super::config::{Settings, Smtp};
 
 /// How many times a send is tried before it fails. Tablo sends its auth mail once, after the
 /// response, so a passing SMTP outage would otherwise cost a person their reset link.
@@ -53,6 +53,54 @@ impl Transport for Postbox {
             }
         })
     }
+}
+
+/// What a mail to one person says.
+pub struct Message<'a> {
+    pub to: &'a str,
+    pub subject: &'a str,
+    pub title: &'a str,
+    pub body: &'a str,
+    pub action: &'a str,
+    pub url: &'a str,
+}
+
+/// Sends a mail with a title, a paragraph and one button: the shape of every mail the app sends.
+///
+/// Inline styles alone: a mail client reads no stylesheet. The caller is a job, and the error
+/// sends it round again.
+pub async fn send_message(cx: &Cx, message: Message<'_>) -> anyhow::Result<()> {
+    let Message {
+        to,
+        subject,
+        title,
+        body,
+        action,
+        url,
+    } = message;
+    let from = context::<Settings>(cx).mail_from.clone();
+    let mail = mail! {
+        from: from,
+        to: to,
+        subject: subject,
+        html: {
+            cx =>
+            <div style="font-family: system-ui, sans-serif; max-width: 32rem; margin: 0 auto; color: #1f2430;">
+                <h1 style="font-size: 1.25rem;">(title)</h1>
+                <p style="line-height: 1.5;">(body)</p>
+                <p>
+                    <a href=(url) style="display: inline-block; background: #2f6bed; color: #fff; padding: 0.625rem 1rem; border-radius: 0.5rem; text-decoration: none;">
+                        (action)
+                    </a>
+                </p>
+            </div>
+        },
+    }
+    .map_err(|error| anyhow::anyhow!("{error:#}"))?;
+    send(cx, mail)
+        .await
+        .map_err(|error| anyhow::anyhow!("{error:#}"))?;
+    Ok(())
 }
 
 /// A transport to `smtp`: implicit TLS on port 465, STARTTLS on any other, and plain text on the
