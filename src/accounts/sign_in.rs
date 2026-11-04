@@ -5,7 +5,6 @@ use tablo::{
     Authenticator, FieldErrors, Membership, PanelUser, Registrar, TenantId,
     auth::{hash_password, new_password_errors, verify_password},
     db::db,
-    prelude::*,
 };
 use topcoat::context::Cx;
 
@@ -60,23 +59,6 @@ impl PanelUser for SignedIn {
 
     fn tenants(&self) -> &[Membership] {
         &self.teams
-    }
-}
-
-/// How a member's name reads on another record: name and address, nothing else of the account.
-pub struct UserResource;
-
-impl Resource for UserResource {
-    type Model = User;
-    type Form = NoForm<User>;
-
-    fn declare() -> ResourceDef<Self> {
-        ResourceDef::new()
-            .tenancy(Tenancy::none())
-            .without_navigation()
-            .without_global_search()
-            .record_title(lens!(User.name))
-            .policy(Deny)
     }
 }
 

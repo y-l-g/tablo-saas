@@ -11,7 +11,7 @@ use super::{
     deletion::DeleteTeam,
     invitations::InviteMember,
 };
-use crate::accounts::{SignedIn, UserResource};
+use crate::accounts::{SignedIn, User};
 use crate::billing::jobs::sync_seats_later;
 
 /// Who is on the team the request acts for.
@@ -52,7 +52,11 @@ impl Resource for MemberResource {
             .action::<LeaveTeam>()
             .table(
                 Table::new((
-                    RelationColumn::of::<UserResource>(relation!(Member.user)),
+                    // No resource administers accounts here: tenancy already limits the rows to
+                    // this team, and the column reads nothing else of the account.
+                    RelationColumn::unscoped(relation!(Member.user), |user: &User| {
+                        format!("{} <{}>", user.name, user.email)
+                    }),
                     TextColumn::new(lens!(Member.role)).badge(),
                     DateColumn::new(lens!(Member.created_at)).sortable(),
                 ))

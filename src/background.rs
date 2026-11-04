@@ -54,19 +54,21 @@ fn schedules() -> Vec<Recurring> {
     ]
 }
 
-/// A worker reading what the app reads, through the mounted panel: its database, its catalogs for
-/// the words a mail says, and its resources.
-pub fn worker<T: Transport + 'static>(
+/// A worker reading what the app reads, through the mounted panel: its database and its resources.
+/// Each run gets a context of its own, because one context is one unit of work.
+pub fn worker<T: Transport + Clone + Send + Sync + 'static>(
     db: Db,
     panel: &PanelHandle,
     settings: Settings,
     billing: Billing,
     mail: T,
 ) -> Worker {
-    let cx = panel
-        .context()
-        .with(settings)
-        .with(billing)
-        .with(MailConfig::builder().transport(mail).build());
-    Worker::new(db, registry(), schedules(), cx)
+    let panel = panel.clone();
+    Worker::new(db, registry(), schedules(), move || {
+        panel
+            .context()
+            .with(settings.clone())
+            .with(billing.clone())
+            .with(MailConfig::builder().transport(mail.clone()).build())
+    })
 }

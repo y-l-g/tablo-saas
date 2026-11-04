@@ -6,3 +6,4 @@ pub mod health;
 pub mod http;
 pub mod mail;
 pub mod telemetry;
+pub mod words;

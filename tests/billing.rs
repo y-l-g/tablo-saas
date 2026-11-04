@@ -232,6 +232,7 @@ async fn a_failed_payment_mails_the_owner_and_starts_the_grace_period() {
     assert!(row.past_due_since.is_some());
     let sent = harness.mail(1).await;
     assert_eq!(sent[0].to()[0].address(), "ada@example.com");
+    assert_eq!(sent[0].subject(), "Your payment failed");
 
     stripe.subscribe("cus_1", "active", "pro_month", 1);
     signed(&harness, &event("evt_2", "invoice.paid", "cus_1")).await;
@@ -480,4 +481,18 @@ async fn an_invitation_stops_at_the_free_plan_seat_limit() {
         1,
         "two members and one pending fill three seats"
     );
+}
+
+#[tokio::test]
+async fn the_panel_policy_lets_the_billing_forms_land_on_stripe() {
+    let stripe = FakeStripe::default();
+    let harness = billed_harness(&stripe).await;
+    let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
+    let client = client_for(&harness, &ada, &team).await;
+    let response = client.get("/app/billing").await;
+    let policy = response.headers()["content-security-policy"]
+        .to_str()
+        .expect("ascii");
+    assert!(policy.contains("https://checkout.stripe.com"), "{policy}");
+    assert!(policy.contains("https://billing.stripe.com"), "{policy}");
 }

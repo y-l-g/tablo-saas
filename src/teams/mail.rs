@@ -10,6 +10,7 @@ use crate::jobs::Job;
 use crate::platform::{
     config::Settings,
     mail::{Message, send_message},
+    words::job_text,
 };
 
 /// Mails the invitee a link to their invitations. It names the row, not its contents, so a revoked
@@ -41,10 +42,13 @@ impl Job for SendInvitation {
             cx,
             Message {
                 to: &invitation.email,
-                subject: &tablo::t!(cx, "mail-invitation-subject", team = team),
-                title: &tablo::t!(cx, "mail-invitation-title", team = team),
-                body: &tablo::t!(cx, "mail-invitation-body", inviter = inviter, team = team),
-                action: &tablo::t!(cx, "mail-invitation-action"),
+                subject: &job_text("mail-invitation-subject", &[("team", team.into())])?,
+                title: &job_text("mail-invitation-title", &[("team", team.into())])?,
+                body: &job_text(
+                    "mail-invitation-body",
+                    &[("inviter", inviter.into()), ("team", team.into())],
+                )?,
+                action: &job_text("mail-invitation-action", &[])?,
                 url: &url,
             },
         )

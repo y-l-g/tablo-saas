@@ -27,17 +27,23 @@ pub struct Worker {
     db: Db,
     registry: Registry,
     schedules: Vec<Recurring>,
-    /// What a job reads: the database, the mail transport, the Stripe client.
-    cx: Cx,
+    /// Builds what a job reads: the database, the mail transport, the Stripe client. Each run
+    /// gets its own, because a context is one unit of work and keeps what it loads.
+    context: Box<dyn Fn() -> Cx + Send + Sync>,
 }
 
 impl Worker {
-    pub fn new(db: Db, registry: Registry, schedules: Vec<Recurring>, cx: Cx) -> Self {
+    pub fn new(
+        db: Db,
+        registry: Registry,
+        schedules: Vec<Recurring>,
+        context: impl Fn() -> Cx + Send + Sync + 'static,
+    ) -> Self {
         Self {
             db,
             registry,
             schedules,
-            cx,
+            context: Box::new(context),
         }
     }
 
@@ -165,12 +171,13 @@ impl Worker {
         let span =
             tracing::info_span!("job", kind = %job.kind, id = %job.id, attempt = job.attempts);
         let _entered = span.enter();
+        let cx = (self.context)();
         let outcome = match self.registry.get(&job.kind) {
             None => Err(anyhow::anyhow!(
                 "no job of kind `{}` is registered",
                 job.kind
             )),
-            Some(run) => tokio::time::timeout(RUN_TIMEOUT, run(&job.payload, &self.cx))
+            Some(run) => tokio::time::timeout(RUN_TIMEOUT, run(&job.payload, &cx))
                 .await
                 .unwrap_or_else(|_| Err(anyhow::anyhow!("timed out after {RUN_TIMEOUT:?}"))),
         };

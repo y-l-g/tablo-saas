@@ -42,11 +42,12 @@ impl Job for Probe {
 }
 
 fn worker(db: &Db, runs: &Arc<AtomicUsize>, schedules: Vec<Recurring>) -> Worker {
+    let runs = Arc::clone(runs);
     Worker::new(
         db.clone(),
         Registry::default().register::<Probe>(),
         schedules,
-        Cx::new().with(Runs(Arc::clone(runs))),
+        move || Cx::new().with(Runs(Arc::clone(&runs))),
     )
 }
 
@@ -240,7 +241,7 @@ async fn an_unknown_kind_fails_rather_than_vanishes() {
     let harness = harness().await;
     let mut db = harness.db.clone();
     enqueue(&OK).exec(&mut db).await.expect("enqueue");
-    Worker::new(harness.db.clone(), Registry::default(), vec![], Cx::new())
+    Worker::new(harness.db.clone(), Registry::default(), vec![], Cx::new)
         .drain()
         .await
         .expect("drain");

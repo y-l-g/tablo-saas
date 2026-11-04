@@ -13,7 +13,7 @@ use topcoat::{
     view::{View, view},
 };
 
-use crate::accounts::{AccountResetter, AccountVerifier, Accounts, SignedIn, UserResource};
+use crate::accounts::{AccountResetter, AccountVerifier, Accounts, SignedIn};
 use crate::audit::{AuditResource, TeamAudit};
 use crate::billing::{BILLING_URL, BillingPage, plan_name, standing_notice};
 use crate::platform::config::Config;
@@ -26,12 +26,12 @@ use crate::teams::{
 /// The panel customers use.
 pub fn app_panel(config: &Config) -> Panel {
     super::shared(Panel::new("app"))
+        .content_security_policy(super::content_security_policy(config.dev_server.as_deref()))
         .auth(auth(config))
         .notifications()
         .before_commit::<TeamAudit>()
         .home::<Home>()
         .resource::<ProjectResource>()
-        .resource::<UserResource>()
         .resource::<MemberResource>()
         .resource::<InvitationResource>()
         .resource::<IncomingInvitationResource>()

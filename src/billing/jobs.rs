@@ -14,6 +14,7 @@ use crate::jobs::{Job, enqueue};
 use crate::platform::{
     config::Settings,
     mail::{Message, send_message},
+    words::job_text,
 };
 use crate::teams::{Member, TeamRole};
 
@@ -120,12 +121,12 @@ impl Job for SendBillingNotice {
         let url = format!("{}/app/billing", context::<Settings>(cx).base_url);
         let (subject, body) = match self.notice {
             Notice::PaymentFailed => (
-                tablo::t!(cx, "mail-payment-failed-subject"),
-                tablo::t!(cx, "mail-payment-failed-body"),
+                job_text("mail-payment-failed-subject", &[])?,
+                job_text("mail-payment-failed-body", &[])?,
             ),
             Notice::TrialEnding => (
-                tablo::t!(cx, "mail-trial-ending-subject"),
-                tablo::t!(cx, "mail-trial-ending-body"),
+                job_text("mail-trial-ending-subject", &[])?,
+                job_text("mail-trial-ending-body", &[])?,
             ),
         };
         send_message(
@@ -135,7 +136,7 @@ impl Job for SendBillingNotice {
                 subject: &subject,
                 title: &subject,
                 body: &body,
-                action: &tablo::t!(cx, "mail-billing-action"),
+                action: &job_text("mail-billing-action", &[])?,
                 url: &url,
             },
         )

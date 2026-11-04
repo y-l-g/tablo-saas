@@ -90,6 +90,7 @@ async fn an_invitation_is_mailed_by_a_job_and_accepted_by_the_invited_account() 
     harness.run_jobs().await;
     let sent = harness.mail(1).await;
     assert_eq!(sent[0].to()[0].address(), "grace@example.com");
+    assert_eq!(sent[0].subject(), format!("Join {}", team.name));
 
     let invited = client_for(&harness, &grace, &personal).await;
     let incoming = invited.resource::<IncomingInvitationResource>();
@@ -252,6 +253,18 @@ async fn the_members_page_shows_the_current_team_alone() {
         role_of(&members_of(&harness, &other).await, &grace),
         Some(TeamRole::Owner)
     );
+}
+
+#[tokio::test]
+async fn the_members_page_names_each_member() {
+    let harness = harness().await;
+    let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
+    let (grace, _) = person(&harness.db, "Grace", "grace@example.com").await;
+    seat(&harness.db, &grace, &team, TeamRole::Member).await;
+    let client = client_for(&harness, &ada, &team).await;
+    let list = client.resource::<MemberResource>().list().await;
+    assert_eq!(list.rows().len(), 2);
+    assert!(list.html().contains("grace@example.com"), "{}", list.html());
 }
 
 #[tokio::test]
