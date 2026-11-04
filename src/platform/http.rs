@@ -8,6 +8,7 @@ use topcoat::{
     context::{Cx, try_context},
     router::{
         Body, HeaderName, HeaderValue, Next,
+        error::RewriteError,
         header::{
             REFERRER_POLICY, STRICT_TRANSPORT_SECURITY, X_CONTENT_TYPE_OPTIONS, X_FRAME_OPTIONS,
         },
@@ -38,6 +39,9 @@ async fn observe(cx: &Cx, body: Body, next: Next<'_>) -> Result<Response> {
     let response = next.run(cx, body).instrument(span.clone()).await;
     let mut response = match response {
         Ok(response) => response,
+        // Not a failure: the router dispatches it again, back through this layer. Tablo reaches
+        // its error page this way, and a response made here would answer 500 in its place.
+        Err(error) if error.is::<RewriteError>() => return Err(error),
         Err(error) => error.into_response(cx)?,
     };
     let elapsed_ms = started.elapsed().as_millis();
