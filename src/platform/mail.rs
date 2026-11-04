@@ -1,5 +1,7 @@
 //! How mail leaves the app: through an SMTP server, or into the log during development.
 
+use std::{sync::Arc, time::Duration};
+
 use anyhow::Context;
 use topcoat::{
     context::Cx,
@@ -8,18 +10,22 @@ use topcoat::{
 
 use super::config::Smtp;
 
-/// The app's transport.
+/// How many times a send is tried before it fails. Tablo sends its auth mail once, after the
+/// response, so a passing SMTP outage would otherwise cost a person their reset link.
+const ATTEMPTS: u32 = 3;
+
+/// The app's transport. Cloning shares one connection pool.
+#[derive(Clone)]
 pub struct Postbox {
-    smtp: Option<SmtpTransport>,
+    smtp: Option<Arc<SmtpTransport>>,
 }
 
 impl Postbox {
-    /// Sends through `smtp`. Without one, a mail is logged instead, links included, which is
-    /// what lets a development server sign up with no mail server: `Config` refuses that in
-    /// production.
+    /// Sends through `smtp`. Without one, a mail is logged instead, which is what lets a
+    /// development server sign up with no mail server: `Config` refuses that in production.
     pub fn new(smtp: Option<&Smtp>) -> anyhow::Result<Self> {
         Ok(Self {
-            smtp: smtp.map(transport).transpose()?,
+            smtp: smtp.map(transport).transpose()?.map(Arc::new),
         })
     }
 }
@@ -31,9 +37,20 @@ impl Transport for Postbox {
                 tracing::info!(to = ?mail.to(), subject = mail.subject(), "no SMTP server: mail logged");
                 return Ok(Receipt::new("logged"));
             };
-            smtp.send(cx, mail)
-                .await
-                .map_err(|error| topcoat::Error::msg(format!("{error:#}")))
+            let mut attempt = 1;
+            loop {
+                match smtp.send(cx, mail.clone()).await {
+                    Ok(receipt) => return Ok(receipt),
+                    Err(error) if attempt == ATTEMPTS => {
+                        return Err(topcoat::Error::msg(format!("{error:#}")));
+                    }
+                    Err(error) => {
+                        tracing::warn!(attempt, error = %format!("{error:#}"), "sending mail failed");
+                    }
+                }
+                tokio::time::sleep(Duration::from_secs(u64::from(attempt) * 2)).await;
+                attempt += 1;
+            }
         })
     }
 }
