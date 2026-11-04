@@ -7,6 +7,7 @@
 //! itself, so no secret token travels by mail.
 
 mod access;
+mod deletion;
 mod invitations;
 mod mail;
 mod members;
@@ -15,6 +16,7 @@ mod registrar;
 
 /// The actions on team pages, for tests and the back office.
 pub mod actions {
+    pub use super::deletion::{DeleteAccount, DeleteTeam};
     pub use super::invitations::{
         AcceptInvitation, DeclineInvitation, InviteMember, RevokeInvitation,
     };
@@ -22,6 +24,7 @@ pub mod actions {
 }
 
 pub use access::{current_entitlements, current_role, may_manage_members, role_in};
+pub use deletion::{AccountPage, CancelSubscription, delete_team};
 pub use invitations::{IncomingInvitationResource, InvitationResource};
 pub use mail::{PruneInvitations, SendInvitation};
 pub use members::MemberResource;

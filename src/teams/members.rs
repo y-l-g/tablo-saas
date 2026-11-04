@@ -8,6 +8,7 @@ use topcoat::{context::Cx, icon::iconify::iconify_icon};
 use super::{
     Member, TeamRole,
     access::{self, current_role, may_manage_members},
+    deletion::DeleteTeam,
     invitations::InviteMember,
 };
 use crate::accounts::{SignedIn, UserResource};
@@ -40,9 +41,11 @@ impl Resource for MemberResource {
                     .run::<RemoveMember, _>(may_change)
                     .run::<TransferOwnership, _>(|cx, _| current_role(cx) == Some(TeamRole::Owner))
                     .run::<LeaveTeam, _>(|cx, member| own_id(cx) == Some(member.user_id))
-                    .run_header::<InviteMember>(may_manage_members),
+                    .run_header::<InviteMember>(may_manage_members)
+                    .run_header::<DeleteTeam>(<DeleteTeam as HeaderAction>::can_run),
             )
             .header_action::<InviteMember>()
+            .header_action::<DeleteTeam>()
             .action::<ChangeRole>()
             .action::<TransferOwnership>()
             .action::<RemoveMember>()

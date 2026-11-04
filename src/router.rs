@@ -13,6 +13,7 @@ use topcoat::{
 use crate::billing::Billing;
 use crate::panels::{admin_panel, app_panel};
 use crate::platform::{config::Config, http::Https};
+use crate::site::SitePanel;
 
 /// The theme's sans font.
 const INTER: Font = fontsource_font!(INTER, host: Asset);
@@ -71,6 +72,7 @@ pub fn router<T: Transport + 'static>(app: App<'_, T>) -> topcoat::Result<Built>
         .panel(shell(admin_panel(config)))?;
     let app_panel = builder.panel_handle("app").expect("mounted above");
     let admin_panel = builder.panel_handle("admin").expect("mounted above");
+    let builder = builder.with(SitePanel(app_panel.clone()));
     Ok(Built {
         router: builder.build(),
         app_panel,

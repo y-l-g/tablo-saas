@@ -12,6 +12,9 @@ use crate::accounts::{SignedIn, StaffRole};
 use crate::billing::Feature;
 use crate::teams::{current_entitlements, may_manage_members};
 
+/// The actions that delete the team they ran for.
+const ERASING_ACTIONS: [&str; 2] = ["delete-team", "delete-account"];
+
 /// A write a team member made.
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 #[table = "audit_entries"]
@@ -84,10 +87,17 @@ impl CommitHook for TeamAudit {
         change: &PanelChange,
         ex: &mut dyn toasty::Executor,
     ) -> Result<()> {
-        // A write with no team acting has no trail to land on.
+        // A write with no team acting has no trail to land on, and deleting the team took its
+        // trail with it: the row's foreign key would refuse the whole transaction.
         let Some(team) = tenant_id(cx) else {
             return Ok(());
         };
+        if matches!(
+            change.change(),
+            Change::HeaderAction { name } if ERASING_ACTIONS.contains(name)
+        ) {
+            return Ok(());
+        }
         toasty::create!(AuditEntry {
             team_id: team,
             actor: actor(cx),

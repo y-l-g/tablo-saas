@@ -19,7 +19,7 @@ use crate::billing::{BILLING_URL, BillingPage, plan_name, standing_notice};
 use crate::platform::config::Config;
 use crate::projects::{Project, ProjectResource};
 use crate::teams::{
-    IncomingInvitationResource, InvitationResource, Member, MemberResource, Teams,
+    AccountPage, IncomingInvitationResource, InvitationResource, Member, MemberResource, Teams,
     current_entitlements,
 };
 
@@ -37,6 +37,7 @@ pub fn app_panel(config: &Config) -> Panel {
         .resource::<IncomingInvitationResource>()
         .resource::<AuditResource>()
         .page::<BillingPage>()
+        .page::<AccountPage>()
 }
 
 /// Every auth page Tablo offers: sign-up, a verified address before anything else, reset, the

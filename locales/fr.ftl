@@ -68,3 +68,32 @@ mail-billing-action = Ouvrir la facturation
 dashboard-seats = Sièges
 dashboard-projects = Projets
 error-project-limit = Votre offre n'a plus de projet disponible. Passez à l'offre supérieure pour en créer un autre.
+
+## Suppression
+
+page-account = Votre compte
+account-description = Supprimer votre compte supprime les équipes dont vous êtes le seul membre et résilie leurs abonnements. Cette action est irréversible.
+error-team-name-mismatch = Saisissez exactement le nom de l'équipe.
+error-password-wrong = Ce mot de passe est incorrect.
+error-transfer-first = Vous êtes propriétaire d'une équipe utilisée par d'autres. Transférez-la avant de supprimer votre compte.
+
+## Site
+
+site-pricing = Tarifs
+site-sign-in = Connexion
+site-sign-up = Inscription
+site-terms = Conditions
+site-privacy = Confidentialité
+site-headline = Pilotez toute votre équipe depuis un seul endroit.
+site-lead = Tout ce dont une entreprise a besoin dès le premier jour : équipes, abonnements et back-office.
+site-start = Commencer gratuitement
+site-feature-teams = Des équipes avec rôles, invitations et journal d'audit.
+site-feature-billing = Abonnements, sièges et factures avec Stripe.
+site-feature-security = Adresses vérifiées et connexion à deux facteurs.
+site-price-free = Gratuit pour toujours
+site-unlimited = Illimité
+site-plan-seats = Sièges : { $seats }
+site-plan-projects = Projets : { $projects }
+site-terms-body = Texte d'exemple. Remplacez-le par des conditions validées par votre juriste avant le lancement.
+site-privacy-body = Texte d'exemple. Remplacez-le par une politique conforme aux données que vous collectez avant le lancement.
+audit-deleted-actor = Un compte supprimé

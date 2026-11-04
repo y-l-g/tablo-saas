@@ -15,13 +15,14 @@ use crate::billing::{
 };
 use crate::jobs::{Recurring, Registry, Worker, housekeeping::PruneJobs};
 use crate::platform::config::Settings;
-use crate::teams::{PruneInvitations, SendInvitation};
+use crate::teams::{CancelSubscription, PruneInvitations, SendInvitation};
 
 /// Every job kind: a worker that lacks one fails such a job instead of guessing.
 fn registry() -> Registry {
     Registry::default()
         .register::<PruneJobs>()
         .register::<SendInvitation>()
+        .register::<CancelSubscription>()
         .register::<PruneInvitations>()
         .register::<ProcessStripeEvent>()
         .register::<SendBillingNotice>()
