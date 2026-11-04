@@ -1,0 +1,25 @@
+# Development services. `docker compose up -d`, then `cargo run`.
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: saas
+      POSTGRES_PASSWORD: saas
+      POSTGRES_DB: saas
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saas"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1026:1025"
+      - "8026:8025"
+
+volumes:
+  postgres:

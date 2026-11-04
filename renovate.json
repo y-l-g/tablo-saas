@@ -1,0 +1,11 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommitTypeAll(chore)"],
+  "packageRules": [
+    {
+      "description": "Tablo pins Topcoat and Toasty: they move together, by hand.",
+      "matchPackageNames": ["/^tablo/", "/^topcoat/", "/^toasty/"],
+      "enabled": false
+    }
+  ]
+}

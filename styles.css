@@ -1,0 +1,21 @@
+@source "./src/**/*.rs";
+
+/* The brand, over Tablo's tokens. Change these few values and the marketing site, both panels and
+   the mail links follow. `--primary` is the one a new product changes first. */
+
+:root {
+  --radius: 0.625rem;
+  --primary: oklch(0.52 0.19 262);
+  --primary-foreground: oklch(0.985 0.012 262);
+  --ring: oklch(0.62 0.17 262);
+  --sidebar-accent: oklch(0.93 0.03 262);
+  --sidebar-accent-foreground: oklch(0.3 0.1 262);
+}
+
+.dark {
+  --primary: oklch(0.74 0.14 262);
+  --primary-foreground: oklch(0.18 0.05 262);
+  --ring: oklch(0.66 0.14 262);
+  --sidebar-accent: oklch(0.26 0.05 262);
+  --sidebar-accent-foreground: oklch(0.96 0.01 262);
+}
