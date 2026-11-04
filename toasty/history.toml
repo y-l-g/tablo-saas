@@ -4,3 +4,8 @@ version = 1
 id = 9191682842082508613
 name = "0000_initial.sql"
 snapshot_name = "0000_snapshot.toml"
+
+[[migrations]]
+id = 2943983303290673720
+name = "0001_users.sql"
+snapshot_name = "0001_snapshot.toml"

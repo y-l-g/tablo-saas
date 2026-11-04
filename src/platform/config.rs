@@ -4,7 +4,7 @@
 use std::net::IpAddr;
 
 use anyhow::{Context, bail, ensure};
-use topcoat::cookie::Key;
+use topcoat::{cookie::Key, mail::Mailbox};
 
 /// Where the app runs, which decides how strict its configuration is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,6 +26,23 @@ pub struct Config {
     pub cookie_key: Key,
     /// The CIDR ranges of the reverse proxies whose forwarding headers the app believes.
     pub trusted_proxies: Vec<String>,
+    pub mail: MailSettings,
+}
+
+/// Where mail comes from and how it leaves.
+pub struct MailSettings {
+    /// The sender, an address the mail provider has verified.
+    pub from: Mailbox,
+    /// The server mail goes through; `None`, in development alone, logs it.
+    pub smtp: Option<Smtp>,
+}
+
+/// An SMTP server and its sign-in.
+pub struct Smtp {
+    pub host: String,
+    /// 465 connects with implicit TLS, any other port with STARTTLS.
+    pub port: u16,
+    pub credentials: Option<(String, String)>,
 }
 
 impl Config {
@@ -58,6 +75,12 @@ impl Config {
             None => Key::generate(),
         };
 
+        let mail = mail_settings(var)?;
+        ensure!(
+            !production || mail.smtp.is_some(),
+            "SMTP_HOST is required in production: sign-up mails a verification link"
+        );
+
         Ok(Self {
             environment,
             base_url,
@@ -71,12 +94,34 @@ impl Config {
                 .map(|list| parse_proxies(&list))
                 .transpose()?
                 .unwrap_or_default(),
+            mail,
         })
     }
 
     pub fn is_production(&self) -> bool {
         self.environment == Environment::Production
     }
+}
+
+/// `MAIL_FROM`, and the server `SMTP_HOST` names on `SMTP_PORT` (587 by default), signing in with
+/// `SMTP_USERNAME` and `SMTP_PASSWORD` when both are set.
+fn mail_settings(var: &dyn Fn(&str) -> Option<String>) -> anyhow::Result<MailSettings> {
+    let address = var("MAIL_FROM").unwrap_or_else(|| "no-reply@example.com".to_string());
+    let from = Mailbox::named(crate::PRODUCT_NAME, &address).context("MAIL_FROM")?;
+    let smtp = var("SMTP_HOST")
+        .map(|host| {
+            let port = match var("SMTP_PORT") {
+                Some(port) => port.parse().context("SMTP_PORT is a port number")?,
+                None => 587,
+            };
+            anyhow::Ok(Smtp {
+                host,
+                port,
+                credentials: var("SMTP_USERNAME").zip(var("SMTP_PASSWORD")),
+            })
+        })
+        .transpose()?;
+    Ok(MailSettings { from, smtp })
 }
 
 /// A key from its 64 bytes spelled as 128 hex characters.
@@ -128,6 +173,7 @@ mod tests {
             ("APP_BASE_URL", "https://app.example.com/".to_string()),
             ("APP_COOKIE_KEY", "ab".repeat(64)),
             ("DATABASE_URL", "postgresql://db/app".to_string()),
+            ("SMTP_HOST", "smtp.example.com".to_string()),
         ]
     }
 
@@ -150,6 +196,15 @@ mod tests {
         let pairs: Vec<_> = production()
             .into_iter()
             .filter(|(key, _)| *key != "APP_COOKIE_KEY")
+            .collect();
+        assert!(Config::load(&environment(&pairs)).is_err());
+    }
+
+    #[test]
+    fn production_refuses_to_run_without_mail() {
+        let pairs: Vec<_> = production()
+            .into_iter()
+            .filter(|(key, _)| *key != "SMTP_HOST")
             .collect();
         assert!(Config::load(&environment(&pairs)).is_err());
     }

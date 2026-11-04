@@ -1,9 +1,10 @@
 //! The binary's commands. One image runs every role, so a deployment picks a role by its command.
 
 use clap::{Parser, Subcommand};
+use topcoat::asset::AssetBundle;
 
-use crate::platform::{config::Config, database, telemetry};
-use crate::router::router;
+use crate::platform::{config::Config, database, mail::Postbox, telemetry};
+use crate::router::{App, router};
 
 /// A production SaaS on Tablo.
 #[derive(Parser)]
@@ -35,7 +36,14 @@ impl Cli {
                 if !config.is_production() {
                     migrate(&db).await?;
                 }
-                topcoat::start(router(db, &config)).await?;
+                let app = App {
+                    db,
+                    mail: Postbox::new(config.mail.smtp.as_ref())?,
+                    assets: Some(AssetBundle::load()?),
+                    config: &config,
+                };
+                let router = router(app).map_err(|error| anyhow::anyhow!("{error:#}"))?;
+                topcoat::start(router).await?;
                 Ok(())
             }
         }
