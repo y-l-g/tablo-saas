@@ -62,3 +62,9 @@ mail-payment-failed-body = Nous n'avons pas pu débiter votre carte. Nous réess
 mail-trial-ending-subject = Votre essai se termine bientôt
 mail-trial-ending-body = Votre essai se termine dans quelques jours. Votre abonnement démarrera alors, sauf si vous l'annulez.
 mail-billing-action = Ouvrir la facturation
+
+## Tableau de bord et projets
+
+dashboard-seats = Sièges
+dashboard-projects = Projets
+error-project-limit = Votre offre n'a plus de projet disponible. Passez à l'offre supérieure pour en créer un autre.

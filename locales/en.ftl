@@ -63,3 +63,9 @@ mail-payment-failed-body = We couldn't charge your card. We'll try again, but pl
 mail-trial-ending-subject = Your trial ends soon
 mail-trial-ending-body = Your trial ends in a few days. Your subscription starts then unless you cancel it.
 mail-billing-action = Open billing
+
+## Dashboard and projects
+
+dashboard-seats = Seats
+dashboard-projects = Projects
+error-project-limit = Your plan has no project left. Upgrade to start another.

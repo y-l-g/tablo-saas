@@ -14,6 +14,7 @@ pub mod cli;
 pub mod jobs;
 pub mod panels;
 pub mod platform;
+pub mod projects;
 pub mod router;
 pub mod site;
 pub mod teams;
@@ -30,6 +31,7 @@ pub fn models() -> toasty::schema::ModelSet {
         teams::Member,
         teams::Invitation,
         billing::BillingAccount,
-        billing::StripeEvent
+        billing::StripeEvent,
+        projects::Project
     )
 }
