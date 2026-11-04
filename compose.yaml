@@ -15,6 +15,12 @@ services:
       interval: 2s
       timeout: 3s
       retries: 20
+  # Answers like Stripe and refuses what Stripe would: `STRIPE_MOCK_URL=http://127.0.0.1:12111`.
+  stripe-mock:
+    image: stripe/stripe-mock:latest
+    ports:
+      - "12111:12111"
+
   mailpit:
     image: axllent/mailpit:latest
     ports:

@@ -8,6 +8,7 @@ use tablo::{
 use tablo_saas::{
     accounts::{Accounts, User},
     background,
+    billing::Billing,
     jobs::Worker,
     platform::config::Config,
     router::{App, router},
@@ -38,10 +39,12 @@ pub async fn harness() -> Harness {
     let db = test_db(tablo_saas::models()).await;
     let outbox = MemoryTransport::new();
     let config = config();
+    let billing = Billing::new(None).expect("billing off");
     let built = router(App {
         db: db.clone(),
         config: &config,
         mail: outbox.clone(),
+        billing: billing.clone(),
         assets: None,
     })
     .expect("the panels mount");
@@ -50,6 +53,7 @@ pub async fn harness() -> Harness {
         db.clone(),
         &built.app_panel,
         config.settings(),
+        billing,
         outbox.clone(),
     );
     Harness {

@@ -9,6 +9,7 @@
 
 pub mod accounts;
 pub mod background;
+pub mod billing;
 pub mod cli;
 pub mod jobs;
 pub mod panels;
@@ -27,6 +28,7 @@ pub fn models() -> toasty::schema::ModelSet {
         jobs::ScheduleRun,
         teams::Team,
         teams::Member,
-        teams::Invitation
+        teams::Invitation,
+        billing::BillingAccount
     )
 }

@@ -10,6 +10,7 @@ use topcoat::{
     tailwind,
 };
 
+use crate::billing::Billing;
 use crate::panels::app_panel;
 use crate::platform::{config::Config, http::Https};
 
@@ -21,6 +22,7 @@ pub struct App<'a, T> {
     pub db: Db,
     pub config: &'a Config,
     pub mail: T,
+    pub billing: Billing,
     /// The bundle `topcoat asset bundle` wrote. Without one, pages render unstyled and work.
     pub assets: Option<AssetBundle>,
 }
@@ -37,6 +39,7 @@ pub fn router<T: Transport + 'static>(app: App<'_, T>) -> topcoat::Result<Built>
         db,
         config,
         mail,
+        billing,
         assets,
     } = app;
     let mut builder = Router::builder()
@@ -45,6 +48,7 @@ pub fn router<T: Transport + 'static>(app: App<'_, T>) -> topcoat::Result<Built>
         .with(config.cookie_key.clone())
         .with(Https(config.base_url.starts_with("https://")))
         .with(config.settings())
+        .with(billing)
         .mail(MailConfig::builder().transport(mail).build());
     if !config.trusted_proxies.is_empty() {
         builder =

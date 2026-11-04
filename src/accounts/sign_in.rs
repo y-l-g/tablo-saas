@@ -1,5 +1,6 @@
 //! Signing in and signing up.
 
+use jiff::Timestamp;
 use tablo::{
     Authenticator, FieldErrors, Membership, PanelUser, Registrar, TenantId,
     auth::{hash_password, new_password_errors, verify_password},
@@ -9,6 +10,7 @@ use tablo::{
 use topcoat::context::Cx;
 
 use super::{User, normalize_email};
+use crate::billing::{BillingAccount, Entitlements};
 use crate::teams::{Member, Team, TeamRole, create_team};
 
 /// The signed-in user and the teams they sit on, reloaded on every request, so removing a member
@@ -25,6 +27,8 @@ pub struct SignedIn {
 pub struct Seat {
     pub team: TenantId,
     pub role: TeamRole,
+    /// What the team's plan allows, read here because a policy cannot query.
+    pub entitlements: Entitlements,
 }
 
 impl PanelUser for SignedIn {
@@ -84,20 +88,30 @@ impl Accounts {
         let members = Member::filter(Member::fields().user_id().eq(user.id))
             .exec(&mut *ex)
             .await?;
+        let ids: Vec<uuid::Uuid> = members.iter().map(|member| member.team_id.get()).collect();
+        let tenants: Vec<TenantId> = members.iter().map(|member| member.team_id).collect();
+        let names = Team::filter(Team::fields().id().in_list(ids))
+            .exec(&mut *ex)
+            .await?;
+        let accounts = BillingAccount::filter(BillingAccount::fields().team_id().in_list(tenants))
+            .exec(&mut *ex)
+            .await?;
+        let now = Timestamp::now();
         let mut teams = Vec::with_capacity(members.len());
         let mut seats = Vec::with_capacity(members.len());
         for member in members {
-            let team = Team::filter_by_id(member.team_id.get())
-                .first()
-                .exec(&mut *ex)
-                .await?;
-            if let Some(team) = team {
-                teams.push(Membership::new(member.team_id, team.name));
-                seats.push(Seat {
-                    team: member.team_id,
-                    role: member.role,
-                });
-            }
+            let Some(team) = names.iter().find(|team| team.id == member.team_id.get()) else {
+                continue;
+            };
+            let account = accounts
+                .iter()
+                .find(|account| account.team_id == member.team_id);
+            teams.push(Membership::new(member.team_id, team.name.clone()));
+            seats.push(Seat {
+                team: member.team_id,
+                role: member.role,
+                entitlements: Entitlements::of(account, now),
+            });
         }
         Ok(SignedIn { user, teams, seats })
     }

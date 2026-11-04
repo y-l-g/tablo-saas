@@ -6,6 +6,7 @@ use tokio::{net::TcpListener, sync::watch};
 use topcoat::asset::AssetBundle;
 
 use crate::background;
+use crate::billing::{Billing, sync_catalog};
 use crate::platform::{config::Config, database, mail::Postbox, telemetry};
 use crate::router::{App, router};
 
@@ -29,6 +30,17 @@ enum Command {
     Worker,
     /// Applies pending migrations, then exits. Run it before a release's servers start.
     Migrate,
+    /// Stripe housekeeping.
+    Billing {
+        #[command(subcommand)]
+        command: BillingCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum BillingCommand {
+    /// Creates the plan catalog's products and prices on Stripe. Safe to repeat.
+    SyncCatalog,
 }
 
 impl Cli {
@@ -48,6 +60,15 @@ impl Cli {
         if let Command::Migrate = command {
             return migrate(&db).await;
         }
+        let billing = Billing::new(config.stripe.as_ref())?;
+        if let Command::Billing {
+            command: BillingCommand::SyncCatalog,
+        } = command
+        {
+            let synced = sync_catalog(billing.gateway()).await?;
+            tracing::info!(?synced, "the plan catalog is on Stripe");
+            return Ok(());
+        }
         // A development database follows the code; in production the release does it, so two
         // replicas starting together never race over the schema.
         if !config.is_production() {
@@ -59,14 +80,15 @@ impl Cli {
         let built = router(App {
             db: db.clone(),
             mail: mail.clone(),
+            billing: billing.clone(),
             assets,
             config: &config,
         })
         .map_err(|error| anyhow::anyhow!("{error:#}"))?;
-        let worker = background::worker(db, &built.app_panel, config.settings(), mail);
+        let worker = background::worker(db, &built.app_panel, config.settings(), billing, mail);
 
         match command {
-            Command::Migrate => unreachable!("handled above"),
+            Command::Migrate | Command::Billing { .. } => unreachable!("handled above"),
             Command::Worker => {
                 worker.run(stopped).await;
                 Ok(())

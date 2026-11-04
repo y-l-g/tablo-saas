@@ -19,6 +19,10 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     services:
+      stripe-mock:
+        image: stripe/stripe-mock:latest
+        ports:
+          - 12111:12111
       postgres:
         image: postgres:18
         env:
@@ -37,6 +41,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Test on in-memory SQLite
         run: cargo test --locked
+        env:
+          STRIPE_MOCK_URL: http://127.0.0.1:12111
       - name: Test on PostgreSQL, the production database
         run: cargo test --locked --test '*'
         env:

@@ -6,6 +6,7 @@ use tablo::PanelHandle;
 use toasty::Db;
 use topcoat::mail::{MailConfig, Transport};
 
+use crate::billing::Billing;
 use crate::jobs::{Recurring, Registry, Worker, housekeeping::PruneJobs};
 use crate::platform::config::Settings;
 use crate::teams::{PruneInvitations, SendInvitation};
@@ -36,11 +37,13 @@ pub fn worker<T: Transport + 'static>(
     db: Db,
     panel: &PanelHandle,
     settings: Settings,
+    billing: Billing,
     mail: T,
 ) -> Worker {
     let cx = panel
         .context()
         .with(settings)
+        .with(billing)
         .with(MailConfig::builder().transport(mail).build());
     Worker::new(db, registry(), schedules(), cx)
 }

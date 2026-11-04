@@ -27,6 +27,21 @@ pub struct Config {
     /// The CIDR ranges of the reverse proxies whose forwarding headers the app believes.
     pub trusted_proxies: Vec<String>,
     pub mail: MailSettings,
+    /// `None` runs the app with billing off, which production refuses.
+    pub stripe: Option<StripeSettings>,
+}
+
+/// How the app reaches Stripe.
+#[derive(Clone)]
+pub struct StripeSettings {
+    pub secret_key: String,
+    pub webhook_secret: String,
+    /// Stripe's API, or a local `stripe-mock`.
+    pub api_base: String,
+    /// How many days a first subscription runs free, `None` for no trial.
+    pub trial_days: Option<u32>,
+    /// Whether Checkout collects tax through Stripe Tax, which the account must have turned on.
+    pub automatic_tax: bool,
 }
 
 /// What a job or a page needs of the configuration, without the secrets.
@@ -34,6 +49,8 @@ pub struct Config {
 pub struct Settings {
     pub base_url: String,
     pub mail_from: Mailbox,
+    pub trial_days: Option<u32>,
+    pub automatic_tax: bool,
 }
 
 /// Where mail comes from and how it leaves.
@@ -88,6 +105,12 @@ impl Config {
             "SMTP_HOST is required in production: sign-up mails a verification link"
         );
 
+        let stripe = stripe_settings(var)?;
+        ensure!(
+            !production || stripe.is_some(),
+            "STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are required in production"
+        );
+
         Ok(Self {
             environment,
             base_url,
@@ -102,6 +125,7 @@ impl Config {
                 .transpose()?
                 .unwrap_or_default(),
             mail,
+            stripe,
         })
     }
 
@@ -109,6 +133,11 @@ impl Config {
         Settings {
             base_url: self.base_url.clone(),
             mail_from: self.mail.from.clone(),
+            trial_days: self.stripe.as_ref().and_then(|stripe| stripe.trial_days),
+            automatic_tax: self
+                .stripe
+                .as_ref()
+                .is_some_and(|stripe| stripe.automatic_tax),
         }
     }
 
@@ -167,6 +196,24 @@ fn parse_proxies(list: &str) -> anyhow::Result<Vec<String>> {
         .collect()
 }
 
+fn stripe_settings(var: &dyn Fn(&str) -> Option<String>) -> anyhow::Result<Option<StripeSettings>> {
+    let (Some(secret_key), Some(webhook_secret)) =
+        (var("STRIPE_SECRET_KEY"), var("STRIPE_WEBHOOK_SECRET"))
+    else {
+        return Ok(None);
+    };
+    Ok(Some(StripeSettings {
+        secret_key,
+        webhook_secret,
+        api_base: var("STRIPE_API_BASE").unwrap_or_else(|| "https://api.stripe.com".to_string()),
+        trial_days: var("BILLING_TRIAL_DAYS")
+            .map(|days| days.parse().context("BILLING_TRIAL_DAYS is a number"))
+            .transpose()?
+            .filter(|days| *days > 0),
+        automatic_tax: var("BILLING_AUTOMATIC_TAX").as_deref() == Some("true"),
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -188,7 +235,28 @@ mod tests {
             ("APP_COOKIE_KEY", "ab".repeat(64)),
             ("DATABASE_URL", "postgresql://db/app".to_string()),
             ("SMTP_HOST", "smtp.example.com".to_string()),
+            ("STRIPE_SECRET_KEY", "sk_test".to_string()),
+            ("STRIPE_WEBHOOK_SECRET", "whsec_test".to_string()),
         ]
+    }
+
+    #[test]
+    fn production_refuses_to_run_without_stripe() {
+        let pairs: Vec<_> = production()
+            .into_iter()
+            .filter(|(key, _)| *key != "STRIPE_WEBHOOK_SECRET")
+            .collect();
+        assert!(Config::load(&environment(&pairs)).is_err());
+    }
+
+    #[test]
+    fn development_runs_with_billing_off() {
+        let config = Config::load(&environment(&[(
+            "DATABASE_URL",
+            "sqlite::memory:".to_string(),
+        )]))
+        .expect("loads");
+        assert!(config.stripe.is_none());
     }
 
     #[test]
