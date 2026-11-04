@@ -5,6 +5,7 @@ use clap::{Parser, Subcommand};
 use tokio::{net::TcpListener, sync::watch};
 use topcoat::asset::AssetBundle;
 
+use crate::accounts::{StaffRole, User, normalize_email};
 use crate::background;
 use crate::billing::{Billing, sync_catalog};
 use crate::platform::{config::Config, database, mail::Postbox, telemetry};
@@ -30,11 +31,29 @@ enum Command {
     Worker,
     /// Applies pending migrations, then exits. Run it before a release's servers start.
     Migrate,
+    /// Who works in the back office.
+    Staff {
+        #[command(subcommand)]
+        command: StaffCommand,
+    },
     /// Stripe housekeeping.
     Billing {
         #[command(subcommand)]
         command: BillingCommand,
     },
+}
+
+#[derive(Subcommand)]
+enum StaffCommand {
+    /// Gives an account a role in the back office.
+    Grant {
+        email: String,
+        /// `administrator` or `support`.
+        #[arg(long, default_value = "support")]
+        role: String,
+    },
+    /// Takes an account's role away.
+    Revoke { email: String },
 }
 
 #[derive(Subcommand)]
@@ -59,6 +78,9 @@ impl Cli {
         let command = self.command.unwrap_or(Command::Serve { no_worker: false });
         if let Command::Migrate = command {
             return migrate(&db).await;
+        }
+        if let Command::Staff { command } = command {
+            return staff(&db, command).await;
         }
         let billing = Billing::new(config.stripe.as_ref())?;
         if let Command::Billing {
@@ -88,7 +110,9 @@ impl Cli {
         let worker = background::worker(db, &built.app_panel, config.settings(), billing, mail);
 
         match command {
-            Command::Migrate | Command::Billing { .. } => unreachable!("handled above"),
+            Command::Migrate | Command::Billing { .. } | Command::Staff { .. } => {
+                unreachable!("handled above")
+            }
             Command::Worker => {
                 worker.run(stopped).await;
                 Ok(())
@@ -111,6 +135,38 @@ impl Cli {
             }
         }
     }
+}
+
+/// Sets or clears an account's staff role. The back office has no page for this: granting access
+/// to everything is a deploy-level act, and a stolen staff session cannot do it.
+async fn staff(db: &toasty::Db, command: StaffCommand) -> anyhow::Result<()> {
+    let (email, role) = match command {
+        StaffCommand::Grant { email, role } => {
+            let role = match role.as_str() {
+                "administrator" => StaffRole::Administrator,
+                "support" => StaffRole::Support,
+                other => anyhow::bail!("a role is `administrator` or `support`, not `{other}`"),
+            };
+            (email, Some(role))
+        }
+        StaffCommand::Revoke { email } => (email, None),
+    };
+    let mut handle = db.clone();
+    let email = normalize_email(&email);
+    let found = User::filter(User::fields().email().eq(&email))
+        .first()
+        .exec(&mut handle)
+        .await?;
+    let Some(user) = found else {
+        anyhow::bail!("no account uses {email}: sign up first");
+    };
+    User::filter_by_id(user.id)
+        .update()
+        .staff_role(role)
+        .exec(&mut handle)
+        .await?;
+    tracing::info!(%email, ?role, "the staff role changed");
+    Ok(())
 }
 
 /// `HOST` and `PORT`, which a platform sets, as `topcoat::start` reads them.

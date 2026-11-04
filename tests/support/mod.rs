@@ -8,10 +8,13 @@ use std::sync::Arc;
 use stripe::FakeStripe;
 use tablo::{
     PanelHandle,
-    testing::{TestClient, test_db},
+    testing::{
+        TestClient, authenticator_code, body_string, form_body, response_cookies, test_db,
+        two_factor_secret,
+    },
 };
 use tablo_saas::{
-    accounts::{Accounts, User},
+    accounts::{Accounts, StaffRole, User},
     background,
     billing::Billing,
     jobs::Worker,
@@ -26,6 +29,7 @@ use topcoat::{mail::MemoryTransport, router::Router};
 pub struct Harness {
     pub app: Router,
     pub panel: PanelHandle,
+    pub admin_panel: PanelHandle,
     pub db: Db,
     pub outbox: MemoryTransport,
     worker: Option<Worker>,
@@ -79,6 +83,7 @@ async fn build(billing: Billing) -> Harness {
     Harness {
         app: built.router,
         panel,
+        admin_panel: built.admin_panel,
         db,
         outbox,
         worker: Some(worker),
@@ -153,4 +158,58 @@ pub async fn client_for<'a>(harness: &'a Harness, user: &User, team: &Team) -> T
         .sign_in(&harness.db, "app", &signed)
         .await
         .tenant(team.tenant())
+}
+
+/// A staff client past the back office's second factor, enrolled through the real form.
+pub async fn staff_client<'a>(
+    harness: &'a Harness,
+    email: &str,
+    role: StaffRole,
+) -> TestClient<'a> {
+    const PASSWORD: &str = "correct horse battery staple";
+    const CSRF: &str = "3f0f6d3a-8f43-4f4d-9c59-2d3b3b1f4a11";
+    let (user, _) = person(&harness.db, "Staff", email).await;
+    User::filter_by_id(user.id)
+        .update()
+        .staff_role(Some(role))
+        .password(tablo::auth::hash_password(PASSWORD).await.expect("hash"))
+        .exec(&mut harness.db.clone())
+        .await
+        .expect("make staff");
+    let user = User::get_by_id(&mut harness.db.clone(), user.id)
+        .await
+        .expect("query");
+    let signed = Accounts::signed_in(user, &mut harness.db.clone())
+        .await
+        .expect("load the account");
+    let client = TestClient::new(&harness.app)
+        .panel(&harness.admin_panel)
+        .sign_in(&harness.db, "admin", &signed)
+        .await;
+
+    let started = client
+        .csrf(CSRF)
+        .post_form(
+            "/admin/two-factor",
+            form_body(&[
+                ("intent", "start"),
+                ("current_password", PASSWORD),
+                ("csrf_token", CSRF),
+            ]),
+        )
+        .await;
+    let html = body_string(started).await;
+    let secret = two_factor_secret(&html).expect("the set-up shows its key");
+    let confirmed = client
+        .csrf(CSRF)
+        .post_form(
+            "/admin/two-factor",
+            form_body(&[
+                ("intent", "confirm"),
+                ("code", &authenticator_code(&secret)),
+                ("csrf_token", CSRF),
+            ]),
+        )
+        .await;
+    client.cookies(&response_cookies(&confirmed))
 }

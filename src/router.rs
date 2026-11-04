@@ -11,7 +11,7 @@ use topcoat::{
 };
 
 use crate::billing::Billing;
-use crate::panels::app_panel;
+use crate::panels::{admin_panel, app_panel};
 use crate::platform::{config::Config, http::Https};
 
 /// The theme's sans font.
@@ -31,6 +31,7 @@ pub struct App<'a, T> {
 pub struct Built {
     pub router: Router,
     pub app_panel: PanelHandle,
+    pub admin_panel: PanelHandle,
 }
 
 /// Builds the router the server runs and the tests drive.
@@ -65,10 +66,14 @@ pub fn router<T: Transport + 'static>(app: App<'_, T>) -> topcoat::Result<Built>
             panel
         }
     };
-    let builder = builder.panel(shell(app_panel(config)))?;
+    let builder = builder
+        .panel(shell(app_panel(config)))?
+        .panel(shell(admin_panel(config)))?;
     let app_panel = builder.panel_handle("app").expect("mounted above");
+    let admin_panel = builder.panel_handle("admin").expect("mounted above");
     Ok(Built {
         router: builder.build(),
         app_panel,
+        admin_panel,
     })
 }

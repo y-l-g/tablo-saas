@@ -8,7 +8,9 @@
 //! Imports go one way: `cli → router → panels → domains → platform`.
 
 pub mod accounts;
+pub mod audit;
 pub mod background;
+pub mod backoffice;
 pub mod billing;
 pub mod cli;
 pub mod jobs;
@@ -32,6 +34,8 @@ pub fn models() -> toasty::schema::ModelSet {
         teams::Invitation,
         billing::BillingAccount,
         billing::StripeEvent,
-        projects::Project
+        projects::Project,
+        audit::AuditEntry,
+        audit::StaffAuditEntry
     )
 }

@@ -1,8 +1,10 @@
-//! The panels: `app`, where customers work.
+//! The panels: `app`, where customers work, and `admin`, where staff do.
 
+mod admin;
 mod app;
 mod brand;
 
+pub use admin::admin_panel;
 pub use app::app_panel;
 pub use brand::PRODUCT_NAME;
 

@@ -51,7 +51,11 @@ impl PanelUser for SignedIn {
     /// Each panel is named and the rest refused, so a panel added later admits nobody until it
     /// has a rule here.
     fn can_access_panel(&self, panel: &str) -> bool {
-        matches!(panel, "/app")
+        match panel {
+            "/app" => true,
+            "/admin" => self.user.staff_role.is_some(),
+            _ => false,
+        }
     }
 
     fn tenants(&self) -> &[Membership] {

@@ -69,3 +69,4 @@ mail-billing-action = Open billing
 dashboard-seats = Seats
 dashboard-projects = Projects
 error-project-limit = Your plan has no project left. Upgrade to start another.
+
