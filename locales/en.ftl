@@ -34,3 +34,32 @@ mail-invitation-subject = Join { $team }
 mail-invitation-title = You're invited to { $team }
 mail-invitation-body = { $inviter } invited you to join { $team }. Sign in with this address to accept.
 mail-invitation-action = See your invitation
+
+## Billing
+
+page-billing = Billing
+plan-free = Free
+plan-pro = Pro
+plan-business = Business
+billing-description = Your plan, seats and invoices.
+billing-current = Current plan
+billing-seats = { $used } seats
+billing-seats-limited = { $used } of { $limit } seats
+billing-manage = Manage billing
+billing-off = Billing isn't configured on this server. Set the STRIPE_ variables to turn it on.
+billing-per-seat = { $price } per seat per month
+billing-choose-monthly = Choose monthly
+billing-choose-yearly = Choose yearly, { $price } per seat
+billing-invoices = Invoices
+billing-invoice-open = Open
+billing-trialing = Your trial runs until { $date }.
+billing-ending = Your subscription ends on { $date }.
+billing-grace = Your last payment failed. Update your card by { $date } to keep your plan.
+billing-lapsed = Your subscription lapsed, so this team is on the Free plan. Nothing was deleted.
+error-seat-limit = Your plan has no seat left. Upgrade to invite more people.
+error-team-full = This team has no seat left. Ask its owner to upgrade.
+mail-payment-failed-subject = Your payment failed
+mail-payment-failed-body = We couldn't charge your card. We'll try again, but please update it to keep your plan.
+mail-trial-ending-subject = Your trial ends soon
+mail-trial-ending-body = Your trial ends in a few days. Your subscription starts then unless you cancel it.
+mail-billing-action = Open billing

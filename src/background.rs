@@ -6,7 +6,13 @@ use tablo::PanelHandle;
 use toasty::Db;
 use topcoat::mail::{MailConfig, Transport};
 
-use crate::billing::Billing;
+use crate::billing::{
+    Billing,
+    jobs::{
+        ProcessStripeEvent, PruneStripeEvents, ReconcileBilling, RefreshCustomer,
+        SendBillingNotice, SyncSeats,
+    },
+};
 use crate::jobs::{Recurring, Registry, Worker, housekeeping::PruneJobs};
 use crate::platform::config::Settings;
 use crate::teams::{PruneInvitations, SendInvitation};
@@ -17,6 +23,12 @@ fn registry() -> Registry {
         .register::<PruneJobs>()
         .register::<SendInvitation>()
         .register::<PruneInvitations>()
+        .register::<ProcessStripeEvent>()
+        .register::<SendBillingNotice>()
+        .register::<SyncSeats>()
+        .register::<ReconcileBilling>()
+        .register::<RefreshCustomer>()
+        .register::<PruneStripeEvents>()
 }
 
 /// What runs on a clock.
@@ -27,6 +39,16 @@ fn schedules() -> Vec<Recurring> {
             "prune-invitations",
             Duration::from_hours(24),
             PruneInvitations,
+        ),
+        Recurring::every(
+            "reconcile-billing",
+            Duration::from_hours(6),
+            ReconcileBilling,
+        ),
+        Recurring::every(
+            "prune-stripe-events",
+            Duration::from_hours(24),
+            PruneStripeEvents,
         ),
     ]
 }

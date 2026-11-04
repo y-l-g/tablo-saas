@@ -8,12 +8,19 @@
 
 mod catalog;
 mod entitlements;
+pub mod jobs;
 mod models;
+mod page;
 mod plans;
+mod routes;
 pub mod stripe;
+mod sync;
+mod webhook;
 
 pub use catalog::sync_catalog;
 pub use entitlements::{Entitlements, Standing};
-pub use models::{BillingAccount, BillingStatus};
+pub use models::{BillingAccount, BillingStatus, StripeEvent};
+pub use page::{BillingPage, money, plan_name, standing_notice};
 pub use plans::{BillingInterval, CURRENCY, Feature, Plan, PlanId, lookup_key, plan_of_lookup_key};
 pub use stripe::Billing;
+pub use sync::{account_of, ensure_account, refresh_customer};

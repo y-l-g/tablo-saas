@@ -24,3 +24,8 @@ snapshot_name = "0003_snapshot.toml"
 id = 5576683158626904542
 name = "0004_billing.sql"
 snapshot_name = "0004_snapshot.toml"
+
+[[migrations]]
+id = 3778820445666338735
+name = "0005_stripe_events.sql"
+snapshot_name = "0005_snapshot.toml"

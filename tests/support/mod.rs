@@ -1,6 +1,11 @@
 //! What the integration tests share: the app on a fresh database, with mail caught in memory.
 #![allow(dead_code)]
 
+pub mod stripe;
+
+use std::sync::Arc;
+
+use stripe::FakeStripe;
 use tablo::{
     PanelHandle,
     testing::{TestClient, test_db},
@@ -34,12 +39,27 @@ fn config() -> Config {
     .expect("a development configuration needs only a database URL")
 }
 
-/// The app over empty tables.
+/// The webhook secret a test signs with.
+pub const WEBHOOK_SECRET: &str = "whsec_test";
+
+/// The app over empty tables, with billing off.
 pub async fn harness() -> Harness {
+    build(Billing::new(None).expect("billing off")).await
+}
+
+/// The app over empty tables, billing through `stripe`.
+pub async fn billed_harness(stripe: &FakeStripe) -> Harness {
+    build(Billing::with_gateway(
+        Arc::new(stripe.clone()),
+        WEBHOOK_SECRET,
+    ))
+    .await
+}
+
+async fn build(billing: Billing) -> Harness {
     let db = test_db(tablo_saas::models()).await;
     let outbox = MemoryTransport::new();
     let config = config();
-    let billing = Billing::new(None).expect("billing off");
     let built = router(App {
         db: db.clone(),
         config: &config,
@@ -69,7 +89,14 @@ impl Harness {
     /// Runs every job due now, as a worker would.
     pub async fn run_jobs(&mut self) {
         let worker = self.worker.take().expect("a harness drains once");
-        worker.drain().await.expect("the queue drains");
+        let worker = Arc::new(worker);
+        while Arc::clone(&worker)
+            .drain_once()
+            .await
+            .expect("the queue runs")
+            > 0
+        {}
+        self.worker = Arc::into_inner(worker);
     }
 
     /// What the outbox holds once `count` mails arrived. Tablo sends its auth mail after the

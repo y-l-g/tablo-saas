@@ -1,10 +1,12 @@
 //! What a member's role lets them do. Everything the team pages decide is decided here.
 
+use jiff::Timestamp;
 use tablo::{TenantId, auth, tenant_id};
 use topcoat::context::Cx;
 
 use super::{Member, TeamRole};
 use crate::accounts::SignedIn;
+use crate::billing::Entitlements;
 
 /// The signed-in user's role on `team`, `None` when they are not on it.
 pub fn role_in(signed: &SignedIn, team: TenantId) -> Option<TeamRole> {
@@ -19,6 +21,17 @@ pub fn role_in(signed: &SignedIn, team: TenantId) -> Option<TeamRole> {
 pub fn current_role(cx: &Cx) -> Option<TeamRole> {
     let signed = auth::user::<SignedIn>(cx)?;
     role_in(signed, tenant_id(cx)?)
+}
+
+/// What the current team's plan allows, the free plan when the session acts for none.
+pub fn current_entitlements(cx: &Cx) -> Entitlements {
+    auth::user::<SignedIn>(cx)
+        .zip(tenant_id(cx))
+        .and_then(|(signed, team)| signed.seats.iter().find(|seat| seat.team == team))
+        .map_or_else(
+            || Entitlements::of(None, Timestamp::now()),
+            |seat| seat.entitlements,
+        )
 }
 
 /// Whether the request may invite and remove people and rename the team.

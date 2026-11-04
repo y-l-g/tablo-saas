@@ -21,7 +21,7 @@ pub mod actions {
     pub use super::members::{ChangeRole, LeaveTeam, RemoveMember, TransferOwnership};
 }
 
-pub use access::{current_role, may_manage_members, role_in};
+pub use access::{current_entitlements, current_role, may_manage_members, role_in};
 pub use invitations::{IncomingInvitationResource, InvitationResource};
 pub use mail::{PruneInvitations, SendInvitation};
 pub use members::MemberResource;

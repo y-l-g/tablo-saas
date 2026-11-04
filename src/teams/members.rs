@@ -11,6 +11,7 @@ use super::{
     invitations::InviteMember,
 };
 use crate::accounts::{SignedIn, UserResource};
+use crate::billing::jobs::sync_seats_later;
 
 /// Who is on the team the request acts for.
 pub struct MemberResource;
@@ -80,6 +81,19 @@ impl tablo::Options for AssignableRole {
     }
 }
 
+/// Queues the seat sync for the teams `members` sit on.
+async fn seats_changed(
+    members: &[Member],
+    ex: &mut dyn toasty::Executor,
+) -> Result<(), WriteError<Infallible>> {
+    for member in members {
+        sync_seats_later(&mut *ex, member.team_id)
+            .await
+            .map_err(|error| topcoat::Error::msg(format!("{error:#}")))?;
+    }
+    Ok(())
+}
+
 /// Makes a member an admin, or an admin a plain member.
 pub struct ChangeRole;
 
@@ -136,8 +150,9 @@ impl Action<MemberResource> for RemoveMember {
     ) -> Result<Outcome, WriteError<Infallible>> {
         Member::filter(filter_keys(members))
             .delete()
-            .exec(ex)
+            .exec(&mut *ex)
             .await?;
+        seats_changed(members, ex).await?;
         Ok(Outcome::done())
     }
 }
@@ -209,8 +224,9 @@ impl Action<MemberResource> for LeaveTeam {
     ) -> Result<Outcome, WriteError<Infallible>> {
         Member::filter(filter_keys(members))
             .delete()
-            .exec(ex)
+            .exec(&mut *ex)
             .await?;
+        seats_changed(members, ex).await?;
         Ok(Outcome::done())
     }
 }

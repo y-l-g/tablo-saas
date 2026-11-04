@@ -9,6 +9,7 @@ use tablo::{
 use topcoat::icon::iconify::iconify_icon;
 
 use crate::accounts::{AccountResetter, AccountVerifier, Accounts, SignedIn, UserResource};
+use crate::billing::BillingPage;
 use crate::platform::config::Config;
 use crate::teams::{IncomingInvitationResource, InvitationResource, MemberResource, Teams};
 
@@ -22,6 +23,7 @@ pub fn app_panel(config: &Config) -> Panel {
         .resource::<MemberResource>()
         .resource::<InvitationResource>()
         .resource::<IncomingInvitationResource>()
+        .page::<BillingPage>()
 }
 
 /// Every auth page Tablo offers: sign-up, a verified address before anything else, reset, the

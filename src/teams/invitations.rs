@@ -7,10 +7,12 @@ use tablo::{Notification, auth, prelude::*};
 use topcoat::{context::Cx, icon::iconify::iconify_icon};
 
 use super::{
-    Invitation, Member, SendInvitation, TeamRole, access::may_manage_members,
+    Invitation, Member, SendInvitation, TeamRole,
+    access::{current_entitlements, may_manage_members},
     members::AssignableRole,
 };
 use crate::accounts::{SignedIn, User, normalize_email};
+use crate::billing::{Entitlements, account_of, jobs::sync_seats_later};
 use crate::jobs::enqueue;
 
 /// How long an invitation stands.
@@ -73,14 +75,31 @@ impl HeaderAction for InviteMember {
                 return refuse(tablo::text!("error-already-member"));
             }
         }
+        let now = Timestamp::now();
+        let members = Member::filter(Member::fields().team_id().eq(membership.tenant))
+            .exec(&mut *ex)
+            .await?
+            .len();
+        let waiting = Invitation::filter(
+            Invitation::fields()
+                .team_id()
+                .eq(membership.tenant)
+                .and(Invitation::fields().expires_at().gt(now))
+                .and(Invitation::fields().email().ne(&email)),
+        )
+        .exec(&mut *ex)
+        .await?
+        .len();
+        if !current_entitlements(cx).may_add_seat(members + waiting) {
+            return refuse(tablo::text!("error-seat-limit"));
+        }
         // Inviting an address again renews the invitation rather than failing on the unique index.
         let invitation = Invitation::upsert_by_team_id_and_email(membership.tenant, &email)
             .team_name(membership.name.clone())
             .role(input.role)
             .invited_by(signed.user.name.clone())
             .expires_at(
-                Timestamp::now()
-                    .checked_add(LIFETIME)
+                now.checked_add(LIFETIME)
                     .map_err(|error| WriteError::from(topcoat::Error::msg(error.to_string())))?,
             )
             .exec(&mut *ex)
@@ -224,13 +243,28 @@ impl Action<IncomingInvitationResource> for AcceptInvitation {
         ex: &mut dyn toasty::Executor,
     ) -> Result<Outcome, WriteError<Infallible>> {
         let signed = auth::require_user::<SignedIn>(cx)?;
+        let as_error = |error: anyhow::Error| topcoat::Error::msg(format!("{error:#}"));
         for invitation in invitations {
+            // The plan may have shrunk since the invitation went out.
+            let account = account_of(&mut *ex, invitation.team_id)
+                .await
+                .map_err(as_error)?;
+            let members = Member::filter(Member::fields().team_id().eq(invitation.team_id))
+                .exec(&mut *ex)
+                .await?
+                .len();
+            if !Entitlements::of(account.as_ref(), Timestamp::now()).may_add_seat(members) {
+                return Err(WriteError::declined(tablo::text!("error-team-full")));
+            }
             // An upsert, so a double click joins once.
             Member::upsert_by_team_id_and_user_id(invitation.team_id, signed.user.id)
                 .on_create(|create| create.role(invitation.role))
                 .or_ignore()
                 .exec(&mut *ex)
                 .await?;
+            sync_seats_later(&mut *ex, invitation.team_id)
+                .await
+                .map_err(as_error)?;
         }
         Invitation::filter(filter_keys(invitations))
             .delete()

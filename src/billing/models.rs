@@ -82,3 +82,18 @@ impl BillingStatus {
         matches!(self, Self::None | Self::Canceled | Self::IncompleteExpired)
     }
 }
+
+/// A Stripe event that arrived: the inbox that makes delivery idempotent. It keeps the id, the
+/// kind and the customer, and not the payload, which holds personal data the API can give again.
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[table = "stripe_events"]
+pub struct StripeEvent {
+    #[key]
+    pub id: String,
+    pub kind: String,
+    #[index]
+    pub customer_id: String,
+    #[default(Timestamp::now())]
+    pub received_at: Timestamp,
+    pub processed_at: Option<Timestamp>,
+}
