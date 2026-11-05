@@ -1,0 +1,7 @@
+/target
+/.env
+/.env.local
+/storage
+*.db
+*.db-*
+.DS_Store

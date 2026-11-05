@@ -1,0 +1,11 @@
+[advisories]
+yanked = "deny"
+
+[bans]
+multiple-versions = "allow"
+wildcards = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-git = ["https://github.com/y-l-g/tablo", "https://github.com/tokio-rs/topcoat"]

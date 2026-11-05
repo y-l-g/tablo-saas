@@ -1,0 +1,87 @@
+name: CI
+on:
+  push:
+    branches: [master]
+  pull_request:
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.99
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --features toasty-cli --locked -- -D warnings
+  test:
+    runs-on: ubuntu-24.04
+    services:
+      stripe-mock:
+        image: stripe/stripe-mock:latest
+        ports:
+          - 12111:12111
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: saas
+          POSTGRES_PASSWORD: saas
+          POSTGRES_DB: saas
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U saas" --health-interval 2s --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://saas:saas@127.0.0.1:5432/saas?sslmode=disable
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.99
+      - uses: Swatinem/rust-cache@v2
+      - name: Test on in-memory SQLite
+        run: cargo test --locked
+        env:
+          STRIPE_MOCK_URL: http://127.0.0.1:12111
+      - name: Test on PostgreSQL, the production database
+        run: cargo test --locked --test '*'
+        env:
+          TABLO_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
+      - name: Apply every migration to an empty database
+        run: cargo run --locked -- migrate
+      - name: Models and migrations agree
+        run: |
+          cargo toasty migration generate --name unmigrated
+          git status --porcelain toasty
+          test -z "$(git status --porcelain toasty)"
+  supply-chain:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories bans sources
+  image:
+    runs-on: ubuntu-24.04
+    needs: [lint, test]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        if: github.event_name == 'push'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: ${{ github.event_name == 'push' }}
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

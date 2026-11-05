@@ -1,0 +1,2 @@
+[alias]
+toasty = "run --quiet --features toasty-cli --bin toasty --"
