@@ -74,6 +74,7 @@ impl Resource for ProjectResource {
                     TextColumn::new(lens!(Project.status)).badge(),
                     DateColumn::new(lens!(Project.created_at)).sortable(),
                 ))
+                .option_tabs(lens!(Project.status))
                 .default_sort_desc(lens!(Project.created_at)),
             )
     }

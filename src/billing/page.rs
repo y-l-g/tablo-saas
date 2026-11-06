@@ -113,7 +113,6 @@ impl Page for BillingPage {
         };
         let outline = ui::button_variants(ui::ButtonVariant::Outline, ui::ButtonSize::Md);
         Ok(view! {
-            cx =>
             ui::page(
                 ui::page_header(
                     ui::page_title((tablo::t!(cx, "page-billing")))
@@ -168,7 +167,6 @@ fn plan_cards<'a>(cx: &'a Cx, token: &str) -> BoxView<'a> {
     let card_class = "flex flex-col gap-3";
     let plans: Vec<_> = Plan::paid().collect();
     view! {
-        cx =>
                             <div class="grid gap-4 md:grid-cols-2">
                                 for plan in plans {
                                     ui::card(
@@ -212,7 +210,6 @@ fn plan_cards<'a>(cx: &'a Cx, token: &str) -> BoxView<'a> {
 /// Past invoices, each linking to Stripe's hosted copy.
 fn invoice_list(cx: &Cx, invoices: Vec<Invoice>) -> BoxView<'_> {
     view! {
-        cx =>
                             ui::card(
                                 ui::card_header(ui::card_title((tablo::t!(cx, "billing-invoices"))))
                                 ui::card_content(

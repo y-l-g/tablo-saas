@@ -121,6 +121,10 @@ impl Action<SubscriptionResource> for Resync {
     type Input = ();
     const NAME: &'static str = "resync";
 
+    fn tooltip() -> Option<Text> {
+        Some(tablo::text!("hint-resync"))
+    }
+
     async fn run(
         _cx: &Cx,
         accounts: &[BillingAccount],
@@ -197,7 +201,7 @@ impl Resource for JobResource {
                     DateColumn::new(lens!(JobRow.run_at)).sortable(),
                     TextColumn::new(lens!(JobRow.last_error)).limit(80),
                 ))
-                .filters((SelectFilter::of(lens!(JobRow.state)),))
+                .option_tabs(lens!(JobRow.state))
                 .default_sort_desc(lens!(JobRow.created_at)),
             )
     }
@@ -209,6 +213,10 @@ pub struct RetryJob;
 impl Action<JobResource> for RetryJob {
     type Input = ();
     const NAME: &'static str = "retry";
+
+    fn tooltip() -> Option<Text> {
+        Some(tablo::text!("hint-retry"))
+    }
 
     fn can_run(_cx: &Cx, job: &JobRow) -> bool {
         job.state == JobState::Dead

@@ -127,6 +127,8 @@ action-accept = Accepter
 action-decline = Refuser
 action-delete-team = Supprimer cette équipe
 action-delete-account = Supprimer mon compte
+hint-resync = Relire cet abonnement depuis Stripe
+hint-retry = Rendre ses tentatives à cette tâche
 
 field-created_at = Créé le
 field-expires_at = Expire le

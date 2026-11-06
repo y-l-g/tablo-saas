@@ -21,14 +21,13 @@ pub struct SitePanel(pub PanelHandle);
 const PUBLIC_PATHS: [&str; 4] = ["/", "/pricing", "/terms", "/privacy"];
 
 /// The header and footer every public page shares.
-fn frame<'a>(outer: &'a Cx, cx: &Cx, content: BoxView<'a>) -> BoxView<'a> {
-    let pricing_label = tablo::t!(cx, "site-pricing");
-    let sign_in = tablo::t!(cx, "site-sign-in");
-    let sign_up = tablo::t!(cx, "site-sign-up");
-    let terms_label = tablo::t!(cx, "site-terms");
-    let privacy_label = tablo::t!(cx, "site-privacy");
+fn frame<'a>(cx: &'a Cx, entered: &Cx, content: BoxView<'a>) -> BoxView<'a> {
+    let pricing_label = tablo::t!(entered, "site-pricing");
+    let sign_in = tablo::t!(entered, "site-sign-in");
+    let sign_up = tablo::t!(entered, "site-sign-up");
+    let terms_label = tablo::t!(entered, "site-terms");
+    let privacy_label = tablo::t!(entered, "site-privacy");
     view! {
-        outer =>
         <div class="mx-auto flex min-h-screen max-w-5xl flex-col gap-12 px-6 py-8">
             <header class="flex items-center justify-between gap-4">
                 <a href="/" class="font-semibold">(PRODUCT_NAME)</a>
@@ -65,7 +64,6 @@ async fn home(cx: &Cx) -> Result<impl View> {
         tablo::t!(&entered, "site-feature-security"),
     ];
     let content = view! {
-        cx =>
         <section class="flex flex-col items-start gap-4 py-12">
             <h1 class="max-w-2xl text-4xl font-bold tracking-tight">(headline)</h1>
             <p class="max-w-xl text-lg text-muted-foreground">(lead)</p>
@@ -124,7 +122,6 @@ async fn pricing(cx: &Cx) -> Result<impl View> {
         })
         .collect();
     let content = view! {
-        cx =>
         <h1 class="text-3xl font-bold tracking-tight">(heading)</h1>
         <div class="grid gap-6 md:grid-cols-3">
             for (name, price, seats, projects) in plans {
@@ -154,7 +151,6 @@ async fn legal(cx: &Cx, title_id: &'static str, body_id: &'static str) -> Result
     let heading = title.clone();
     let body = tablo::t!(&entered, body_id);
     let content = view! {
-        cx =>
         <h1 class="text-3xl font-bold tracking-tight">(heading)</h1>
         <p class="max-w-2xl">(body)</p>
     }

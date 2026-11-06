@@ -5,7 +5,8 @@ use std::{sync::Arc, time::Duration};
 use anyhow::Context;
 use topcoat::{
     context::{Cx, context},
-    mail::{Mail, Receipt, SmtpTransport, Transport, TransportFuture, mail, send},
+    mail::{Mail, Mailbox, Receipt, SmtpTransport, Transport, TransportFuture, send},
+    view::{ViewExt, view},
 };
 
 use super::config::{Settings, Smtp};
@@ -79,24 +80,27 @@ pub async fn send_message(cx: &Cx, message: Message<'_>) -> anyhow::Result<()> {
         url,
     } = message;
     let from = context::<Settings>(cx).mail_from.clone();
-    let mail = mail! {
-        from: from,
-        to: to,
-        subject: subject,
-        html: {
-            cx =>
-            <div style="font-family: system-ui, sans-serif; max-width: 32rem; margin: 0 auto; color: #1f2430;">
-                <h1 style="font-size: 1.25rem;">(title)</h1>
-                <p style="line-height: 1.5;">(body)</p>
-                <p>
-                    <a href=(url) style="display: inline-block; background: #2f6bed; color: #fff; padding: 0.625rem 1rem; border-radius: 0.5rem; text-decoration: none;">
-                        (action)
-                    </a>
-                </p>
-            </div>
-        },
+    let to = Mailbox::new(to).map_err(|error| anyhow::anyhow!("{error:#}"))?;
+    let html = view! {
+        <div style="font-family: system-ui, sans-serif; max-width: 32rem; margin: 0 auto; color: #1f2430;">
+            <h1 style="font-size: 1.25rem;">(title)</h1>
+            <p style="line-height: 1.5;">(body)</p>
+            <p>
+                <a href=(url) style="display: inline-block; background: #2f6bed; color: #fff; padding: 0.625rem 1rem; border-radius: 0.5rem; text-decoration: none;">
+                    (action)
+                </a>
+            </p>
+        </div>
     }
+    .single()
+    .await
     .map_err(|error| anyhow::anyhow!("{error:#}"))?;
+    let mail = Mail::builder()
+        .from(from)
+        .to([to])
+        .subject(subject)
+        .html(html)
+        .build();
     send(cx, mail)
         .await
         .map_err(|error| anyhow::anyhow!("{error:#}"))?;

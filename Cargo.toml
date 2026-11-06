@@ -34,7 +34,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_urlencoded = "0.7"
 sha2 = "0.10"
-tablo = { git = "https://github.com/y-l-g/tablo.git", rev = "8af98fbd5", features = ["sqlite", "postgresql"] }
+tablo = { git = "https://github.com/y-l-g/tablo.git", rev = "72db33c0a", features = ["sqlite", "postgresql"] }
 thiserror = "2"
 toasty = { version = "0.11", features = ["jiff", "migration", "postgresql", "serde", "sqlite"] }
 toasty-cli = { version = "0.11", optional = true }
@@ -46,10 +46,10 @@ uuid = { version = "1.23", features = ["serde", "v4", "v7"] }
 
 [dev-dependencies]
 http = "1"
-tablo = { git = "https://github.com/y-l-g/tablo.git", rev = "8af98fbd5", features = ["testing"] }
+tablo = { git = "https://github.com/y-l-g/tablo.git", rev = "72db33c0a", features = ["testing"] }
 
 [build-dependencies]
-tablo-build = { git = "https://github.com/y-l-g/tablo.git", rev = "8af98fbd5" }
+tablo-build = { git = "https://github.com/y-l-g/tablo.git", rev = "72db33c0a" }
 topcoat = { version = "0.11", features = ["icon-iconify"] }
 
 [lints.rust]
@@ -76,16 +76,16 @@ strip = "debuginfo"
 # `[patch]` only from the root manifest, so Tablo's own patch does not reach this build. Drop this
 # section once Topcoat releases and Tablo's dependency moves on.
 [patch.crates-io]
-topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "d84362b72bc1034a8342e00c1cdf1a36d68dd9cf" }
-topcoat-asset = { git = "https://github.com/tokio-rs/topcoat", rev = "d84362b72bc1034a8342e00c1cdf1a36d68dd9cf" }
-topcoat-cookie = { git = "https://github.com/tokio-rs/topcoat", rev = "d84362b72bc1034a8342e00c1cdf1a36d68dd9cf" }
-topcoat-core = { git = "https://github.com/tokio-rs/topcoat", rev = "d84362b72bc1034a8342e00c1cdf1a36d68dd9cf" }
-topcoat-font = { git = "https://github.com/tokio-rs/topcoat", rev = "d84362b72bc1034a8342e00c1cdf1a36d68dd9cf" }
-topcoat-icon = { git = "https://github.com/tokio-rs/topcoat", rev = "d84362b72bc1034a8342e00c1cdf1a36d68dd9cf" }
-topcoat-l10n = { git = "https://github.com/tokio-rs/topcoat", rev = "d84362b72bc1034a8342e00c1cdf1a36d68dd9cf" }
-topcoat-mail = { git = "https://github.com/tokio-rs/topcoat", rev = "d84362b72bc1034a8342e00c1cdf1a36d68dd9cf" }
-topcoat-router = { git = "https://github.com/tokio-rs/topcoat", rev = "d84362b72bc1034a8342e00c1cdf1a36d68dd9cf" }
-topcoat-runtime = { git = "https://github.com/tokio-rs/topcoat", rev = "d84362b72bc1034a8342e00c1cdf1a36d68dd9cf" }
-topcoat-session = { git = "https://github.com/tokio-rs/topcoat", rev = "d84362b72bc1034a8342e00c1cdf1a36d68dd9cf" }
-topcoat-tailwind = { git = "https://github.com/tokio-rs/topcoat", rev = "d84362b72bc1034a8342e00c1cdf1a36d68dd9cf" }
-topcoat-view = { git = "https://github.com/tokio-rs/topcoat", rev = "d84362b72bc1034a8342e00c1cdf1a36d68dd9cf" }
+topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
+topcoat-asset = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
+topcoat-cookie = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
+topcoat-core = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
+topcoat-font = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
+topcoat-icon = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
+topcoat-l10n = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
+topcoat-mail = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
+topcoat-router = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
+topcoat-runtime = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
+topcoat-session = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
+topcoat-tailwind = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
+topcoat-view = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
