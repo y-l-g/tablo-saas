@@ -197,7 +197,7 @@ impl Resource for JobResource {
                     DateColumn::new(lens!(JobRow.run_at)).sortable(),
                     TextColumn::new(lens!(JobRow.last_error)).limit(80),
                 ))
-                .filters((SelectFilter::of(lens!(JobRow.state)),))
+                .option_tabs(lens!(JobRow.state))
                 .default_sort_desc(lens!(JobRow.created_at)),
             )
     }

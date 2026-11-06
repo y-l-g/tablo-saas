@@ -50,6 +50,32 @@ async fn a_team_reads_and_edits_its_own_projects_alone() {
 }
 
 #[tokio::test]
+async fn a_status_tab_narrows_the_team_s_own_projects() {
+    let harness = harness().await;
+    let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
+    let (_, other) = person(&harness.db, "Grace", "grace@example.com").await;
+    let paused = project(&harness, &team, "Analytical engine").await;
+    project(&harness, &team, "Difference engine").await;
+    let foreign = project(&harness, &other, "Compiler").await;
+    for record in [&paused, &foreign] {
+        Project::filter_by_id(record.id)
+            .update()
+            .status(ProjectStatus::Paused)
+            .exec(&mut harness.db.clone())
+            .await
+            .expect("pause the project");
+    }
+
+    let client = client_for(&harness, &ada, &team).await;
+    let list = client
+        .resource::<ProjectResource>()
+        .list_with("tab=paused")
+        .await;
+    assert_eq!(list.rows().len(), 1);
+    assert!(list.html().contains("Analytical engine"));
+}
+
+#[tokio::test]
 async fn a_new_project_lands_on_the_team_acting() {
     let harness = harness().await;
     let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
