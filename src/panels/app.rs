@@ -112,7 +112,6 @@ impl Widget for PlanWidget {
             ),
         ];
         Ok(view! {
-            cx =>
             <div class="flex flex-col gap-4">
                 if let Some(notice) = notice {
                     <p data-billing-notice="" class="rounded-lg border border-border bg-muted p-3 text-sm">

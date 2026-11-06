@@ -8,11 +8,11 @@ When a gap closes, delete its row along with the workaround.
 
 | Gap | Layer | Why a SaaS needs it | Meanwhile |
 | --- | --- | --- | --- |
-| Social sign-in (OAuth, OpenID Connect) | Tablo | Sign-up conversion: most B2B buyers expect "Continue with Google" | Email and password, with email verification |
-| SSO (SAML, OIDC per tenant) and SCIM | Tablo | Often a condition of an enterprise contract | Not offered. `Feature` is the place to gate it once it exists |
+| Social sign-in (OAuth, OpenID Connect) | Tablo | Sign-up conversion: most B2B buyers expect "Continue with Google" | Email and password, with email verification. `Auth::external` could trust an app-owned OAuth flow, but it refuses sign-up, password reset, email verification and two-factor beside it, so it replaces this panel's sign-in rather than adding to it |
+| SSO (SAML, OIDC per tenant) and SCIM | Tablo | Often a condition of an enterprise contract | Not offered: `Auth::external` lets a host app sign a panel's users in, but holds for a whole panel, not per tenant, and the protocols stay the app's. `Feature` is the place to gate it once it exists |
 | Passkeys and magic links | Tablo | Phishing-resistant sign-in, and fewer password resets | TOTP and email codes, required for staff |
 | Impersonation | Tablo | Support needs to see what a customer sees, with an audit trail | Support reads the back office, which has no "act as" |
-| One session per panel | Tablo | All panels share the `__Host-session` cookie, so signing in to `/admin` signs the same browser out of `/app`, and back. Staff who are also customers feel it daily | Use a second browser profile. Serving each panel on its own host would separate the cookies; the template has not tried it |
+| One session per panel | Tablo | All panels share the `__Host-tablo_session` cookie, so signing in to `/admin` signs the same browser out of `/app`, and back. Staff who are also customers feel it daily | Use a second browser profile. Serving each panel on its own host would separate the cookies; the template has not tried it |
 
 ## Billing
 

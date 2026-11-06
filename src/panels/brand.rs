@@ -3,6 +3,7 @@
 use tablo::Brand;
 use topcoat::{
     Result,
+    context::Cx,
     router::{
         HeaderMap, HeaderValue,
         header::{CACHE_CONTROL, CONTENT_TYPE},
@@ -25,13 +26,13 @@ pub(super) fn brand() -> Brand {
 
 /// `GET /brand/logo.svg`.
 #[route(GET "/brand/logo.svg")]
-async fn logo() -> Result<(HeaderMap, &'static str)> {
+async fn logo(cx: &Cx) -> Result<(HeaderMap, &'static str)> {
     Ok(svg(include_str!("../../assets/brand/logo.svg")))
 }
 
 /// `GET /brand/logo-dark.svg`.
 #[route(GET "/brand/logo-dark.svg")]
-async fn dark_logo() -> Result<(HeaderMap, &'static str)> {
+async fn dark_logo(cx: &Cx) -> Result<(HeaderMap, &'static str)> {
     Ok(svg(include_str!("../../assets/brand/logo-dark.svg")))
 }
 
