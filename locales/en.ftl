@@ -129,6 +129,8 @@ action-accept = Accept
 action-decline = Decline
 action-delete-team = Delete this team
 action-delete-account = Delete my account
+hint-resync = Read this subscription back from Stripe
+hint-retry = Give this job its attempts back
 
 field-created_at = Created
 field-expires_at = Expires
