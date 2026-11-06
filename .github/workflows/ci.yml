@@ -62,7 +62,8 @@ jobs:
         with:
           command: check advisories bans sources
   image:
-    runs-on: ubuntu-24.04
+    # The cluster runs on arm64.
+    runs-on: ubuntu-24.04-arm
     needs: [lint, test]
     permissions:
       contents: read
@@ -79,6 +80,7 @@ jobs:
       - uses: docker/build-push-action@v7
         with:
           context: .
+          platforms: linux/arm64
           push: ${{ github.event_name == 'push' }}
           tags: |
             ghcr.io/${{ github.repository }}:latest
