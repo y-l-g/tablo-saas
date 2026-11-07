@@ -8,7 +8,6 @@ use topcoat::{context::Cx, icon::iconify::iconify_icon};
 use super::{
     Member, TeamRole,
     access::{self, current_role, may_manage_members},
-    deletion::DeleteTeam,
     invitations::InviteMember,
 };
 use crate::accounts::{SignedIn, User};
@@ -29,7 +28,6 @@ impl Resource for MemberResource {
         ResourceDef::new()
             .slug("members")
             .icon(iconify_icon!("lucide:users"))
-            .navigation_group(tablo::text!("navigation-team"))
             .tenancy(Tenancy::column(lens!(Member.team_id)))
             .without_page(ResourcePage::View)
             .without_global_search()
@@ -41,11 +39,9 @@ impl Resource for MemberResource {
                     .run::<RemoveMember, _>(may_change)
                     .run::<TransferOwnership, _>(|cx, _| current_role(cx) == Some(TeamRole::Owner))
                     .run::<LeaveTeam, _>(|cx, member| own_id(cx) == Some(member.user_id))
-                    .run_header::<InviteMember>(may_manage_members)
-                    .run_header::<DeleteTeam>(<DeleteTeam as HeaderAction>::can_run),
+                    .run_header::<InviteMember>(may_manage_members),
             )
             .header_action::<InviteMember>()
-            .header_action::<DeleteTeam>()
             .action::<ChangeRole>()
             .action::<TransferOwnership>()
             .action::<RemoveMember>()

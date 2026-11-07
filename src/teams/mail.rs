@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tablo::db::db;
 use topcoat::context::{Cx, context};
 
-use super::Invitation;
+use super::{Invitation, invitations::INCOMING_URL};
 use crate::jobs::Job;
 use crate::platform::{
     config::Settings,
@@ -34,10 +34,7 @@ impl Job for SendInvitation {
         };
         let team = invitation.team_name.as_str();
         let inviter = invitation.invited_by.as_str();
-        let url = format!(
-            "{}/app/incoming-invitations",
-            context::<Settings>(cx).base_url
-        );
+        let url = format!("{}{INCOMING_URL}", context::<Settings>(cx).base_url);
         send_message(
             cx,
             Message {

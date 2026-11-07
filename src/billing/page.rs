@@ -16,8 +16,8 @@ use super::{
 };
 use crate::teams::{Member, TeamRole, current_role, may_manage_members};
 
-/// Where the page lives.
-pub const URL: &str = "/app/billing";
+/// Where the page lives: in the team's settings.
+pub const URL: &str = "/app/settings/billing";
 
 /// A minor-unit amount, as a person reads it.
 pub fn money(amount: i64, currency: &str) -> String {
@@ -59,7 +59,6 @@ impl Page for BillingPage {
             .slug("billing")
             .label(tablo::text!("page-billing"))
             .icon(iconify_icon!("lucide:credit-card"))
-            .navigation_group(tablo::text!("navigation-team"))
             .access(may_manage_members)
     }
 
@@ -134,7 +133,7 @@ impl Page for BillingPage {
                                 <div class="flex items-center justify-between gap-4">
                                     <p class="text-lg font-semibold" data-billing-plan="">(current)</p>
                                     if can_manage {
-                                        <form method="post" action="/app/billing/portal">
+                                        <form method="post" action="/app/settings/billing/portal">
                                             (csrf::field(cx, &token))
                                             <button type="submit" class=(outline.clone())>
                                                 (tablo::t!(cx, "billing-manage"))
@@ -181,7 +180,7 @@ fn plan_cards<'a>(cx: &'a Cx, token: &str) -> BoxView<'a> {
                                         ui::card_content(
                                             <div class=(card_class)>
                                                 for interval in BillingInterval::BOTH {
-                                                    <form method="post" action="/app/billing/checkout">
+                                                    <form method="post" action="/app/settings/billing/checkout">
                                                         (csrf::field(cx, &token))
                                                         <input type="hidden" name="plan" value=(plan.slug())>
                                                         <input type="hidden" name="interval" value=(interval.as_str())>

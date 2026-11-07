@@ -3,7 +3,7 @@
 //!
 //! Every account owns a personal team from sign-up, so a session always acts for a team and no
 //! page handles "no tenant". An invitation names an address and is accepted from the invited
-//! account, on `/app/incoming-invitations`: proving you read the address is the verified account
+//! account, on `/app/settings/invitations`: proving you read the address is the verified account
 //! itself, so no secret token travels by mail.
 
 mod access;
@@ -24,8 +24,10 @@ pub mod actions {
 }
 
 pub use access::{current_entitlements, current_role, may_manage_members, role_in};
-pub use deletion::{AccountPage, CancelSubscription, delete_team};
-pub use invitations::{IncomingInvitationResource, InvitationResource};
+pub use deletion::{CancelSubscription, delete_team};
+pub use invitations::{
+    INCOMING_URL, IncomingInvitationResource, IncomingInvitationsWidget, InvitationResource,
+};
 pub use mail::{PruneInvitations, SendInvitation};
 pub use members::MemberResource;
 pub use models::{Invitation, Member, Team, TeamRole};

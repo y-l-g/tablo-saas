@@ -149,7 +149,6 @@ impl Resource for AuditResource {
         ResourceDef::new()
             .slug("audit-log")
             .icon(iconify_icon!("lucide:rotate-ccw-clock"))
-            .navigation_group(tablo::text!("navigation-team"))
             .tenancy(Tenancy::column(lens!(AuditEntry.team_id)))
             .policy(ReadOnly.and(when(reads_the_trail)))
             .without_page(ResourcePage::View)

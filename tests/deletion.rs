@@ -65,7 +65,7 @@ async fn deleting_a_team_cancels_its_subscription_through_a_job() {
     let wrong = client
         .csrf(CSRF)
         .post_form(
-            "/app/members/-/actions/delete-team",
+            "/app/settings/team/-/actions/delete-team",
             form_body(&[("name", "nope"), ("confirm", "1"), ("csrf_token", CSRF)]),
         )
         .await;
@@ -75,7 +75,7 @@ async fn deleting_a_team_cancels_its_subscription_through_a_job() {
     let response = client
         .csrf(CSRF)
         .post_form(
-            "/app/members/-/actions/delete-team",
+            "/app/settings/team/-/actions/delete-team",
             form_body(&[
                 ("name", "Analytical"),
                 ("confirm", "1"),
@@ -128,7 +128,7 @@ async fn a_member_cannot_delete_a_team_nor_an_owner_their_last() {
     ] {
         let response = client
             .csrf(CSRF)
-            .post_form("/app/members/-/actions/delete-team", body.clone())
+            .post_form("/app/settings/team/-/actions/delete-team", body.clone())
             .await;
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
@@ -147,7 +147,7 @@ async fn deleting_an_account_erases_it_with_the_teams_only_it_used() {
     let response = client
         .csrf(CSRF)
         .post_form(
-            "/app/account/-/actions/delete-account",
+            "/app/settings/profile/-/actions/delete-account",
             form_body(&[
                 ("password", PASSWORD),
                 ("confirm", "1"),
@@ -197,7 +197,7 @@ async fn other_teams_keep_the_trail_without_the_name_of_who_left() {
     let response = client
         .csrf(CSRF)
         .post_form(
-            "/app/account/-/actions/delete-account",
+            "/app/settings/profile/-/actions/delete-account",
             form_body(&[
                 ("password", PASSWORD),
                 ("confirm", "1"),
@@ -226,7 +226,7 @@ async fn an_owner_of_a_shared_team_transfers_before_leaving() {
     client
         .csrf(CSRF)
         .post_form(
-            "/app/account/-/actions/delete-account",
+            "/app/settings/profile/-/actions/delete-account",
             form_body(&[
                 ("password", PASSWORD),
                 ("confirm", "1"),
@@ -254,7 +254,7 @@ async fn a_wrong_password_deletes_nothing() {
     client
         .csrf(CSRF)
         .post_form(
-            "/app/account/-/actions/delete-account",
+            "/app/settings/profile/-/actions/delete-account",
             form_body(&[
                 ("password", "wrong"),
                 ("confirm", "1"),

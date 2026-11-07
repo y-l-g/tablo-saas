@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use tablo::{
-    Auth, AuthMail, EmailVerification, LoginThrottle, Page, PageDef, Panel, PasswordReset,
+    Area, Auth, AuthMail, EmailVerification, LoginThrottle, Page, PageDef, Panel, PasswordReset,
     TenantRegistration, TwoFactor, Widget, WidgetDef, db::db, ui,
 };
 use topcoat::{
@@ -19,7 +19,9 @@ use crate::billing::{BILLING_URL, BillingPage, plan_name, standing_notice};
 use crate::platform::config::Config;
 use crate::projects::{Project, ProjectResource};
 use crate::teams::{
-    AccountPage, IncomingInvitationResource, InvitationResource, Member, MemberResource, Teams,
+    IncomingInvitationResource, IncomingInvitationsWidget, InvitationResource, Member,
+    MemberResource, Teams,
+    actions::{DeleteAccount, DeleteTeam},
     current_entitlements,
 };
 
@@ -32,12 +34,33 @@ pub fn app_panel(config: &Config) -> Panel {
         .before_commit::<TeamAudit>()
         .home::<Home>()
         .resource::<ProjectResource>()
-        .resource::<MemberResource>()
-        .resource::<InvitationResource>()
-        .resource::<IncomingInvitationResource>()
-        .resource::<AuditResource>()
-        .page::<BillingPage>()
-        .page::<AccountPage>()
+        .area(settings())
+}
+
+/// Everything a customer configures rather than works in, out of the sidebar: what follows the
+/// person across teams, then what belongs to the team the session acts for. The user menu leads
+/// to the first group through Profile, the team menu to the second through its settings.
+fn settings() -> Area {
+    Area::new("settings")
+        .without_navigation()
+        .group(tablo::text!("settings-account"), |group| {
+            group
+                .profile_with(PageDef::header_action::<DeleteAccount>)
+                .two_factor_with(|def| def.label(tablo::text!("settings-security")))
+                .resource::<IncomingInvitationResource>()
+        })
+        .tenant_group(|group| {
+            group
+                .tenant_profile_with(|def| {
+                    def.slug("team")
+                        .label(tablo::text!("settings-general"))
+                        .header_action::<DeleteTeam>()
+                })
+                .resource::<MemberResource>()
+                .resource::<InvitationResource>()
+                .page::<BillingPage>()
+                .resource::<AuditResource>()
+        })
 }
 
 /// Every auth page Tablo offers: sign-up, a verified address before anything else, reset, the
@@ -68,6 +91,7 @@ impl Page for Home {
         PageDef::new()
             .label(tablo::text!("page-home"))
             .icon(iconify_icon!("lucide:layout-dashboard"))
+            .widget::<IncomingInvitationsWidget>()
             .widget::<PlanWidget>()
     }
 }
