@@ -17,9 +17,28 @@ error-transfer-one = Transfer ownership to one member at a time.
 error-no-user = Sign in again.
 error-no-team = Pick a team first.
 
-## Navigation
+## Settings
 
-navigation-team = Team
+settings-account = Account
+settings-security = Security
+settings-general = General
+invitations-waiting = { $count ->
+    [one] An invitation to join a team is waiting for you.
+   *[other] { $count } invitations to join a team are waiting for you.
+}
+
+## Tablo's tenants, which this app calls teams
+
+tablo-shell-tenants = Teams
+tablo-shell-switch-tenant = Switch team
+tablo-shell-select-tenant = Select a team
+tablo-shell-tenant-settings = Team settings
+tablo-shell-create-tenant = Create team
+tablo-tenant-saved = Team saved
+tablo-tenant-created = Team created
+tablo-tenant-create-title = Create a team
+tablo-tenant-create-first = Create the team you work in on { $brand }.
+tablo-tenant-create-another = Create another team to work in on { $brand }.
 
 ## Teams
 
@@ -71,8 +90,6 @@ error-project-limit = Your plan has no project left. Upgrade to start another.
 
 ## Deletion
 
-page-account = Your account
-account-description = Deleting your account removes your teams with nobody else on them, and cancels their subscriptions. It cannot be undone.
 error-team-name-mismatch = Type the team's name exactly.
 error-password-wrong = That password isn't right.
 error-transfer-first = You own a team others use. Transfer it before deleting your account.
@@ -104,8 +121,8 @@ resource-project = Project
     .plural = Projects
 resource-member = Member
     .plural = Members
-resource-invitation = Invitation
-    .plural = Invitations
+resource-invitation = Pending invitation
+    .plural = Pending invitations
 resource-audit = Audit entry
     .plural = Audit log
 field-name = Name
@@ -159,8 +176,8 @@ resource-webhook = Webhook
     .plural = Webhooks
 resource-job = Job
     .plural = Jobs
-resource-incoming-invitation = Invitation for you
-    .plural = Invitations for you
+resource-incoming-invitation = Invitation
+    .plural = Invitations
 resource-staff-audit = Staff audit entry
     .plural = Staff audit log
 option-team-role =

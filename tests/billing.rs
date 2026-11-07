@@ -252,7 +252,7 @@ async fn an_owner_leaves_for_checkout_with_the_team_seat_count() {
     let response = client
         .csrf(CSRF)
         .post_form(
-            "/app/billing/checkout",
+            "/app/settings/billing/checkout",
             form_body(&[("plan", "pro"), ("interval", "month"), ("csrf_token", CSRF)]),
         )
         .await;
@@ -285,7 +285,7 @@ async fn only_the_owner_reaches_checkout_and_never_without_the_token() {
     let admin = client_for(&harness, &grace, &team).await;
     let response = admin
         .csrf(CSRF)
-        .post_form("/app/billing/checkout", form(CSRF))
+        .post_form("/app/settings/billing/checkout", form(CSRF))
         .await;
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 
@@ -293,7 +293,7 @@ async fn only_the_owner_reaches_checkout_and_never_without_the_token() {
     let response = owner
         .csrf(CSRF)
         .post_form(
-            "/app/billing/checkout",
+            "/app/settings/billing/checkout",
             form("00000000-0000-4000-8000-000000000000"),
         )
         .await;
@@ -303,7 +303,7 @@ async fn only_the_owner_reaches_checkout_and_never_without_the_token() {
     let stranger = TestClient::new(&harness.app);
     let response = stranger
         .csrf(CSRF)
-        .post_form("/app/billing/checkout", form(CSRF))
+        .post_form("/app/settings/billing/checkout", form(CSRF))
         .await;
     assert_ne!(response.status(), StatusCode::OK);
     assert_eq!(stripe.with(|state| state.checkouts.len()), 0);
@@ -328,7 +328,7 @@ async fn an_unverified_account_does_not_reach_checkout() {
     let response = client
         .csrf(CSRF)
         .post_form(
-            "/app/billing/checkout",
+            "/app/settings/billing/checkout",
             form_body(&[("plan", "pro"), ("interval", "month"), ("csrf_token", CSRF)]),
         )
         .await;
@@ -356,7 +356,7 @@ async fn a_running_subscription_is_not_bought_twice() {
     let response = client
         .csrf(CSRF)
         .post_form(
-            "/app/billing/checkout",
+            "/app/settings/billing/checkout",
             form_body(&[
                 ("plan", "business"),
                 ("interval", "year"),
@@ -364,7 +364,7 @@ async fn a_running_subscription_is_not_bought_twice() {
             ]),
         )
         .await;
-    assert_eq!(response.headers()[LOCATION], "/app/billing");
+    assert_eq!(response.headers()[LOCATION], "/app/settings/billing");
     assert_eq!(stripe.with(|state| state.checkouts.len()), 0);
 }
 
@@ -377,7 +377,7 @@ async fn the_billing_page_shows_the_plan_after_the_return_from_checkout() {
     stripe.subscribe("cus_1", "active", "business_month", 1);
 
     let client = client_for(&harness, &ada, &team).await;
-    let page = client.get("/app/billing?checkout=success").await;
+    let page = client.get("/app/settings/billing?checkout=success").await;
     assert_eq!(page.status(), StatusCode::OK);
     let html = body_string(page).await;
     assert!(html.contains("Business"), "{html}");
@@ -393,7 +393,7 @@ async fn a_plain_member_does_not_open_the_billing_page() {
     seat(&harness.db, &grace, &team, TeamRole::Member).await;
     let client = client_for(&harness, &grace, &team).await;
     assert_eq!(
-        client.get("/app/billing").await.status(),
+        client.get("/app/settings/billing").await.status(),
         StatusCode::FORBIDDEN
     );
 }
@@ -467,7 +467,7 @@ async fn an_invitation_stops_at_the_free_plan_seat_limit() {
         client
             .csrf(CSRF)
             .post_form(
-                "/app/members/-/actions/invite",
+                "/app/settings/members/-/actions/invite",
                 form_body(&[("email", email), ("role", "member"), ("csrf_token", CSRF)]),
             )
             .await;
@@ -489,7 +489,7 @@ async fn the_panel_policy_lets_the_billing_forms_land_on_stripe() {
     let harness = billed_harness(&stripe).await;
     let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
     let client = client_for(&harness, &ada, &team).await;
-    let response = client.get("/app/billing").await;
+    let response = client.get("/app/settings/billing").await;
     let policy = response.headers()["content-security-policy"]
         .to_str()
         .expect("ascii");

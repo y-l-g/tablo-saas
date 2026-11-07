@@ -3,12 +3,15 @@
 mod support;
 
 use support::{client_for, harness, person, seat};
-use tablo::testing::{TestClient, body_string, form_body};
+use tablo::testing::{
+    NavGroup, TestClient, area_back_link, body_string, find_href_with, form_body, nav_groups,
+    nav_links,
+};
 use tablo_saas::{
     accounts::{Accounts, User},
     teams::{
-        IncomingInvitationResource, Invitation, InvitationResource, Member, MemberResource,
-        TeamRole,
+        INCOMING_URL, IncomingInvitationResource, Invitation, InvitationResource, Member,
+        MemberResource, TeamRole,
         actions::{
             AcceptInvitation, ChangeRole, LeaveTeam, RemoveMember, RevokeInvitation,
             TransferOwnership,
@@ -24,7 +27,7 @@ async fn invite(client: &TestClient<'_>, email: &str, role: &str) -> http::Respo
     client
         .csrf(CSRF)
         .post_form(
-            "/app/members/-/actions/invite",
+            "/app/settings/members/-/actions/invite",
             form_body(&[("email", email), ("role", role), ("csrf_token", CSRF)]),
         )
         .await
@@ -93,6 +96,16 @@ async fn an_invitation_is_mailed_by_a_job_and_accepted_by_the_invited_account() 
     assert_eq!(sent[0].subject(), format!("Join {}", team.name));
 
     let invited = client_for(&harness, &grace, &personal).await;
+    let home = body_string(invited.get("/app").await).await;
+    assert_eq!(
+        find_href_with(&home, INCOMING_URL).as_deref(),
+        Some(INCOMING_URL),
+        "the home page points the invitee at their settings"
+    );
+    let owner = client_for(&harness, &ada, &team).await;
+    let owner_home = body_string(owner.get("/app").await).await;
+    assert!(find_href_with(&owner_home, INCOMING_URL).is_none());
+
     let incoming = invited.resource::<IncomingInvitationResource>();
     let list = incoming.list().await;
     assert_eq!(list.status(), StatusCode::OK);
@@ -113,6 +126,8 @@ async fn an_invitation_is_mailed_by_a_job_and_accepted_by_the_invited_account() 
         Some(TeamRole::Admin)
     );
     assert!(invitations(&harness).await.is_empty());
+    let home = body_string(invited.get("/app").await).await;
+    assert!(find_href_with(&home, INCOMING_URL).is_none());
 }
 
 #[tokio::test]
@@ -287,7 +302,7 @@ async fn a_session_cannot_switch_to_a_team_it_is_not_on() {
         .await;
     assert!(!response.status().is_success(), "{}", response.status());
 
-    let page = body_string(client.get("/app/members").await).await;
+    let page = body_string(client.get("/app/settings/members").await).await;
     assert!(page.contains("Ada"), "still on {}", team.name);
     assert!(!page.contains("Grace"));
 }
@@ -377,5 +392,44 @@ async fn nobody_leaves_their_last_team_and_an_owner_transfers_first() {
     assert_eq!(
         role_of(&members_of(&harness, &team).await, &ada),
         Some(TeamRole::Owner)
+    );
+}
+
+/// The sidebar holds the work; what a person configures sits in the settings area, the account's
+/// first and then the team's, under the team's name, each entry only for whom it opens.
+#[tokio::test]
+async fn settings_leave_the_sidebar_for_an_area_of_their_own() {
+    let harness = harness().await;
+    let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
+    let client = client_for(&harness, &ada, &team).await;
+
+    let home = body_string(client.get("/app").await).await;
+    assert_eq!(nav_links(&home), ["/app", "/app/projects"]);
+
+    let settings = body_string(client.get("/app/settings/profile").await).await;
+    assert_eq!(area_back_link(&settings).as_deref(), Some("/app"));
+    let links = |links: &[&str]| links.iter().map(|link| (*link).to_string()).collect();
+    assert_eq!(
+        nav_groups(&settings),
+        [
+            NavGroup {
+                label: "Account".to_string(),
+                links: links(&[
+                    "/app/settings/profile",
+                    "/app/settings/two-factor",
+                    "/app/settings/invitations",
+                ]),
+            },
+            NavGroup {
+                label: team.name.clone(),
+                links: links(&[
+                    "/app/settings/team",
+                    "/app/settings/members",
+                    "/app/settings/pending-invitations",
+                    // The audit log is a paid feature, so the free plan leaves it out.
+                    "/app/settings/billing",
+                ]),
+            },
+        ]
     );
 }

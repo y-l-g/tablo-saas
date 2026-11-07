@@ -63,7 +63,7 @@ async fn parse<T: for<'de> Deserialize<'de>>(body: Body) -> Result<T> {
     serde_urlencoded::from_bytes(&bytes).map_err(|_| invalid())
 }
 
-#[route(POST "/app/billing/checkout")]
+#[route(POST "/app/settings/billing/checkout")]
 async fn checkout(cx: &Cx, body: Body) -> Result<Response> {
     let form: CheckoutForm = parse(body).await?;
     let signed = owner(cx, form.csrf_token.as_deref())?;
@@ -117,7 +117,7 @@ async fn checkout(cx: &Cx, body: Body) -> Result<Response> {
     see_other(url).into_response(cx)
 }
 
-#[route(POST "/app/billing/portal")]
+#[route(POST "/app/settings/billing/portal")]
 async fn portal(cx: &Cx, body: Body) -> Result<Response> {
     let form: PortalForm = parse(body).await?;
     owner(cx, form.csrf_token.as_deref())?;

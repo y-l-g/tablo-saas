@@ -118,7 +118,7 @@ impl Job for SendBillingNotice {
             return Ok(());
         };
         let user = User::get_by_id(&mut handle, owner.user_id).await?;
-        let url = format!("{}/app/billing", context::<Settings>(cx).base_url);
+        let url = format!("{}{}", context::<Settings>(cx).base_url, super::page::URL);
         let (subject, body) = match self.notice {
             Notice::PaymentFailed => (
                 job_text("mail-payment-failed-subject", &[])?,

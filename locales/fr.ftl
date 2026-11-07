@@ -16,9 +16,28 @@ error-transfer-one = Transférez la propriété à un seul membre à la fois.
 error-no-user = Reconnectez-vous.
 error-no-team = Choisissez d'abord une équipe.
 
-## Navigation
+## Paramètres
 
-navigation-team = Équipe
+settings-account = Compte
+settings-security = Sécurité
+settings-general = Général
+invitations-waiting = { $count ->
+    [one] Une invitation à rejoindre une équipe vous attend.
+   *[other] { $count } invitations à rejoindre une équipe vous attendent.
+}
+
+## Les tenants de Tablo, que cette application appelle équipes
+
+tablo-shell-tenants = Équipes
+tablo-shell-switch-tenant = Changer d'équipe
+tablo-shell-select-tenant = Choisir une équipe
+tablo-shell-tenant-settings = Paramètres de l'équipe
+tablo-shell-create-tenant = Créer une équipe
+tablo-tenant-saved = Équipe enregistrée
+tablo-tenant-created = Équipe créée
+tablo-tenant-create-title = Créer une équipe
+tablo-tenant-create-first = Créez l'équipe dans laquelle vous travaillez sur { $brand }.
+tablo-tenant-create-another = Créez une autre équipe dans laquelle travailler sur { $brand }.
 
 ## Équipes
 
@@ -69,8 +88,6 @@ error-project-limit = Votre offre n'a plus de projet disponible. Passez à l'off
 
 ## Suppression
 
-page-account = Votre compte
-account-description = Supprimer votre compte supprime les équipes dont vous êtes le seul membre et résilie leurs abonnements. Cette action est irréversible.
 error-team-name-mismatch = Saisissez exactement le nom de l'équipe.
 error-password-wrong = Ce mot de passe est incorrect.
 error-transfer-first = Vous êtes propriétaire d'une équipe utilisée par d'autres. Transférez-la avant de supprimer votre compte.
@@ -102,8 +119,8 @@ resource-project = Projet
     .plural = Projets
 resource-member = Membre
     .plural = Membres
-resource-invitation = Invitation
-    .plural = Invitations
+resource-invitation = Invitation en attente
+    .plural = Invitations en attente
 resource-audit = Entrée d'audit
     .plural = Journal d'audit
 field-name = Nom
@@ -157,8 +174,8 @@ resource-webhook = Webhook
     .plural = Webhooks
 resource-job = Tâche
     .plural = Tâches
-resource-incoming-invitation = Invitation pour vous
-    .plural = Invitations pour vous
+resource-incoming-invitation = Invitation
+    .plural = Invitations
 resource-staff-audit = Entrée d'audit interne
     .plural = Journal d'audit interne
 option-team-role =

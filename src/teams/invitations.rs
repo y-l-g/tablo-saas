@@ -3,8 +3,12 @@
 use std::convert::Infallible;
 
 use jiff::{SignedDuration, Timestamp};
-use tablo::{Notification, auth, prelude::*};
-use topcoat::{context::Cx, icon::iconify::iconify_icon};
+use tablo::{Notification, Widget, WidgetDef, auth, db::db, prelude::*};
+use topcoat::{
+    context::Cx,
+    icon::iconify::iconify_icon,
+    view::{View, view},
+};
 
 use super::{
     Invitation, Member, SendInvitation, TeamRole,
@@ -14,6 +18,10 @@ use super::{
 use crate::accounts::{SignedIn, User, normalize_email};
 use crate::billing::{Entitlements, account_of, jobs::sync_seats_later};
 use crate::jobs::enqueue;
+
+/// Where the signed-in user answers the invitations addressed to them: the account group of the
+/// settings area. A mail names it outside any request, so it is spelled out rather than resolved.
+pub const INCOMING_URL: &str = "/app/settings/invitations";
 
 /// How long an invitation stands.
 const LIFETIME: SignedDuration = SignedDuration::from_hours(14 * 24);
@@ -127,9 +135,9 @@ impl Resource for InvitationResource {
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .slug("invitations")
+            // `invitations` is the signed-in user's own, in the same settings area.
+            .slug("pending-invitations")
             .icon(iconify_icon!("lucide:mail"))
-            .navigation_group(tablo::text!("navigation-team"))
             .tenancy(Tenancy::column(lens!(Invitation.team_id)))
             .without_page(ResourcePage::View)
             .without_global_search()
@@ -189,7 +197,7 @@ impl Resource for IncomingInvitationResource {
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .slug("incoming-invitations")
+            .slug("invitations")
             .label(tablo::text!("resource-incoming-invitation"))
             .plural_label(tablo::text!("resource-incoming-invitation.plural"))
             .icon(iconify_icon!("lucide:user-plus"))
@@ -294,5 +302,35 @@ impl Action<IncomingInvitationResource> for DeclineInvitation {
             .exec(ex)
             .await?;
         Ok(Outcome::done())
+    }
+}
+
+/// A word on the home page when invitations wait for the signed-in user, since the settings area
+/// that holds them is out of the sidebar. It renders nothing when none do.
+pub struct IncomingInvitationsWidget;
+
+impl Widget for IncomingInvitationsWidget {
+    fn declare() -> WidgetDef {
+        WidgetDef::new().full_width()
+    }
+
+    async fn render(cx: &Cx) -> topcoat::Result<impl View> {
+        let waiting = Invitation::filter(
+            Invitation::fields()
+                .email()
+                .eq(own_email(cx))
+                .and(Invitation::fields().expires_at().gt(Timestamp::now())),
+        )
+        .exec(&mut db(cx)?)
+        .await?
+        .len();
+        let notice = (waiting > 0).then(|| tablo::t!(cx, "invitations-waiting", count = waiting));
+        Ok(view! {
+            if let Some(notice) = notice {
+                <p data-invitations-notice="" class="rounded-lg border border-border bg-muted p-3 text-sm">
+                    <a href=(INCOMING_URL) class="underline">(notice)</a>
+                </p>
+            }
+        })
     }
 }

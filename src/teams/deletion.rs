@@ -4,11 +4,8 @@
 //! crash can delete the customer's data and keep charging them, or cancel a team that still exists.
 
 use serde::{Deserialize, Serialize};
-use tablo::{
-    HeaderAction, Outcome, Page, PageDef, TenantId, WriteError, auth, auth::verify_password,
-};
+use tablo::{HeaderAction, Outcome, TenantId, WriteError, auth, auth::verify_password};
 use topcoat::context::{Cx, context};
-use topcoat::icon::iconify::iconify_icon;
 
 use super::{Invitation, Member, Team, TeamRole, access};
 use crate::accounts::{SignedIn, User};
@@ -175,20 +172,5 @@ impl HeaderAction for DeleteAccount {
             .await?;
         User::filter_by_id(signed.user.id).delete().exec(ex).await?;
         Ok(Outcome::done().redirect("/"))
-    }
-}
-
-/// Where a person deletes their account.
-pub struct AccountPage;
-
-impl Page for AccountPage {
-    fn declare() -> PageDef {
-        PageDef::new()
-            .slug("account")
-            .label(tablo::text!("page-account"))
-            .title(tablo::text!("page-account"))
-            .description(tablo::text!("account-description"))
-            .icon(iconify_icon!("lucide:id-card"))
-            .header_action::<DeleteAccount>()
     }
 }

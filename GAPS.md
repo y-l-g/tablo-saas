@@ -12,7 +12,7 @@ When a gap closes, delete its row along with the workaround.
 | SSO (SAML, OIDC per tenant) and SCIM | Tablo | Often a condition of an enterprise contract | Not offered: `Auth::external` lets a host app sign a panel's users in, but holds for a whole panel, not per tenant, and the protocols stay the app's. `Feature` is the place to gate it once it exists |
 | Passkeys and magic links | Tablo | Phishing-resistant sign-in, and fewer password resets | TOTP and email codes, required for staff |
 | Impersonation | Tablo | Support needs to see what a customer sees, with an audit trail | Support reads the back office, which has no "act as" |
-| One session per panel | Tablo | All panels share the `__Host-tablo_session` cookie, so signing in to `/admin` signs the same browser out of `/app`, and back. Staff who are also customers feel it daily | Use a second browser profile. Serving each panel on its own host would separate the cookies; the template has not tried it |
+| A word for the tenant | Tablo | Customers know a team, not a tenant, but Tablo's shell and tenant flashes say "tenant" in a dozen messages | `locales/*.ftl` override each `tablo-shell-*tenant*` and `tablo-tenant-*` message that names it. A message Tablo adds later says "tenant" until it is overridden too |
 
 ## Billing
 
