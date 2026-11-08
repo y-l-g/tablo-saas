@@ -100,7 +100,7 @@ async fn pricing(cx: &Cx) -> Result<impl View> {
                 tablo::t!(
                     &entered,
                     "billing-per-seat",
-                    price = money(plan.monthly_amount, CURRENCY)
+                    price = money(&entered, plan.monthly_amount, CURRENCY)
                 )
             };
             let limit = |limit: Option<u32>| {

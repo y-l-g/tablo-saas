@@ -285,7 +285,7 @@ async fn the_public_pages_answer_and_the_price_comes_from_the_catalog() {
         assert_eq!(client.get(path).await.status(), StatusCode::OK, "{path}");
     }
     let page = body_string(client.get("/pricing").await).await;
-    assert!(page.contains("19.00 EUR"), "{page}");
+    assert!(page.contains("€19.00"), "{page}");
 }
 
 #[tokio::test]
