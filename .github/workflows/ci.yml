@@ -14,6 +14,22 @@ jobs:
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
+      # GitHub's release download links answer 504 at times while its API still serves the
+      # asset. Topcoat reuses a Tailwind CLI already in its cache, so put it there through the
+      # API first. Keep the version and digest at topcoat's `DEFAULT_VERSION`: on a mismatch the
+      # build downloads its own and this step only wastes time.
+      - name: Fetch the Tailwind CLI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAILWIND_VERSION: 4.3.2
+          TAILWIND_SHA256: 5036c4fb4328e0bcdbb6065c70d8ac9452e0d4c947113a788a8f94fd390425c1
+        run: |
+          cli="target/topcoat/cache/tailwind/tailwindcss-$TAILWIND_VERSION-linux-x64"
+          mkdir -p "$(dirname "$cli")"
+          gh release download "v$TAILWIND_VERSION" --repo tailwindlabs/tailwindcss \
+            --pattern tailwindcss-linux-x64 --output "$cli" --clobber
+          echo "$TAILWIND_SHA256  $cli" | sha256sum --check
+          chmod +x "$cli"
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --features toasty-cli --locked -- -D warnings
   test:
@@ -39,6 +55,22 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.99
       - uses: Swatinem/rust-cache@v2
+      # GitHub's release download links answer 504 at times while its API still serves the
+      # asset. Topcoat reuses a Tailwind CLI already in its cache, so put it there through the
+      # API first. Keep the version and digest at topcoat's `DEFAULT_VERSION`: on a mismatch the
+      # build downloads its own and this step only wastes time.
+      - name: Fetch the Tailwind CLI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAILWIND_VERSION: 4.3.2
+          TAILWIND_SHA256: 5036c4fb4328e0bcdbb6065c70d8ac9452e0d4c947113a788a8f94fd390425c1
+        run: |
+          cli="target/topcoat/cache/tailwind/tailwindcss-$TAILWIND_VERSION-linux-x64"
+          mkdir -p "$(dirname "$cli")"
+          gh release download "v$TAILWIND_VERSION" --repo tailwindlabs/tailwindcss \
+            --pattern tailwindcss-linux-x64 --output "$cli" --clobber
+          echo "$TAILWIND_SHA256  $cli" | sha256sum --check
+          chmod +x "$cli"
       - name: Test on in-memory SQLite
         run: cargo test --locked
         env:
