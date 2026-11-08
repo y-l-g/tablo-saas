@@ -144,6 +144,12 @@ action-delete-team = Supprimer cette équipe
 action-delete-account = Supprimer mon compte
 hint-resync = Relire cet abonnement depuis Stripe
 hint-retry = Rendre ses tentatives à cette tâche
+filter-staff = Équipe interne
+filter-customers = Clients
+filter-verified = Vérifiés
+filter-unverified = Non vérifiés
+filter-processed = Traités
+filter-pending = Pas encore traités
 
 field-created_at = Créé le
 field-expires_at = Expire le

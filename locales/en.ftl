@@ -146,6 +146,12 @@ action-delete-team = Delete this team
 action-delete-account = Delete my account
 hint-resync = Read this subscription back from Stripe
 hint-retry = Give this job its attempts back
+filter-staff = Staff
+filter-customers = Customers
+filter-verified = Verified
+filter-unverified = Not verified
+filter-processed = Processed
+filter-pending = Not processed yet
 
 field-created_at = Created
 field-expires_at = Expires

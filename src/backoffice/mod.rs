@@ -45,6 +45,22 @@ impl Resource for AccountResource {
                     TextColumn::new(lens!(User.staff_role)).badge(),
                     DateColumn::new(lens!(User.created_at)).sortable(),
                 ))
+                .filters((
+                    // Every account of one company: `?f.email=acme.com&f.email.op=ends`.
+                    TextFilter::new(lens!(User.email)).matching([
+                        TextMatch::EndsWith,
+                        TextMatch::Contains,
+                        TextMatch::Is,
+                    ]),
+                    PresenceFilter::new(lens!(User.staff_role)).labels(
+                        tablo::text!("filter-staff"),
+                        tablo::text!("filter-customers"),
+                    ),
+                    PresenceFilter::new(lens!(User.email_verified_at)).labels(
+                        tablo::text!("filter-verified"),
+                        tablo::text!("filter-unverified"),
+                    ),
+                ))
                 .default_sort_desc(lens!(User.created_at)),
             )
     }
@@ -166,6 +182,12 @@ impl Resource for WebhookResource {
                     TextColumn::new(lens!(StripeEvent.customer_id)).searchable(),
                     DateColumn::new(lens!(StripeEvent.processed_at)).sortable(),
                 ))
+                .filters(
+                    (PresenceFilter::new(lens!(StripeEvent.processed_at)).labels(
+                        tablo::text!("filter-processed"),
+                        tablo::text!("filter-pending"),
+                    ),),
+                )
                 .default_sort_desc(lens!(StripeEvent.received_at)),
             )
     }
@@ -202,6 +224,7 @@ impl Resource for JobResource {
                     TextColumn::new(lens!(JobRow.last_error)).limit(80),
                 ))
                 .option_tabs(lens!(JobRow.state))
+                .filters((NumberFilter::new(lens!(JobRow.attempts)).range(),))
                 .default_sort_desc(lens!(JobRow.created_at)),
             )
     }
