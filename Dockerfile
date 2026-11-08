@@ -1,5 +1,9 @@
 # syntax=docker/dockerfile:1
 
+# The Tailwind CLI, put where the build looks before it downloads one. Empty here; CI replaces it
+# with `--build-context tailwind=<dir>` since GitHub's release downloads can fail.
+FROM scratch AS tailwind
+
 FROM rust:1.99-bookworm AS builder
 
 # The CLI bundles the assets the panels load at runtime. It must come from the same Topcoat commit
@@ -9,6 +13,7 @@ ARG TOPCOAT_REV=6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7
 WORKDIR /src
 RUN cargo install --git https://github.com/tokio-rs/topcoat --rev "${TOPCOAT_REV}" topcoat-cli --locked
 COPY . .
+COPY --from=tailwind / /src/target/topcoat/cache/tailwind/
 RUN topcoat asset bundle --release --bin tablo-saas
 
 # Distroless keeps the runtime to the C library the binary needs, and runs as nobody.
