@@ -9,7 +9,7 @@ use topcoat::context::{Cx, context};
 
 use super::{Invitation, Member, Team, TeamRole, access};
 use crate::accounts::{SignedIn, User};
-use crate::audit::AuditEntry;
+use crate::audit;
 use crate::billing::{Billing, BillingAccount};
 use crate::jobs::{Job, enqueue};
 use crate::projects::Project;
@@ -60,10 +60,7 @@ pub async fn delete_team(ex: &mut dyn toasty::Executor, team: TenantId) -> topco
         .delete()
         .exec(&mut *ex)
         .await?;
-    AuditEntry::filter(AuditEntry::fields().team_id().eq(team))
-        .delete()
-        .exec(&mut *ex)
-        .await?;
+    audit::forget_team(&mut *ex, team).await?;
     Invitation::filter(Invitation::fields().team_id().eq(team))
         .delete()
         .exec(&mut *ex)
@@ -161,11 +158,7 @@ impl HeaderAction for DeleteAccount {
             .exec(&mut *ex)
             .await?;
         // Other teams keep what happened, but no longer who did it.
-        AuditEntry::filter(AuditEntry::fields().actor().eq(&signed.user.email))
-            .update()
-            .actor(tablo::t!(cx, "audit-deleted-actor"))
-            .exec(&mut *ex)
-            .await?;
+        audit::forget_actor(cx, &mut *ex, signed.user.id).await?;
         Invitation::filter(Invitation::fields().email().eq(&signed.user.email))
             .delete()
             .exec(&mut *ex)

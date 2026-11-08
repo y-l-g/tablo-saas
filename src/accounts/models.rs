@@ -17,7 +17,8 @@ pub struct User {
     pub email: String,
     /// When the address was confirmed, through a mailed link.
     pub email_verified_at: Option<Timestamp>,
-    /// An Argon2id hash in PHC string format.
+    /// An Argon2id hash in PHC string format, which no column, export or audit entry spells.
+    #[columns(skip)]
     pub password: String,
     /// What the account does as staff, which opens the back office. Sign-up writes none: only
     /// the `staff` command hands roles out, so no page can make an administrator.

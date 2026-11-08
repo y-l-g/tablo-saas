@@ -3,10 +3,12 @@
 mod support;
 
 use support::{Harness, billed_harness, client_for, harness, person, seat, stripe::FakeStripe};
-use tablo::testing::{body_string, form_body};
+use tablo::{
+    AuditEntry,
+    testing::{body_string, form_body},
+};
 use tablo_saas::{
     accounts::User,
-    audit::AuditEntry,
     billing::{BillingAccount, BillingStatus, PlanId},
     jobs::JobRow,
     teams::{Member, Team, TeamRole, create_team},
@@ -106,7 +108,7 @@ async fn deleting_a_team_cancels_its_subscription_through_a_job() {
     assert_eq!(
         trail.len(),
         0,
-        "a row here would break the foreign key on PostgreSQL"
+        "the team is gone, and so is what happened on it"
     );
 }
 
@@ -181,12 +183,16 @@ async fn other_teams_keep_the_trail_without_the_name_of_who_left() {
     let (_, shared) = person(&harness.db, "Grace", "grace@example.com").await;
     seat(&harness.db, &ada, &shared, TeamRole::Member).await;
     toasty::create!(AuditEntry {
-        team_id: shared.tenant(),
-        actor: "ada@example.com".to_string(),
-        resource: "Project".to_string(),
-        change: "create".to_string(),
-        record: String::new(),
-        at: jiff::Timestamp::now(),
+        panel: "/app".to_string(),
+        tenant: Some(shared.tenant()),
+        actor_id: Some(ada.id.to_string()),
+        actor: "Ada".to_string(),
+        event: "create".to_string(),
+        resource: Some("projects".to_string()),
+        record: None,
+        url: None,
+        changes: toasty::Json(Vec::new()),
+        created_at: jiff::Timestamp::now(),
     })
     .exec(&mut harness.db.clone())
     .await
@@ -210,8 +216,9 @@ async fn other_teams_keep_the_trail_without_the_name_of_who_left() {
         .exec(&mut harness.db.clone())
         .await
         .expect("query");
-    assert_eq!(trail.len(), 1);
-    assert!(!trail[0].actor.contains("ada"), "{}", trail[0].actor);
+    assert_eq!(trail.len(), 1, "the entry on the shared team stays");
+    assert!(!trail[0].actor.contains("Ada"), "{}", trail[0].actor);
+    assert_eq!(trail[0].actor_id, None);
 }
 
 #[tokio::test]
@@ -278,7 +285,7 @@ async fn the_public_pages_answer_and_the_price_comes_from_the_catalog() {
         assert_eq!(client.get(path).await.status(), StatusCode::OK, "{path}");
     }
     let page = body_string(client.get("/pricing").await).await;
-    assert!(page.contains("19.00 EUR"), "{page}");
+    assert!(page.contains("€19.00"), "{page}");
 }
 
 #[tokio::test]

@@ -19,10 +19,15 @@ keep the rest.
 - **Accounts.** Email verification, password reset, two-factor by authenticator or email, and
   account deletion that erases what it should and anonymises the rest.
 - **A back office** at `/admin`, separate from the app, with two-factor required for staff: accounts,
-  teams, subscriptions, webhook events, jobs, and an audit log of what staff did.
+  teams, subscriptions, webhook events and jobs, with the filters support reaches for, and an audit
+  log of what staff did.
+- **Audit logs** from Tablo, written in each write's transaction with the fields it changed: a
+  team's own, on the Business plan, and the back office's, for administrators.
 - **Public pages.** A home page, pricing rendered from the plan catalog, a sitemap and `robots.txt`.
 - **Production defaults.** One image for every role, JSON logs, `/healthz` and `/readyz`, graceful
-  shutdown, a configuration that refuses to start on a missing secret, English and French.
+  shutdown, a configuration that refuses to start on a missing secret, English and French, prices
+  in the reader's locale, and a ribbon naming any deployment but production
+  (`APP_ENVIRONMENT_NAME`).
 
 ## Run it
 

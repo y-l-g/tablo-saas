@@ -3,10 +3,9 @@
 mod support;
 
 use support::{client_for, harness, person, seat, staff_client};
-use tablo::testing::TestClient;
+use tablo::{AuditEntry, AuditLog, testing::TestClient};
 use tablo_saas::{
     accounts::{Accounts, StaffRole},
-    audit::{AuditEntry, AuditResource, StaffAuditEntry},
     backoffice::{JobResource, RetryJob},
     billing::{BillingAccount, BillingStatus, PlanId},
     jobs::{JobRow, JobState},
@@ -92,13 +91,15 @@ async fn an_administrator_retries_a_dead_job_and_the_trail_says_so() {
     assert_eq!(row.state, JobState::Queued);
     assert_eq!(row.attempts, 0);
 
-    let trail = StaffAuditEntry::all()
+    let trail = AuditEntry::all()
         .exec(&mut harness.db.clone())
         .await
         .expect("query");
     assert_eq!(trail.len(), 1);
-    assert_eq!(trail[0].actor, "root@example.com");
-    assert_eq!(trail[0].change, "action: retry");
+    assert_eq!(trail[0].panel, "/admin");
+    assert_eq!(trail[0].event, "action:retry");
+    assert_eq!(trail[0].record, Some(job.id.to_string()));
+    assert_eq!(client.resource::<AuditLog>().list().await.rows().len(), 1);
 }
 
 #[tokio::test]
@@ -110,6 +111,11 @@ async fn support_reads_the_queue_and_changes_nothing() {
     assert_eq!(jobs.list().await.status(), StatusCode::OK);
     let reply = jobs.action::<RetryJob>(&job).submit().await;
     assert!(reply.status().is_client_error(), "{}", reply.status());
+    assert_eq!(
+        client.resource::<AuditLog>().list().await.status(),
+        StatusCode::FORBIDDEN,
+        "the staff trail is for administrators"
+    );
 }
 
 #[tokio::test]
@@ -130,10 +136,12 @@ async fn a_write_lands_on_the_team_trail_and_the_plan_gates_reading_it() {
         .await
         .expect("query");
     assert_eq!(trail.len(), 1);
-    assert_eq!(trail[0].actor, "ada@example.com");
-    assert_eq!(trail[0].team_id, team.tenant());
+    assert_eq!(trail[0].panel, "/app");
+    assert_eq!(trail[0].actor_id, Some(ada.id.to_string()));
+    assert_eq!(trail[0].tenant, Some(team.tenant()));
+    assert_eq!(trail[0].event, "action:remove");
     assert_eq!(
-        client.resource::<AuditResource>().list().await.status(),
+        client.resource::<AuditLog>().list().await.status(),
         StatusCode::FORBIDDEN,
         "the free plan keeps the trail and does not show it"
     );
@@ -149,7 +157,7 @@ async fn a_write_lands_on_the_team_trail_and_the_plan_gates_reading_it() {
     .await
     .expect("write the account");
     let paying = client_for(&harness, &ada, &team).await;
-    let list = paying.resource::<AuditResource>().list().await;
+    let list = paying.resource::<AuditLog>().list().await;
     assert_eq!(list.status(), StatusCode::OK);
     assert_eq!(list.rows().len(), 1);
 }

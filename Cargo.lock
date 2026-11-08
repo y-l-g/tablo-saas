@@ -4179,7 +4179,7 @@ dependencies = [
 [[package]]
 name = "tablo"
 version = "0.8.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=1582fddcf#1582fddcf97fd129c7f7900fc5d382fd8ec6f2ca"
+source = "git+https://github.com/y-l-g/tablo.git?rev=ba1393653#ba1393653b7b819eb7332215d1958101abb95b58"
 dependencies = [
  "tablo-core",
  "tablo-test",
@@ -4191,7 +4191,7 @@ dependencies = [
 [[package]]
 name = "tablo-build"
 version = "0.8.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=1582fddcf#1582fddcf97fd129c7f7900fc5d382fd8ec6f2ca"
+source = "git+https://github.com/y-l-g/tablo.git?rev=ba1393653#ba1393653b7b819eb7332215d1958101abb95b58"
 dependencies = [
  "topcoat",
 ]
@@ -4199,7 +4199,7 @@ dependencies = [
 [[package]]
 name = "tablo-core"
 version = "0.8.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=1582fddcf#1582fddcf97fd129c7f7900fc5d382fd8ec6f2ca"
+source = "git+https://github.com/y-l-g/tablo.git?rev=ba1393653#ba1393653b7b819eb7332215d1958101abb95b58"
 dependencies = [
  "aes-gcm 0.11.1",
  "ammonia",
@@ -4241,7 +4241,7 @@ dependencies = [
 [[package]]
 name = "tablo-macros"
 version = "0.8.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=1582fddcf#1582fddcf97fd129c7f7900fc5d382fd8ec6f2ca"
+source = "git+https://github.com/y-l-g/tablo.git?rev=ba1393653#ba1393653b7b819eb7332215d1958101abb95b58"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -4280,7 +4280,7 @@ dependencies = [
 [[package]]
 name = "tablo-test"
 version = "0.8.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=1582fddcf#1582fddcf97fd129c7f7900fc5d382fd8ec6f2ca"
+source = "git+https://github.com/y-l-g/tablo.git?rev=ba1393653#ba1393653b7b819eb7332215d1958101abb95b58"
 dependencies = [
  "data-encoding",
  "form_urlencoded",
@@ -4299,7 +4299,7 @@ dependencies = [
 [[package]]
 name = "tablo-ui"
 version = "0.8.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=1582fddcf#1582fddcf97fd129c7f7900fc5d382fd8ec6f2ca"
+source = "git+https://github.com/y-l-g/tablo.git?rev=ba1393653#ba1393653b7b819eb7332215d1958101abb95b58"
 dependencies = [
  "topcoat",
 ]

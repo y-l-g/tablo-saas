@@ -1,7 +1,7 @@
 //! The team's billing page.
 
 use jiff::Timestamp;
-use tablo::{Page, PageDef, csrf, db::db, tenant_id, ui};
+use tablo::{Currency, Page, PageDef, csrf, db::db, tenant_id, ui};
 use topcoat::{
     Result,
     context::{Cx, context},
@@ -19,14 +19,27 @@ use crate::teams::{Member, TeamRole, current_role, may_manage_members};
 /// Where the page lives: in the team's settings.
 pub const URL: &str = "/app/settings/billing";
 
-/// A minor-unit amount, as a person reads it.
-pub fn money(amount: i64, currency: &str) -> String {
-    format!(
-        "{}.{:02} {}",
-        amount / 100,
-        amount.abs() % 100,
-        currency.to_uppercase()
-    )
+/// A minor-unit amount of the ISO `currency`, as the reader's locale spells it: `€19.00`, or
+/// `19,00 €` in French. A currency Tablo has no symbol for keeps its code.
+pub fn money(cx: &Cx, amount: i64, currency: &str) -> String {
+    let currency = match currency.to_ascii_lowercase().as_str() {
+        "eur" => Currency::EUR,
+        "usd" => Currency::USD,
+        "gbp" => Currency::GBP,
+        // Stripe counts yen in yen: a zero-decimal currency has no minor unit to divide by.
+        "jpy" => Currency::JPY,
+        _ => {
+            let sign = if amount < 0 { "-" } else { "" };
+            let amount = amount.unsigned_abs();
+            return format!(
+                "{sign}{}.{:02} {}",
+                amount / 100,
+                amount % 100,
+                currency.to_uppercase()
+            );
+        }
+    };
+    currency.minor_units().format_in(cx, amount)
 }
 
 /// A plan's name.
@@ -174,7 +187,7 @@ fn plan_cards<'a>(cx: &'a Cx, token: &str) -> BoxView<'a> {
                                             ui::card_description((tablo::t!(
                                                 cx,
                                                 "billing-per-seat",
-                                                price = money(plan.monthly_amount, CURRENCY)
+                                                price = money(cx, plan.monthly_amount, CURRENCY)
                                             )))
                                         )
                                         ui::card_content(
@@ -191,7 +204,7 @@ fn plan_cards<'a>(cx: &'a Cx, token: &str) -> BoxView<'a> {
                                                                 tablo::t!(
                                                                     cx,
                                                                     "billing-choose-yearly",
-                                                                    price = money(plan.yearly_amount, CURRENCY)
+                                                                    price = money(cx, plan.yearly_amount, CURRENCY)
                                                                 )
                                                             })
                                                         </button>
@@ -216,7 +229,7 @@ fn invoice_list(cx: &Cx, invoices: Vec<Invoice>) -> BoxView<'_> {
                                         for invoice in invoices {
                                             <li class="flex justify-between gap-4">
                                                 <span>(invoice.number.clone().unwrap_or_default())</span>
-                                                <span>(money(invoice.total, &invoice.currency))</span>
+                                                <span>(money(cx, invoice.total, &invoice.currency))</span>
                                                 if let Some(url) = invoice.hosted_invoice_url.clone() {
                                                     <a href=(url) class="underline" rel="noopener">
                                                         (tablo::t!(cx, "billing-invoice-open"))
