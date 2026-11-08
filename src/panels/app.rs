@@ -14,7 +14,7 @@ use topcoat::{
 };
 
 use crate::accounts::{AccountResetter, AccountVerifier, Accounts, SignedIn};
-use crate::audit::{AuditResource, TeamAudit};
+use crate::audit;
 use crate::billing::{BILLING_URL, BillingPage, plan_name, standing_notice};
 use crate::platform::config::Config;
 use crate::projects::{Project, ProjectResource};
@@ -31,7 +31,7 @@ pub fn app_panel(config: &Config) -> Panel {
         .content_security_policy(super::content_security_policy(config.dev_server.as_deref()))
         .auth(auth(config))
         .notifications()
-        .before_commit::<TeamAudit>()
+        .audit_log(audit::team_trail)
         .home::<Home>()
         .resource::<ProjectResource>()
         .area(settings())
@@ -59,7 +59,6 @@ fn settings() -> Area {
                 .resource::<MemberResource>()
                 .resource::<InvitationResource>()
                 .page::<BillingPage>()
-                .resource::<AuditResource>()
         })
 }
 

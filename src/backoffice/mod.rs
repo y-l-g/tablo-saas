@@ -1,5 +1,5 @@
 //! The `admin` panel: where staff see customers and repair what went wrong. Only an account with a
-//! [`StaffRole`] gets in, with a second factor, and every write lands in the staff audit trail.
+//! [`StaffRole`] gets in, with a second factor, and every write lands in the back office's audit log.
 //! Support reads; an administrator also acts.
 
 use jiff::Timestamp;

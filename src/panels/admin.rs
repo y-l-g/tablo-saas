@@ -3,7 +3,7 @@
 use tablo::{Auth, AuthMail, Panel, TwoFactor};
 
 use crate::accounts::{Accounts, SignedIn};
-use crate::audit::{StaffAudit, StaffAuditResource};
+use crate::audit;
 use crate::backoffice::{
     AccountResource, CustomerResource, JobResource, SubscriptionResource, WebhookResource,
 };
@@ -13,13 +13,12 @@ use crate::platform::config::Config;
 pub fn admin_panel(config: &Config) -> Panel {
     super::shared(Panel::new("admin"))
         .auth(auth(config))
-        .before_commit::<StaffAudit>()
+        .audit_log(audit::staff_trail)
         .resource::<CustomerResource>()
         .resource::<AccountResource>()
         .resource::<SubscriptionResource>()
         .resource::<WebhookResource>()
         .resource::<JobResource>()
-        .resource::<StaffAuditResource>()
 }
 
 fn auth(config: &Config) -> Auth<SignedIn> {
