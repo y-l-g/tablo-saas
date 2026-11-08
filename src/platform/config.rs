@@ -16,6 +16,9 @@ pub enum Environment {
 /// The app's settings, from the environment.
 pub struct Config {
     pub environment: Environment,
+    /// The deployment's name, such as `Staging`, which every panel page shows on a ribbon; `None`
+    /// shows none. Production shows none unless `APP_ENVIRONMENT_NAME` names one.
+    pub environment_name: Option<String>,
     /// The URL the app answers on, without a trailing slash, which every mailed link and Stripe
     /// return URL starts with: never derived from a request's `Host` header.
     pub base_url: String,
@@ -113,8 +116,12 @@ impl Config {
             "STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are required in production"
         );
 
+        let environment_name = var("APP_ENVIRONMENT_NAME")
+            .or_else(|| (!production).then(|| "Development".to_string()));
+
         Ok(Self {
             environment,
+            environment_name,
             base_url,
             database_url: var("DATABASE_URL").context("DATABASE_URL is required")?,
             database_pool_size: match var("DATABASE_POOL_SIZE") {
@@ -260,6 +267,7 @@ mod tests {
         )]))
         .expect("loads");
         assert!(config.stripe.is_none());
+        assert_eq!(config.environment_name.as_deref(), Some("Development"));
     }
 
     #[test]
@@ -267,6 +275,10 @@ mod tests {
         let config = Config::load(&environment(&production())).expect("loads");
         assert!(config.is_production());
         assert_eq!(config.base_url, "https://app.example.com");
+        assert_eq!(
+            config.environment_name, None,
+            "production wears no ribbon unless named"
+        );
     }
 
     #[test]

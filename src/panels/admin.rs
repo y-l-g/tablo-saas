@@ -11,7 +11,7 @@ use crate::platform::config::Config;
 
 /// The panel staff use. It has no sign-up: `staff grant` makes staff of an existing account.
 pub fn admin_panel(config: &Config) -> Panel {
-    super::shared(Panel::new("admin"))
+    super::shared(Panel::new("admin"), config)
         .auth(auth(config))
         .audit_log(audit::staff_trail)
         .resource::<CustomerResource>()

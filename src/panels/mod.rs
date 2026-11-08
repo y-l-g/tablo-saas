@@ -8,10 +8,10 @@ pub use admin::admin_panel;
 pub use app::app_panel;
 pub use brand::PRODUCT_NAME;
 
-use tablo::Panel;
+use tablo::{Environment, Panel};
 use topcoat::l10n::locale;
 
-use crate::platform::words;
+use crate::platform::{config::Config, words};
 
 /// Where the billing buttons land. A browser checks `form-action` against a form's redirects too,
 /// so Tablo's default policy stops a form that answers with a redirect to Stripe. A custom checkout
@@ -36,8 +36,13 @@ fn content_security_policy(dev_server: Option<&str>) -> String {
     )
 }
 
-/// What every panel shares: the brand and the languages, the browser choosing between them.
-fn shared(panel: Panel) -> Panel {
+/// What every panel shares: the brand, the deployment's ribbon, and the languages, the browser
+/// choosing between them.
+fn shared(panel: Panel, config: &Config) -> Panel {
+    let panel = match &config.environment_name {
+        Some(name) => panel.environment(Environment::new(name.clone())),
+        None => panel,
+    };
     panel
         .brand(brand::brand())
         .locales([locale!("en"), locale!("fr")])
