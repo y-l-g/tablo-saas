@@ -12,6 +12,7 @@ pub mod jobs;
 mod models;
 mod page;
 mod plans;
+mod portal;
 mod routes;
 pub mod stripe;
 mod sync;

@@ -9,8 +9,8 @@ use stripe::FakeStripe;
 use tablo::{
     PanelHandle,
     testing::{
-        TestClient, authenticator_code, body_string, form_body, response_cookies, test_db,
-        two_factor_secret,
+        TEST_DATABASE_URL, TestClient, authenticator_code, body_string, form_body, migrated_db,
+        response_cookies, test_db, two_factor_secret,
     },
 };
 use tablo_saas::{
@@ -18,7 +18,7 @@ use tablo_saas::{
     background,
     billing::Billing,
     jobs::Worker,
-    platform::config::Config,
+    platform::{config::Config, database},
     router::{App, router},
     teams::{Member, Team, TeamRole, create_team},
 };
@@ -60,8 +60,19 @@ pub async fn billed_harness(stripe: &FakeStripe) -> Harness {
     .await
 }
 
+/// The tables the migrations made, foreign keys and checks included, on the PostgreSQL database
+/// `TABLO_TEST_DATABASE_URL` names. The migrations are PostgreSQL's, so in-memory SQLite gets
+/// the tables pushed from the models instead, without what only a migration states.
+async fn database() -> Db {
+    if std::env::var(TEST_DATABASE_URL).is_ok() {
+        migrated_db(tablo_saas::models(), &database::MIGRATIONS).await
+    } else {
+        test_db(tablo_saas::models()).await
+    }
+}
+
 async fn build(billing: Billing) -> Harness {
-    let db = test_db(tablo_saas::models()).await;
+    let db = database().await;
     let outbox = MemoryTransport::new();
     let config = config();
     let built = router(App {

@@ -1,0 +1,48 @@
+//! The button that opens Stripe's billing portal, where an owner changes the plan, the card or
+//! the seats Stripe bills.
+
+use tablo::{HeaderAction, Outcome, WriteError, tenant_id};
+use topcoat::context::{Cx, context};
+
+use super::{Billing, account_of, page::URL};
+use crate::platform::config::Settings;
+use crate::teams::{TeamRole, current_role};
+
+/// Opens a portal session for the team the session acts for, and lands on it.
+pub struct ManageBilling;
+
+impl HeaderAction for ManageBilling {
+    type Input = ();
+    const NAME: &'static str = "manage-billing";
+
+    fn can_run(cx: &Cx) -> bool {
+        current_role(cx) == Some(TeamRole::Owner) && context::<Billing>(cx).is_enabled()
+    }
+
+    async fn run(
+        cx: &Cx,
+        (): (),
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<Outcome, WriteError<std::convert::Infallible>> {
+        let team =
+            tenant_id(cx).ok_or_else(|| WriteError::declined(tablo::text!("error-no-team")))?;
+        let account = account_of(ex, team).await.map_err(unavailable)?;
+        let Some(account) = account else {
+            return Err(WriteError::declined(tablo::text!(
+                "error-no-billing-account"
+            )));
+        };
+        let settings = context::<Settings>(cx);
+        let url = context::<Billing>(cx)
+            .gateway()
+            .create_portal_session(account.customer_id, format!("{}{URL}", settings.base_url))
+            .await
+            .map_err(unavailable)?;
+        Ok(Outcome::done().redirect_off_site(url))
+    }
+}
+
+fn unavailable(error: impl std::fmt::Display) -> WriteError<std::convert::Infallible> {
+    tracing::error!(%error, "a billing step failed");
+    WriteError::declined(tablo::text!("error-billing-unavailable"))
+}

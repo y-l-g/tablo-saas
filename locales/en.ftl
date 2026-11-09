@@ -29,16 +29,12 @@ invitations-waiting = { $count ->
 
 ## Tablo's tenants, which this app calls teams
 
-tablo-shell-tenants = Teams
-tablo-shell-switch-tenant = Switch team
-tablo-shell-select-tenant = Select a team
-tablo-shell-tenant-settings = Team settings
-tablo-shell-create-tenant = Create team
-tablo-tenant-saved = Team saved
-tablo-tenant-created = Team created
-tablo-tenant-create-title = Create a team
-tablo-tenant-create-first = Create the team you work in on { $brand }.
-tablo-tenant-create-another = Create another team to work in on { $brand }.
+-tenant = { $form ->
+   *[lower] team
+    [upper] Team
+    [upper-plural] Teams
+    [indefinite] a team
+}
 
 ## Teams
 
@@ -62,7 +58,8 @@ billing-description = Your plan, seats and invoices.
 billing-current = Current plan
 billing-seats = { $used } seats
 billing-seats-limited = { $used } of { $limit } seats
-billing-manage = Manage billing
+error-no-billing-account = This team has no billing account yet. Choose a plan first.
+error-billing-unavailable = Billing is unavailable right now. Try again in a minute.
 billing-off = Billing isn't configured on this server. Set the STRIPE_ variables to turn it on.
 billing-per-seat = { $price } per seat per month
 billing-choose-monthly = Choose monthly
@@ -134,6 +131,7 @@ field-actor = Who
 field-at = When
 field-resource = What
 field-change = Change
+action-manage-billing = Manage billing
 action-invite = Invite someone
 action-change-role = Change role
 action-remove = Remove

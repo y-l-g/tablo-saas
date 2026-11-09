@@ -14,9 +14,8 @@ use crate::accounts::{SignedIn, StaffRole};
 use crate::billing::Feature;
 use crate::teams::{current_entitlements, may_manage_members};
 
-/// The team's trail, for those who manage it on a plan that includes it. It sits in the sidebar
-/// rather than the team's settings: `Panel::audit_log` registers its resource on the panel, and a
-/// panel mounts a resource type once.
+/// The team's trail, for those who manage it on a plan that includes it. The app panel places it
+/// in the team's settings, beside members and billing.
 pub fn team_trail(def: ResourceDef<AuditLog>) -> ResourceDef<AuditLog> {
     def.icon(iconify_icon!("lucide:rotate-ccw-clock"))
         .policy(ReadOnly.and(when(reads_the_trail)))

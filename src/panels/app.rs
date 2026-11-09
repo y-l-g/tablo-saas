@@ -27,8 +27,7 @@ use crate::teams::{
 
 /// The panel customers use.
 pub fn app_panel(config: &Config) -> Panel {
-    super::shared(Panel::new("app"), config)
-        .content_security_policy(super::content_security_policy(config.dev_server.as_deref()))
+    super::lands_on_stripe(super::shared(Panel::new("app"), config))
         .auth(auth(config))
         .notifications()
         .audit_log(audit::team_trail)
@@ -59,6 +58,7 @@ fn settings() -> Area {
                 .resource::<MemberResource>()
                 .resource::<InvitationResource>()
                 .page::<BillingPage>()
+                .audit_log()
         })
 }
 

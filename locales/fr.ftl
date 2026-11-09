@@ -28,16 +28,17 @@ invitations-waiting = { $count ->
 
 ## Les tenants de Tablo, que cette application appelle équipes
 
-tablo-shell-tenants = Équipes
-tablo-shell-switch-tenant = Changer d'équipe
-tablo-shell-select-tenant = Choisir une équipe
-tablo-shell-tenant-settings = Paramètres de l'équipe
-tablo-shell-create-tenant = Créer une équipe
-tablo-tenant-saved = Équipe enregistrée
-tablo-tenant-created = Équipe créée
-tablo-tenant-create-title = Créer une équipe
-tablo-tenant-create-first = Créez l'équipe dans laquelle vous travaillez sur { $brand }.
-tablo-tenant-create-another = Créez une autre équipe dans laquelle travailler sur { $brand }.
+-tenant = { $form ->
+   *[lower] équipe
+    [upper] Équipe
+    [upper-plural] Équipes
+    [indefinite] une équipe
+    [definite] l'équipe
+    [of] d'équipe
+    [of-definite] de l'équipe
+    [another] une autre équipe
+}
+    .gender = feminine
 
 ## Équipes
 
@@ -61,7 +62,8 @@ billing-description = Votre offre, vos sièges et vos factures.
 billing-current = Offre actuelle
 billing-seats = { $used } sièges
 billing-seats-limited = { $used } sièges sur { $limit }
-billing-manage = Gérer la facturation
+error-no-billing-account = Cette équipe n'a pas encore de compte de facturation. Choisissez d'abord une offre.
+error-billing-unavailable = La facturation est indisponible pour le moment. Réessayez dans une minute.
 billing-off = La facturation n'est pas configurée sur ce serveur. Renseignez les variables STRIPE_ pour l'activer.
 billing-per-seat = { $price } par siège et par mois
 billing-choose-monthly = Choisir le mensuel
@@ -132,6 +134,7 @@ field-actor = Qui
 field-at = Quand
 field-resource = Quoi
 field-change = Modification
+action-manage-billing = Gérer la facturation
 action-invite = Inviter quelqu'un
 action-change-role = Changer le rôle
 action-remove = Retirer

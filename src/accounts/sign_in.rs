@@ -6,7 +6,7 @@ use tablo::{
     auth::{hash_password, new_password_errors, verify_password},
     db::db,
 };
-use topcoat::context::Cx;
+use topcoat::{context::Cx, l10n::Locale};
 
 use super::{User, normalize_email};
 use crate::billing::{BillingAccount, Entitlements};
@@ -59,6 +59,11 @@ impl PanelUser for SignedIn {
 
     fn tenants(&self) -> &[Membership] {
         &self.teams
+    }
+
+    /// The language the user picked, which their pages and the mail a job sends them read.
+    fn locale(&self) -> Option<Locale> {
+        self.user.language()
     }
 }
 
@@ -146,6 +151,16 @@ impl Authenticator for Accounts {
             Some(user) => Ok(Some(Self::signed_in(user, &mut handle).await?)),
             None => Ok(None),
         }
+    }
+
+    /// Keeps the language picked from the menu on the account, for every browser and for mail.
+    async fn store_locale(&self, cx: &Cx, user: &SignedIn, locale: &Locale) -> topcoat::Result<()> {
+        User::filter_by_id(user.user.id)
+            .update()
+            .locale(Some(locale.to_string()))
+            .exec(&mut db(cx)?)
+            .await?;
+        Ok(())
     }
 }
 

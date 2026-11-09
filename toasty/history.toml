@@ -44,3 +44,8 @@ snapshot_name = "0007_snapshot.toml"
 id = 2556402830766028722
 name = "0008_tablo_audit_log.sql"
 snapshot_name = "0008_snapshot.toml"
+
+[[migrations]]
+id = 7521177065009830741
+name = "0009_user_locale.sql"
+snapshot_name = "0009_snapshot.toml"

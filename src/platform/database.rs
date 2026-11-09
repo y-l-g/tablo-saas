@@ -7,8 +7,8 @@ use toasty::{Db, migration::MigrationSet};
 use super::config::Config;
 
 /// The SQL files `cargo toasty migration generate` wrote, compiled in, so a deployed image needs
-/// nothing beside its binary to bring a database up to date.
-static MIGRATIONS: MigrationSet = toasty::embed_migrations!();
+/// nothing beside its binary to bring a database up to date. They are PostgreSQL's dialect.
+pub static MIGRATIONS: MigrationSet = toasty::embed_migrations!();
 
 /// Connects the pool the whole process shares. A checkout that waits more than a few seconds fails
 /// the request rather than queueing it behind an exhausted pool.

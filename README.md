@@ -22,11 +22,11 @@ keep the rest.
   teams, subscriptions, webhook events and jobs, with the filters support reaches for, and an audit
   log of what staff did.
 - **Audit logs** from Tablo, written in each write's transaction with the fields it changed: a
-  team's own, on the Business plan, and the back office's, for administrators.
+  team's own, in its settings on the Business plan, and the back office's, for administrators.
 - **Public pages.** A home page, pricing rendered from the plan catalog, a sitemap and `robots.txt`.
 - **Production defaults.** One image for every role, JSON logs, `/healthz` and `/readyz`, graceful
-  shutdown, a configuration that refuses to start on a missing secret, English and French, prices
-  in the reader's locale, and a ribbon naming any deployment but production
+  shutdown, a configuration that refuses to start on a missing secret, English and French, with
+  each account's pick kept for the mail it is sent, prices in the reader's locale, and a ribbon naming any deployment but production
   (`APP_ENVIRONMENT_NAME`).
 
 ## Run it
@@ -138,7 +138,8 @@ may only switch to a team they belong to. Code outside a resource goes through `
 2. Set plans and limits in `src/billing/plans.rs`, then run `billing sync-catalog`.
 3. Replace `src/projects/` with your product. Copy its shape: a model with `team_id`, a resource
    with `Tenancy` and a policy, and a limit from `Entitlements`.
-4. Add a language by writing `locales/<code>.ftl` and listing it in `src/panels/mod.rs`.
+4. Add a language by writing `locales/<code>.ftl` and listing it in `src/panels/mod.rs`. Its
+   `-tenant` term names a team in every message of Tablo's.
 5. Add background work with a type that implements `Job`, registered in `src/background.rs`.
 
 ## Deploy

@@ -34,23 +34,23 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_urlencoded = "0.7"
 sha2 = "0.10"
-tablo = { git = "https://github.com/y-l-g/tablo.git", rev = "ba1393653", features = ["sqlite", "postgresql"] }
+tablo = { git = "https://github.com/y-l-g/tablo.git", rev = "7b4036120", features = ["sqlite", "postgresql"] }
 thiserror = "2"
 toasty = { version = "0.11", features = ["jiff", "migration", "postgresql", "serde", "sqlite"] }
 toasty-cli = { version = "0.11", optional = true }
 tokio = { version = "1", features = ["fs", "macros", "rt-multi-thread", "signal", "time"] }
-topcoat = { version = "0.11", features = ["asset", "font", "font-fontsource", "l10n-fluent", "mail", "mail-smtp", "multipart", "runtime", "serve", "tailwind"] }
+topcoat = { version = "0.12", features = ["asset", "font", "font-fontsource", "l10n-fluent", "mail", "mail-smtp", "multipart", "runtime", "serve", "tailwind"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 uuid = { version = "1.23", features = ["serde", "v4", "v7"] }
 
 [dev-dependencies]
 http = "1"
-tablo = { git = "https://github.com/y-l-g/tablo.git", rev = "ba1393653", features = ["testing"] }
+tablo = { git = "https://github.com/y-l-g/tablo.git", rev = "7b4036120", features = ["testing"] }
 
 [build-dependencies]
-tablo-build = { git = "https://github.com/y-l-g/tablo.git", rev = "ba1393653" }
-topcoat = { version = "0.11", features = ["icon-iconify"] }
+tablo-build = { git = "https://github.com/y-l-g/tablo.git", rev = "7b4036120" }
+topcoat = { version = "0.12", features = ["icon-iconify"] }
 
 [lints.rust]
 unsafe_code = "forbid"
@@ -72,20 +72,3 @@ codegen-units = 4
 lto = "thin"
 strip = "debuginfo"
 
-# Topcoat's `main` at the commit Tablo builds against, ahead of its next release. Cargo reads
-# `[patch]` only from the root manifest, so Tablo's own patch does not reach this build. Drop this
-# section once Topcoat releases and Tablo's dependency moves on.
-[patch.crates-io]
-topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-asset = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-cookie = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-core = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-font = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-icon = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-l10n = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-mail = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-router = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-runtime = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-session = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-tailwind = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-view = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }

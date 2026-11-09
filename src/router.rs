@@ -5,7 +5,7 @@ use toasty::Db;
 use topcoat::{
     asset::{AssetBundle, RouterBuilderAssetExt},
     font::{Font, fontsource::fontsource_font},
-    mail::{MailConfig, RouterBuilderMailExt, Transport},
+    mail::{Mailer, Transport},
     router::{Router, RouterBuilderDiscoverExt, TrustedProxies},
     tailwind,
 };
@@ -51,7 +51,7 @@ pub fn router<T: Transport + 'static>(app: App<'_, T>) -> topcoat::Result<Built>
         .with(Https(config.base_url.starts_with("https://")))
         .with(config.settings())
         .with(billing)
-        .mail(MailConfig::builder().transport(mail).build());
+        .with(Mailer::new(mail));
     if !config.trusted_proxies.is_empty() {
         builder =
             builder.trusted_proxies(TrustedProxies::new().networks(config.trusted_proxies.clone()));
