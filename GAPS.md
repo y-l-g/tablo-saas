@@ -20,7 +20,6 @@ When a gap closes, delete its row along with the workaround.
 | Billing primitives | Tablo | Every SaaS rebuilds plans, entitlements and a Stripe mirror | `src/billing`, which is written to be lifted out |
 | A Stripe client that fits | Ecosystem | `async-stripe` was mid-rewrite at 1.0 alpha, and its generated surface is far larger than the dozen calls used here | `src/billing/stripe`: a thin client on `reqwest`, pinned to one API version, behind the `Gateway` trait |
 | `Outcome::redirect` to another origin | Tablo | Checkout and the portal live on stripe.com, so they cannot be actions: `redirect` takes a same-origin path, and anything else lands back on the page after the write has committed | Plain POST routes guarded by `tablo::csrf`, rendered as forms on the billing page |
-| Appending to the content security policy | Tablo | `form-action 'self'` stops a browser following a form's redirect to Stripe. Adding one origin means replacing the whole policy | `panels::content_security_policy` rewrites `DEFAULT_CONTENT_SECURITY_POLICY` by string replacement, and has to repeat what `topcoat dev` adds for the dev server |
 | Async policies | Tablo | Abilities are synchronous, but what a plan allows lives in a database | `Accounts` preloads each seat's `Entitlements` with the session, so a policy reads them from the context |
 | A global banner slot | Tablo | "Your payment failed" belongs on every page, not on one | Shown on the billing page, plus a mail |
 

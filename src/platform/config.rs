@@ -32,8 +32,6 @@ pub struct Config {
     pub mail: MailSettings,
     /// `None` runs the app with billing off, which production refuses.
     pub stripe: Option<StripeSettings>,
-    /// The `topcoat dev` server, whose live reload the panels' policy must allow.
-    pub dev_server: Option<String>,
 }
 
 /// How the app reaches Stripe.
@@ -135,7 +133,6 @@ impl Config {
                 .unwrap_or_default(),
             mail,
             stripe,
-            dev_server: var("TOPCOAT_DEV_URL").filter(|_| !production),
         })
     }
 
