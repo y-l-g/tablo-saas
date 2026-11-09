@@ -6,7 +6,7 @@ use anyhow::Context;
 use topcoat::{
     context::{Cx, context},
     mail::{Mail, Mailbox, Receipt, SmtpTransport, Transport, TransportFuture, send},
-    view::{ViewExt, view},
+    view::view,
 };
 
 use super::config::{Settings, Smtp};
@@ -91,16 +91,15 @@ pub async fn send_message(cx: &Cx, message: Message<'_>) -> anyhow::Result<()> {
                 </a>
             </p>
         </div>
-    }
-    .single()
-    .await
-    .map_err(|error| anyhow::anyhow!("{error:#}"))?;
+    };
     let mail = Mail::builder()
         .from(from)
         .to([to])
         .subject(subject)
-        .html(html)
-        .build();
+        .html(cx, html)
+        .await
+        .map_err(|error| anyhow::anyhow!("{error:#}"))?
+        .build()?;
     send(cx, mail)
         .await
         .map_err(|error| anyhow::anyhow!("{error:#}"))?;

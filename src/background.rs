@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use tablo::PanelHandle;
 use toasty::Db;
-use topcoat::mail::{MailConfig, Transport};
+use topcoat::mail::{Mailer, Transport};
 
 use crate::billing::{
     Billing,
@@ -69,6 +69,6 @@ pub fn worker<T: Transport + Clone + Send + Sync + 'static>(
             .context()
             .with(settings.clone())
             .with(billing.clone())
-            .with(MailConfig::builder().transport(mail.clone()).build())
+            .with(Mailer::new(mail.clone()))
     })
 }
