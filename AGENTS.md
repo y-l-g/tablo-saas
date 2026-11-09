@@ -33,8 +33,8 @@ cli → router → panels → domains → platform
   the `Gateway` trait, so tests use the fake in `tests/support/stripe.rs`.
 - `Entitlements` alone decides what a plan allows. `BillingAccount.plan` is for display.
 - A write and the job it implies share a transaction: pass it to `enqueue(..).exec(tx)`.
-- A job's words come from `platform::words::job_text`, never `tablo::t!`, which renders the raw id
-  outside a request. Assert on the exact text of a mail.
+- A job writes in its reader's language: `platform::words::for_reader(cx, user.language())`, then
+  `tablo::t!`. Assert on the exact text of a mail.
 - A relation column on a resource the viewer cannot list renders "—". Assert on a row's text, not
   on the status, and not on the page: the sidebar shows the signed-in name.
 

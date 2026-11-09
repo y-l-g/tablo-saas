@@ -6,11 +6,12 @@ use tablo::db::db;
 use topcoat::context::{Cx, context};
 
 use super::{Invitation, invitations::INCOMING_URL};
+use crate::accounts::User;
 use crate::jobs::Job;
 use crate::platform::{
     config::Settings,
     mail::{Message, send_message},
-    words::job_text,
+    words::for_reader,
 };
 
 /// Mails the invitee a link to their invitations. It names the row, not its contents, so a revoked
@@ -32,6 +33,12 @@ impl Job for SendInvitation {
         else {
             return Ok(());
         };
+        // An invitee who already has an account reads it in their language.
+        let account = User::filter(User::fields().email().eq(invitation.email.clone()))
+            .first()
+            .exec(&mut handle)
+            .await?;
+        let cx = &for_reader(cx, account.as_ref().and_then(User::language));
         let team = invitation.team_name.as_str();
         let inviter = invitation.invited_by.as_str();
         let url = format!("{}{INCOMING_URL}", context::<Settings>(cx).base_url);
@@ -39,13 +46,10 @@ impl Job for SendInvitation {
             cx,
             Message {
                 to: &invitation.email,
-                subject: &job_text("mail-invitation-subject", &[("team", team.into())])?,
-                title: &job_text("mail-invitation-title", &[("team", team.into())])?,
-                body: &job_text(
-                    "mail-invitation-body",
-                    &[("inviter", inviter.into()), ("team", team.into())],
-                )?,
-                action: &job_text("mail-invitation-action", &[])?,
+                subject: &tablo::t!(cx, "mail-invitation-subject", team = team),
+                title: &tablo::t!(cx, "mail-invitation-title", team = team),
+                body: &tablo::t!(cx, "mail-invitation-body", inviter = inviter, team = team),
+                action: &tablo::t!(cx, "mail-invitation-action"),
                 url: &url,
             },
         )

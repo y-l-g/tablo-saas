@@ -79,6 +79,27 @@ async fn a_sign_up_owns_a_personal_team() {
     assert_eq!(members[0].role, TeamRole::Owner);
 }
 
+/// The language an account picks from the menu is kept on it, so the mail a job sends it later
+/// reads that language rather than the panels' default.
+#[tokio::test]
+async fn an_invitation_reads_the_language_the_invitee_picked() {
+    let mut harness = harness().await;
+    let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
+    let (grace, personal) = person(&harness.db, "Grace", "grace@example.com").await;
+
+    let picked = client_for(&harness, &grace, &personal)
+        .await
+        .submit("/app/locale", &form_body(&[("locale", "fr")]))
+        .await;
+    assert_eq!(picked.status(), StatusCode::SEE_OTHER);
+
+    let client = client_for(&harness, &ada, &team).await;
+    invite(&client, "grace@example.com", "member").await;
+    harness.run_jobs().await;
+    let sent = harness.mail(1).await;
+    assert_eq!(sent[0].subject(), format!("Rejoignez {}", team.name));
+}
+
 #[tokio::test]
 async fn an_invitation_is_mailed_by_a_job_and_accepted_by_the_invited_account() {
     let mut harness = harness().await;

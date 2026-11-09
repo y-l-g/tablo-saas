@@ -29,9 +29,7 @@ When a gap closes, delete its row along with the workaround.
 | --- | --- | --- | --- |
 | Jobs and schedules | Tablo, Topcoat | Webhooks, mail, reconciliation and pruning all need durable work | `src/jobs`: a Postgres queue with lanes, dedupe, retries, a transactional outbox and recurring schedules |
 | `SELECT … FOR UPDATE SKIP LOCKED` | Toasty | The standard way to claim a job. Toasty takes locks inside its engine and exposes no lock clause on a query | A compare-and-swap on `#[version]`. Correct, but workers contend under load |
-| A recipient's locale in a job | Tablo | `PanelUser::locale` chooses a mail's language, but the language menu keeps its choice in a cookie, so an account has no stored language unless the app adds one | Job mail goes out in English, the panels' default. Auth mail, sent during the request, follows the browser |
 | Durable auth mail | Tablo | Verification and reset mail leaves in a `tokio::spawn` after the response. A crash or an SMTP outage loses it | `Postbox` retries three times. The person can ask for the mail again |
-| Translations outside a request | Tablo | `PanelHandle::context` promises what a job needs, but the catalog lookup is crate-private and only the router's context holds it. `PanelHandle::enter` does not help. `t!` then renders the raw id with no warning, and a mail went out with the subject `mail-invitation-subject` | `platform::words` parses the same `.ftl` files with Topcoat's `Catalog`, and fails the job on a missing id. The bidi isolates Fluent adds are stripped by hand |
 
 ## Data
 

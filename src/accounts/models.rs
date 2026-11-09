@@ -2,6 +2,7 @@
 
 use jiff::Timestamp;
 use toasty::Deferred;
+use topcoat::l10n::Locale;
 
 use crate::teams::Member;
 
@@ -23,12 +24,22 @@ pub struct User {
     /// What the account does as staff, which opens the back office. Sign-up writes none: only
     /// the `staff` command hands roles out, so no page can make an administrator.
     pub staff_role: Option<StaffRole>,
+    /// The language picked from a panel's language menu, such as `fr`. None until a pick: pages
+    /// then follow the browser, and mail the panels' default.
+    pub locale: Option<String>,
     #[default(Timestamp::now())]
     pub created_at: Timestamp,
     #[update(Timestamp::now())]
     pub updated_at: Timestamp,
     #[has_many(pair = user)]
     pub memberships: Deferred<Vec<Member>>,
+}
+
+impl User {
+    /// The language the user picked, which their pages and mail read.
+    pub fn language(&self) -> Option<Locale> {
+        self.locale.as_deref()?.parse().ok()
+    }
 }
 
 /// What a member of staff may do in the back office.
