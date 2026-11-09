@@ -138,7 +138,8 @@ may only switch to a team they belong to. Code outside a resource goes through `
 2. Set plans and limits in `src/billing/plans.rs`, then run `billing sync-catalog`.
 3. Replace `src/projects/` with your product. Copy its shape: a model with `team_id`, a resource
    with `Tenancy` and a policy, and a limit from `Entitlements`.
-4. Add a language by writing `locales/<code>.ftl` and listing it in `src/panels/mod.rs`.
+4. Add a language by writing `locales/<code>.ftl` and listing it in `src/panels/mod.rs`. Its
+   `-tenant` term names a team in every message of Tablo's.
 5. Add background work with a type that implements `Job`, registered in `src/background.rs`.
 
 ## Deploy
