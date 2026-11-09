@@ -28,16 +28,17 @@ invitations-waiting = { $count ->
 
 ## Les tenants de Tablo, que cette application appelle équipes
 
-tablo-shell-tenants = Équipes
-tablo-shell-switch-tenant = Changer d'équipe
-tablo-shell-select-tenant = Choisir une équipe
-tablo-shell-tenant-settings = Paramètres de l'équipe
-tablo-shell-create-tenant = Créer une équipe
-tablo-tenant-saved = Équipe enregistrée
-tablo-tenant-created = Équipe créée
-tablo-tenant-create-title = Créer une équipe
-tablo-tenant-create-first = Créez l'équipe dans laquelle vous travaillez sur { $brand }.
-tablo-tenant-create-another = Créez une autre équipe dans laquelle travailler sur { $brand }.
+-tenant = { $form ->
+   *[lower] équipe
+    [upper] Équipe
+    [upper-plural] Équipes
+    [indefinite] une équipe
+    [definite] l'équipe
+    [of] d'équipe
+    [of-definite] de l'équipe
+    [another] une autre équipe
+}
+    .gender = feminine
 
 ## Équipes
 

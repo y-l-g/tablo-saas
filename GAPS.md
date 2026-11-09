@@ -12,7 +12,6 @@ When a gap closes, delete its row along with the workaround.
 | SSO (SAML, OIDC per tenant) and SCIM | Tablo | Often a condition of an enterprise contract | Not offered: `Auth::external` lets a host app sign a panel's users in, but holds for a whole panel, not per tenant, and the protocols stay the app's. `Feature` is the place to gate it once it exists |
 | Passkeys and magic links | Tablo | Phishing-resistant sign-in, and fewer password resets | TOTP and email codes, required for staff |
 | Impersonation | Tablo | Support needs to see what a customer sees, with an audit trail | Not offered yet. Tablo's `Auth::impersonation` acts as another user of the same panel, but staff work in `/admin` and customers in `/app`, and the shipped `Impersonate` action needs a resource over the panel's user type, which `SignedIn` is not. Offering it means a staff-only page in `/app` posting to `/app/impersonate`, with `across_tenants` and the actor's second factor required there too |
-| A word for the tenant | Tablo | Customers know a team, not a tenant, but Tablo's shell and tenant flashes say "tenant" in a dozen messages | `locales/*.ftl` override each `tablo-shell-*tenant*` and `tablo-tenant-*` message that names it. A message Tablo adds later says "tenant" until it is overridden too |
 
 ## Billing
 

@@ -29,16 +29,12 @@ invitations-waiting = { $count ->
 
 ## Tablo's tenants, which this app calls teams
 
-tablo-shell-tenants = Teams
-tablo-shell-switch-tenant = Switch team
-tablo-shell-select-tenant = Select a team
-tablo-shell-tenant-settings = Team settings
-tablo-shell-create-tenant = Create team
-tablo-tenant-saved = Team saved
-tablo-tenant-created = Team created
-tablo-tenant-create-title = Create a team
-tablo-tenant-create-first = Create the team you work in on { $brand }.
-tablo-tenant-create-another = Create another team to work in on { $brand }.
+-tenant = { $form ->
+   *[lower] team
+    [upper] Team
+    [upper-plural] Teams
+    [indefinite] a team
+}
 
 ## Teams
 
