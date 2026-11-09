@@ -12,7 +12,7 @@ use topcoat::{
 
 use super::{
     Billing, BillingInterval, CURRENCY, Entitlements, Plan, PlanId, Standing, account_of,
-    refresh_customer, stripe::Invoice,
+    portal::ManageBilling, refresh_customer, stripe::Invoice,
 };
 use crate::teams::{Member, TeamRole, current_role, may_manage_members};
 
@@ -73,6 +73,7 @@ impl Page for BillingPage {
             .label(tablo::text!("page-billing"))
             .icon(iconify_icon!("lucide:credit-card"))
             .access(may_manage_members)
+            .header_action::<ManageBilling>()
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
@@ -115,7 +116,6 @@ impl Page for BillingPage {
             .as_ref()
             .is_some_and(|account| !account.status.is_ended());
         let can_buy = is_owner && billing.is_enabled() && !subscribed;
-        let can_manage = is_owner && billing.is_enabled() && account.is_some();
         let token = csrf::ensure_token(cx);
         let notice = standing_notice(cx, entitlements.standing);
         let current = plan_name(cx, entitlements.plan.id);
@@ -123,7 +123,6 @@ impl Page for BillingPage {
             Some(limit) => tablo::t!(cx, "billing-seats-limited", used = seats, limit = limit),
             None => tablo::t!(cx, "billing-seats", used = seats),
         };
-        let outline = ui::button_variants(ui::ButtonVariant::Outline, ui::ButtonSize::Md);
         Ok(view! {
             ui::page(
                 ui::page_header(
@@ -143,17 +142,7 @@ impl Page for BillingPage {
                                 ui::card_description((seat_line))
                             )
                             ui::card_content(
-                                <div class="flex items-center justify-between gap-4">
-                                    <p class="text-lg font-semibold" data-billing-plan="">(current)</p>
-                                    if can_manage {
-                                        <form method="post" action="/app/settings/billing/portal">
-                                            (csrf::field(cx, &token))
-                                            <button type="submit" class=(outline.clone())>
-                                                (tablo::t!(cx, "billing-manage"))
-                                            </button>
-                                        </form>
-                                    }
-                                </div>
+                                <p class="text-lg font-semibold" data-billing-plan="">(current)</p>
                             )
                         )
                         if !billing.is_enabled() {

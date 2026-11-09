@@ -1,5 +1,6 @@
-//! The two buttons that leave for Stripe. They are plain routes, not Tablo actions: an action's
-//! outcome redirects within the app, and Checkout and the portal are on Stripe's domain.
+//! The plan cards' buttons, which leave for Stripe Checkout. They are a plain route, not a Tablo
+//! action: an action renders its own button, in a page's header or a row, and asks for its input
+//! in a dialog, where each card's button carries its plan and interval.
 
 use serde::Deserialize;
 use tablo::{auth, csrf, db::db, tenant_id};
@@ -32,11 +33,6 @@ struct CheckoutForm {
     csrf_token: Option<String>,
     plan: String,
     interval: String,
-}
-
-#[derive(Deserialize)]
-struct PortalForm {
-    csrf_token: Option<String>,
 }
 
 /// Lets the request through when it comes from the team's owner and carries the form's token.
@@ -112,27 +108,6 @@ async fn checkout(cx: &Cx, body: Body) -> Result<Response> {
             success_url: format!("{}{URL}?checkout=success", settings.base_url),
             cancel_url: format!("{}{URL}", settings.base_url),
         })
-        .await
-        .map_err(unavailable)?;
-    see_other(url).into_response(cx)
-}
-
-#[route(POST "/app/settings/billing/portal")]
-async fn portal(cx: &Cx, body: Body) -> Result<Response> {
-    let form: PortalForm = parse(body).await?;
-    owner(cx, form.csrf_token.as_deref())?;
-    let team = tenant_id(cx).ok_or_else(forbidden)?;
-    let mut handle = db(cx)?;
-    let Some(account) = super::account_of(&mut handle, team)
-        .await
-        .map_err(unavailable)?
-    else {
-        return see_other(URL).into_response(cx);
-    };
-    let settings = context::<Settings>(cx);
-    let url = context::<Billing>(cx)
-        .gateway()
-        .create_portal_session(account.customer_id, format!("{}{URL}", settings.base_url))
         .await
         .map_err(unavailable)?;
     see_other(url).into_response(cx)

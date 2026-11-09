@@ -267,6 +267,72 @@ async fn an_owner_leaves_for_checkout_with_the_team_seat_count() {
     assert_eq!(checkouts[0].team, team.id.to_string());
 }
 
+const MANAGE_BILLING: &str = "/app/settings/billing/-/actions/manage-billing";
+
+#[tokio::test]
+async fn an_owner_leaves_for_the_billing_portal() {
+    let stripe = FakeStripe::default();
+    let harness = billed_harness(&stripe).await;
+    let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
+    account(&harness, &team, "cus_1").await;
+
+    let client = client_for(&harness, &ada, &team).await;
+    let response = client
+        .csrf(CSRF)
+        .post_form(MANAGE_BILLING, form_body(&[("csrf_token", CSRF)]))
+        .await;
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    assert_eq!(
+        response.headers()[LOCATION],
+        "https://billing.stripe.test/session"
+    );
+}
+
+#[tokio::test]
+async fn the_billing_portal_is_the_owner_s_alone() {
+    let stripe = FakeStripe::default();
+    let harness = billed_harness(&stripe).await;
+    let (_, team) = person(&harness.db, "Ada", "ada@example.com").await;
+    let (grace, _) = person(&harness.db, "Grace", "grace@example.com").await;
+    seat(&harness.db, &grace, &team, TeamRole::Admin).await;
+    account(&harness, &team, "cus_1").await;
+
+    let client = client_for(&harness, &grace, &team).await;
+    let response = client
+        .csrf(CSRF)
+        .post_form(MANAGE_BILLING, form_body(&[("csrf_token", CSRF)]))
+        .await;
+    assert!(
+        response
+            .headers()
+            .get(LOCATION)
+            .is_none_or(|location| !location.to_str().unwrap_or_default().contains("stripe")),
+        "{:?}",
+        response.headers()
+    );
+}
+
+#[tokio::test]
+async fn a_team_without_an_account_stays_on_the_billing_page() {
+    let stripe = FakeStripe::default();
+    let harness = billed_harness(&stripe).await;
+    let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
+
+    let client = client_for(&harness, &ada, &team).await;
+    let response = client
+        .csrf(CSRF)
+        .post_form(MANAGE_BILLING, form_body(&[("csrf_token", CSRF)]))
+        .await;
+    let location = response
+        .headers()
+        .get(LOCATION)
+        .map(|value| value.to_str().expect("ascii"));
+    assert!(
+        location.is_none_or(|location| location.starts_with("/app/")),
+        "{location:?}"
+    );
+}
+
 #[tokio::test]
 async fn only_the_owner_reaches_checkout_and_never_without_the_token() {
     let stripe = FakeStripe::default();
