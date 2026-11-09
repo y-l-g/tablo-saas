@@ -56,4 +56,3 @@ When a gap closes, delete its row along with the workaround.
 | A shared sign-in throttle | Tablo | `LoginThrottle` counts in process memory, so N replicas allow N times the attempts, and a restart forgets them | One limit per replica. Set a stricter edge limit on `/app/login` and `/admin/login` |
 | General rate limiting | Topcoat | Webhooks and public pages can be flooded | Left to the reverse proxy |
 | Built-in account deletion and data export | Tablo | GDPR erasure and access requests | Deletion in `src/teams/deletion.rs`, which anonymises the audit trail. Export per resource through Tablo's CSV action; there is no whole-account export |
-| The audit log in an area | Tablo | A team's trail belongs with its settings, beside members and billing | `Panel::audit_log` registers its resource on the panel, and a panel mounts a type once, so the trail has its own sidebar entry, shown only to those who may read it |

@@ -58,6 +58,7 @@ fn settings() -> Area {
                 .resource::<MemberResource>()
                 .resource::<InvitationResource>()
                 .page::<BillingPage>()
+                .audit_log()
         })
 }
 
