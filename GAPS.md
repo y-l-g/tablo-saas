@@ -41,14 +41,6 @@ When a gap closes, delete its row along with the workaround.
 | A tenant column that is a relation | Tablo | `team_id: TenantId` cannot also be a `BelongsTo`, so a row cannot name its team through a relation | Denormalized where it is read, such as `Invitation.team_name` |
 | Database row-level security | Toasty, Tablo | A second wall behind `Tenancy`, in case a query forgets its scope | `Tenancy` on every resource, and `scoped_query` outside them. A test covers each cross-team path |
 
-## Testing
-
-| Gap | Layer | Why a SaaS needs it | Meanwhile |
-| --- | --- | --- | --- |
-| Tests on the migrated schema | Tablo | `test_db` pushes the schema from the models, so hand-written foreign keys are absent. That hid a real bug: an audit row written for a team being deleted | CI applies every migration and checks them against the models. Paths through foreign keys are also run by hand |
-| `TestClient::tenant` that respects membership | Tablo | It injects the tenant directly, so a cross-team test written with it proves nothing | Cross-team tests post to `/app/tenant`, the path a browser takes |
-| A warning from a denied relation column | Tablo | `RelationColumn::of` on a resource the viewer cannot list renders "—" with no error, which passes every status check | `RelationColumn::unscoped`, and a test that reads the row |
-
 ## Platform
 
 | Gap | Layer | Why a SaaS needs it | Meanwhile |
