@@ -6,6 +6,7 @@ use topcoat::context::{Cx, context};
 
 use super::{Billing, account_of, page::URL};
 use crate::platform::config::Settings;
+use crate::support::is_impersonated;
 use crate::teams::{TeamRole, current_role};
 
 /// Opens a portal session for the team the session acts for, and lands on it.
@@ -15,8 +16,11 @@ impl HeaderAction for ManageBilling {
     type Input = ();
     const NAME: &'static str = "manage-billing";
 
+    /// The owner alone, and not staff acting as them: the portal cancels and changes cards.
     fn can_run(cx: &Cx) -> bool {
-        current_role(cx) == Some(TeamRole::Owner) && context::<Billing>(cx).is_enabled()
+        current_role(cx) == Some(TeamRole::Owner)
+            && !is_impersonated(cx)
+            && context::<Billing>(cx).is_enabled()
     }
 
     async fn run(

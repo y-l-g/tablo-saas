@@ -3,7 +3,7 @@
 use jiff::Timestamp;
 use tablo::{
     Authenticator, FieldErrors, Membership, PanelUser, Registrar, TenantId,
-    auth::{hash_password, new_password_errors, verify_password},
+    auth::{AuthFactor, FactorKind, hash_password, new_password_errors, verify_password},
     db::db,
 };
 use topcoat::{context::Cx, l10n::Locale};
@@ -19,6 +19,10 @@ pub struct SignedIn {
     pub user: User,
     pub teams: Vec<Membership>,
     pub seats: Vec<Seat>,
+    /// Whether a member of staff holds a confirmed second factor on the app panel, where acting
+    /// as a customer asks for one. A factor signs in to the one panel that enrolled it, so the
+    /// back office's does not count. Always `false` for a customer, whose rows are not read.
+    pub app_factor: bool,
 }
 
 /// What a user is on one team.
@@ -51,7 +55,7 @@ impl PanelUser for SignedIn {
     /// has a rule here.
     fn can_access_panel(&self, panel: &str) -> bool {
         match panel {
-            "/app" => true,
+            APP_PANEL => true,
             "/admin" => self.user.staff_role.is_some(),
             _ => false,
         }
@@ -66,6 +70,25 @@ impl PanelUser for SignedIn {
         self.user.language()
     }
 }
+
+/// Whether `user` holds a confirmed authenticator or mailed codes on the app panel. A recovery
+/// code alone is what remains of a factor, not one.
+async fn has_app_factor(ex: &mut dyn toasty::Executor, user: uuid::Uuid) -> topcoat::Result<bool> {
+    let factors = AuthFactor::filter(
+        AuthFactor::fields()
+            .user_id()
+            .eq(user.to_string())
+            .and(AuthFactor::fields().panel().eq(APP_PANEL.to_string())),
+    )
+    .exec(ex)
+    .await?;
+    Ok(factors
+        .iter()
+        .any(|factor| factor.confirmed_at.is_some() && factor.kind != FactorKind::RecoveryCode))
+}
+
+/// The prefix of the panel customers use.
+const APP_PANEL: &str = "/app";
 
 /// Reads users and creates them from the sign-up page.
 pub struct Accounts;
@@ -104,7 +127,13 @@ impl Accounts {
                 entitlements: Entitlements::of(account, now),
             });
         }
-        Ok(SignedIn { user, teams, seats })
+        let app_factor = user.staff_role.is_some() && has_app_factor(&mut *ex, user.id).await?;
+        Ok(SignedIn {
+            user,
+            teams,
+            seats,
+            app_factor,
+        })
     }
 
     /// The account `email` signs in as.

@@ -23,6 +23,10 @@ keep the rest.
 - **A back office** at `/admin`, separate from the app, with two-factor required for staff: accounts,
   teams, subscriptions, webhook events and jobs, with the filters support reaches for, and an audit
   log of what staff did.
+- **Acting as a customer.** Staff open Support in `/app` and see a customer's pages as they do, for
+  30 minutes at most, with a second factor on `/app` too. They never act as staff, never reach the
+  customer's credentials, and never move their money. Administrators read every start and stop in
+  the back office.
 - **Audit logs** from Tablo, written in each write's transaction with the fields it changed: a
   team's own, in its settings on the Business plan, and the back office's, for administrators.
 - **Public pages.** A home page, pricing rendered from the plan catalog, a sitemap and `robots.txt`.
@@ -55,6 +59,9 @@ To work on the back office, sign up, then give that account a role:
 ```bash
 cargo run -- staff grant you@example.com --role administrator
 ```
+
+To act as a customer, sign in to `/app` with that account, add a second factor under Security,
+and open Support.
 
 ## Connect Stripe
 
@@ -101,6 +108,7 @@ src/
 ├── audit/       what happened, per team and for staff
 ├── jobs/        the durable queue
 ├── backoffice/  what staff read
+├── support/     staff acting as a customer
 ├── panels/      /app and /admin
 └── site/        the public pages
 ```

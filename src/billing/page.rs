@@ -14,6 +14,7 @@ use super::{
     Billing, BillingInterval, CURRENCY, Entitlements, Plan, PlanId, Standing, account_of,
     portal::ManageBilling, refresh_customer, stripe::Invoice,
 };
+use crate::support::is_impersonated;
 use crate::teams::{Member, TeamRole, current_role, may_manage_members};
 
 /// Where the page lives: in the team's settings.
@@ -115,7 +116,7 @@ impl Page for BillingPage {
         let subscribed = account
             .as_ref()
             .is_some_and(|account| !account.status.is_ended());
-        let can_buy = is_owner && billing.is_enabled() && !subscribed;
+        let can_buy = is_owner && !is_impersonated(cx) && billing.is_enabled() && !subscribed;
         let token = csrf::ensure_token(cx);
         let notice = standing_notice(cx, entitlements.standing);
         let current = plan_name(cx, entitlements.plan.id);

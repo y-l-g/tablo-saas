@@ -5,7 +5,8 @@ use tablo::{Auth, AuthMail, Panel, TwoFactor};
 use crate::accounts::{Accounts, SignedIn};
 use crate::audit;
 use crate::backoffice::{
-    AccountResource, CustomerResource, JobResource, SubscriptionResource, WebhookResource,
+    AccountResource, CustomerResource, ImpersonationResource, JobResource, SubscriptionResource,
+    WebhookResource,
 };
 use crate::platform::config::Config;
 
@@ -19,6 +20,7 @@ pub fn admin_panel(config: &Config) -> Panel {
         .resource::<SubscriptionResource>()
         .resource::<WebhookResource>()
         .resource::<JobResource>()
+        .resource::<ImpersonationResource>()
 }
 
 fn auth(config: &Config) -> Auth<SignedIn> {
