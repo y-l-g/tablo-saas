@@ -16,8 +16,9 @@ keep the rest.
   handled by refetching state from Stripe, and a reconciliation pass every six hours.
 - **A durable job queue** in Postgres: lanes, dedupe, backoff, a dead state, schedules, and a
   transactional outbox, so a job exists exactly when its write committed.
-- **Accounts.** Email verification, password reset, two-factor by authenticator or email, and
-  account deletion that erases what it should and anonymises the rest, and a JSON download of
+- **Accounts.** Email verification, password reset, two-factor by authenticator or email,
+  "Continue with Google", which signs up a new address or links the account Google proves holds
+  it, and account deletion that erases what it should and anonymises the rest, and a JSON download of
   everything an account owns. Their mail leaves through the queue, sealed, so a crash or an SMTP
   outage loses none.
 - **A back office** at `/admin`, separate from the app, with two-factor required for staff: accounts,

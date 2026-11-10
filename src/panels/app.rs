@@ -3,8 +3,8 @@
 use std::time::Duration;
 
 use tablo::{
-    Area, Auth, AuthMail, EmailVerification, Page, PageDef, Panel, PasswordReset,
-    TenantRegistration, TwoFactor, Widget, WidgetDef, db::db, ui,
+    Area, Auth, AuthMail, EmailVerification, Oidc, OidcProvider, Page, PageDef, Panel,
+    PasswordReset, TenantRegistration, TwoFactor, Widget, WidgetDef, db::db, ui,
 };
 use topcoat::{
     Result,
@@ -18,7 +18,7 @@ use crate::audit;
 use crate::billing::{
     BILLING_URL, BillingPage, StandingBanner, is_urgent, plan_name, standing_notice,
 };
-use crate::platform::config::Config;
+use crate::platform::config::{Config, GOOGLE_ISSUER, GoogleSettings};
 use crate::projects::{Project, ProjectResource};
 use crate::support::{self, SupportPage};
 use crate::teams::{
@@ -71,10 +71,10 @@ fn settings() -> Area {
 }
 
 /// Every auth page Tablo offers: sign-up, a verified address before anything else, reset, the
-/// profile and a second factor from an app or by mail, required of staff; and staff acting as a
-/// customer.
+/// profile and a second factor from an app or by mail, required of staff; "Continue with Google"
+/// when configured; and staff acting as a customer.
 fn auth(config: &Config) -> Auth<SignedIn> {
-    Auth::custom(Accounts)
+    let auth = Auth::custom(Accounts)
         .registration(Accounts)
         .throttle(super::shared_throttle(5, Duration::from_mins(1)))
         // Past the per-address limit, a guesser rotating addresses still meets this one. It is
@@ -98,7 +98,27 @@ fn auth(config: &Config) -> Auth<SignedIn> {
         )
         .tenant_registration(TenantRegistration::new(Teams).required())
         .tenant_profile(Teams)
-        .impersonation(support::impersonation())
+        .impersonation(support::impersonation());
+    match &config.google {
+        Some(google) => {
+            auth.oidc(Oidc::new(config.base_url.clone(), Accounts).provider(provider(google)))
+        }
+        None => auth,
+    }
+}
+
+/// Google, or the stand-in a test names as its issuer under the same key.
+fn provider(google: &GoogleSettings) -> OidcProvider {
+    let GoogleSettings {
+        client_id,
+        client_secret,
+        issuer,
+    } = google.clone();
+    if issuer == GOOGLE_ISSUER {
+        OidcProvider::google(client_id, client_secret)
+    } else {
+        OidcProvider::new("google", "Google", issuer, client_id, client_secret)
+    }
 }
 
 /// The page a signed-in customer lands on.

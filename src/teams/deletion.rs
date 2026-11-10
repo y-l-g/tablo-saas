@@ -12,7 +12,7 @@ use tablo::{
 use topcoat::context::{Cx, context};
 
 use super::{Invitation, Member, Team, TeamRole, access};
-use crate::accounts::{SignedIn, User};
+use crate::accounts::{Identity, SignedIn, User};
 use crate::audit;
 use crate::billing::{Billing, BillingAccount};
 use crate::jobs::{Job, enqueue};
@@ -77,13 +77,18 @@ pub async fn delete_team(ex: &mut dyn toasty::Executor, team: TenantId) -> topco
     Ok(())
 }
 
-/// Deletes the rows Tablo keeps for `user` beside the account, on the caller's transaction: its
-/// sessions, pending links and codes, second factors, list column choices and notifications.
-/// Tablo leaves them behind when a user goes, since only the app knows a user went.
+/// Deletes the rows that sign `user` in beside the account, on the caller's transaction: Tablo's
+/// sessions, pending links and codes, second factors, list column choices and notifications,
+/// which it leaves behind since only the app knows a user went, and the Google identities linked
+/// to it.
 pub async fn forget_sign_in(
     ex: &mut dyn toasty::Executor,
     user: uuid::Uuid,
 ) -> topcoat::Result<()> {
+    Identity::filter(Identity::fields().user_id().eq(user))
+        .delete()
+        .exec(&mut *ex)
+        .await?;
     let id = user.to_string();
     AuthSession::filter(AuthSession::fields().user_id().eq(&id))
         .delete()
@@ -105,6 +110,44 @@ pub async fn forget_sign_in(
         .delete()
         .exec(ex)
         .await?;
+    Ok(())
+}
+
+/// Erases the account `user`, whose owner never proved its address, for a provider sign-in to
+/// sign up in its place: the teams it alone is on, its seats on others, its name in the audit
+/// log and every way it signs in. Invitations to the address stay, since they are its true
+/// owner's.
+pub async fn erase_unproved(
+    cx: &Cx,
+    ex: &mut dyn toasty::Executor,
+    user: uuid::Uuid,
+) -> topcoat::Result<()> {
+    let seats = Member::filter(Member::fields().user_id().eq(user))
+        .exec(&mut *ex)
+        .await?;
+    for seat in seats {
+        let members = Member::filter(Member::fields().team_id().eq(seat.team_id))
+            .exec(&mut *ex)
+            .await?
+            .len();
+        if members == 1 {
+            delete_team(&mut *ex, seat.team_id).await?;
+        }
+    }
+    erase(cx, ex, user).await
+}
+
+/// Deletes `user`'s remaining seats, their name in the audit log, every way they sign in and the
+/// account, on the caller's transaction.
+async fn erase(cx: &Cx, ex: &mut dyn toasty::Executor, user: uuid::Uuid) -> topcoat::Result<()> {
+    Member::filter(Member::fields().user_id().eq(user))
+        .delete()
+        .exec(&mut *ex)
+        .await?;
+    // Other teams keep what happened, but no longer who did it.
+    audit::forget_actor(cx, &mut *ex, user).await?;
+    forget_sign_in(&mut *ex, user).await?;
+    User::filter_by_id(user).delete().exec(ex).await?;
     Ok(())
 }
 
@@ -188,18 +231,11 @@ impl HeaderAction for DeleteAccount {
         for team in alone_on {
             delete_team(&mut *ex, team).await?;
         }
-        Member::filter(Member::fields().user_id().eq(signed.user.id))
-            .delete()
-            .exec(&mut *ex)
-            .await?;
-        // Other teams keep what happened, but no longer who did it.
-        audit::forget_actor(cx, &mut *ex, signed.user.id).await?;
         Invitation::filter(Invitation::fields().email().eq(&signed.user.email))
             .delete()
             .exec(&mut *ex)
             .await?;
-        forget_sign_in(&mut *ex, signed.user.id).await?;
-        User::filter_by_id(signed.user.id).delete().exec(ex).await?;
+        erase(cx, ex, signed.user.id).await?;
         Ok(Outcome::done().redirect("/"))
     }
 }

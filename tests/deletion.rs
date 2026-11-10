@@ -10,7 +10,7 @@ use tablo::{
     testing::{body_string, form_body},
 };
 use tablo_saas::{
-    accounts::User,
+    accounts::{Identity, User},
     billing::{BillingAccount, BillingStatus, PlanId},
     jobs::JobRow,
     teams::{Member, Team, TeamRole, create_team},
@@ -308,10 +308,18 @@ async fn sign_in_traces(harness: &Harness, user: &User) {
     .exec(&mut db)
     .await
     .expect("write the notification");
+    toasty::create!(Identity {
+        user_id: user.id,
+        issuer: "https://accounts.google.com".to_string(),
+        subject: format!("google-{id}"),
+    })
+    .exec(&mut db)
+    .await
+    .expect("write the identity");
 }
 
-/// How many rows Tablo keeps for `user`, table by table.
-async fn traces_of(harness: &Harness, user: &User) -> [usize; 5] {
+/// How many rows sign `user` in, table by table: Tablo's, then the linked identities.
+async fn traces_of(harness: &Harness, user: &User) -> [usize; 6] {
     let mut db = harness.db.clone();
     let id = user.id.to_string();
     [
@@ -340,6 +348,11 @@ async fn traces_of(harness: &Harness, user: &User) -> [usize; 5] {
             .await
             .expect("query")
             .len(),
+        Identity::filter(Identity::fields().user_id().eq(user.id))
+            .exec(&mut db)
+            .await
+            .expect("query")
+            .len(),
     ]
 }
 
@@ -354,7 +367,7 @@ async fn deleting_an_account_leaves_no_session_factor_or_notification_behind() {
     let _grace_signed_in = client_for(&harness, &grace, &other).await;
 
     let client = client_for(&harness, &ada, &team).await;
-    assert_eq!(traces_of(&harness, &ada).await, [1; 5]);
+    assert_eq!(traces_of(&harness, &ada).await, [1; 6]);
     let response = client
         .csrf(CSRF)
         .post_form(
@@ -367,10 +380,10 @@ async fn deleting_an_account_leaves_no_session_factor_or_notification_behind() {
         )
         .await;
     assert!(response.status().is_redirection(), "{}", response.status());
-    assert_eq!(traces_of(&harness, &ada).await, [0; 5]);
+    assert_eq!(traces_of(&harness, &ada).await, [0; 6]);
     assert_eq!(
         traces_of(&harness, &grace).await,
-        [1; 5],
+        [1; 6],
         "Grace keeps hers"
     );
 }
