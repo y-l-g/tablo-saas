@@ -43,7 +43,8 @@ impl User {
 }
 
 /// What a member of staff may do in the back office.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, toasty::Embed, tablo::Options)]
+#[serde(rename_all = "snake_case")]
 pub enum StaffRole {
     /// Reads and changes everything.
     #[option(color = "danger")]

@@ -21,7 +21,7 @@ use crate::projects::{Project, ProjectResource};
 use crate::teams::{
     IncomingInvitationResource, IncomingInvitationsWidget, InvitationResource, Member,
     MemberResource, Teams,
-    actions::{DeleteAccount, DeleteTeam},
+    actions::{DeleteAccount, DeleteTeam, ExportAccount},
     current_entitlements,
 };
 
@@ -44,7 +44,10 @@ fn settings() -> Area {
         .without_navigation()
         .group(tablo::text!("settings-account"), |group| {
             group
-                .profile_with(PageDef::header_action::<DeleteAccount>)
+                .profile_with(|def| {
+                    def.header_action::<ExportAccount>()
+                        .header_action::<DeleteAccount>()
+                })
                 .two_factor_with(|def| def.label(tablo::text!("settings-security")))
                 .resource::<IncomingInvitationResource>()
         })

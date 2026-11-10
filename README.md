@@ -17,8 +17,9 @@ keep the rest.
 - **A durable job queue** in Postgres: lanes, dedupe, backoff, a dead state, schedules, and a
   transactional outbox, so a job exists exactly when its write committed.
 - **Accounts.** Email verification, password reset, two-factor by authenticator or email, and
-  account deletion that erases what it should and anonymises the rest. Their mail leaves through
-  the queue, sealed, so a crash or an SMTP outage loses none.
+  account deletion that erases what it should and anonymises the rest, and a JSON download of
+  everything an account owns. Their mail leaves through the queue, sealed, so a crash or an SMTP
+  outage loses none.
 - **A back office** at `/admin`, separate from the app, with two-factor required for staff: accounts,
   teams, subscriptions, webhook events and jobs, with the filters support reaches for, and an audit
   log of what staff did.
@@ -94,7 +95,7 @@ cli → router → panels → domains → platform
 src/
 ├── platform/    configuration, database, mail, telemetry, health. No business rule.
 ├── accounts/    who signs in
-├── teams/       who works together, and deletion
+├── teams/       who works together, deletion and export
 ├── billing/     plans, entitlements, Stripe
 ├── projects/    the example domain: replace it
 ├── audit/       what happened, per team and for staff

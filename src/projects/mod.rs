@@ -28,7 +28,8 @@ pub struct Project {
 }
 
 /// Where a project stands.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, toasty::Embed, tablo::Options)]
+#[serde(rename_all = "snake_case")]
 pub enum ProjectStatus {
     #[option(color = "info")]
     Active,

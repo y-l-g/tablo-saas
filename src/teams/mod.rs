@@ -8,6 +8,7 @@
 
 mod access;
 mod deletion;
+mod export;
 mod invitations;
 mod mail;
 mod members;
@@ -17,6 +18,7 @@ mod registrar;
 /// The actions on team pages, for tests and the back office.
 pub mod actions {
     pub use super::deletion::{DeleteAccount, DeleteTeam};
+    pub use super::export::ExportAccount;
     pub use super::invitations::{
         AcceptInvitation, DeclineInvitation, InviteMember, RevokeInvitation,
     };
@@ -25,6 +27,7 @@ pub mod actions {
 
 pub use access::{current_entitlements, current_role, may_manage_members, role_in};
 pub use deletion::{CancelSubscription, delete_team};
+pub use export::{AccountExport, EXPORT_URL, export_account};
 pub use invitations::{
     INCOMING_URL, IncomingInvitationResource, IncomingInvitationsWidget, InvitationResource,
 };

@@ -144,6 +144,7 @@ action-revoke = Révoquer
 action-accept = Accepter
 action-decline = Refuser
 action-delete-team = Supprimer cette équipe
+action-export-account = Télécharger mes données
 action-delete-account = Supprimer mon compte
 hint-resync = Relire cet abonnement depuis Stripe
 hint-retry = Rendre ses tentatives à cette tâche
