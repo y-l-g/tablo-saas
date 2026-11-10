@@ -1,7 +1,7 @@
 //! The team's billing page.
 
 use jiff::Timestamp;
-use tablo::{Currency, Page, PageDef, csrf, db::db, tenant_id, ui};
+use tablo::{Currency, Page, PageDef, db::db, header_action_button, tenant_id, ui};
 use topcoat::{
     Result,
     context::{Cx, context},
@@ -12,10 +12,12 @@ use topcoat::{
 
 use super::{
     Billing, BillingInterval, CURRENCY, Entitlements, Plan, PlanId, Standing, account_of,
-    portal::ManageBilling, refresh_customer, stripe::Invoice,
+    checkout::{Checkout, Choice},
+    portal::ManageBilling,
+    refresh_customer,
+    stripe::Invoice,
 };
-use crate::accounts::is_impersonated;
-use crate::teams::{Member, TeamRole, current_role, may_manage_members};
+use crate::teams::{Member, may_manage_members};
 
 /// Where the page lives: in the team's settings.
 pub const URL: &str = "/app/settings/billing";
@@ -75,6 +77,7 @@ impl Page for BillingPage {
             .icon(iconify_icon!("lucide:credit-card"))
             .access(may_manage_members)
             .header_action::<ManageBilling>()
+            .header_action::<Checkout>()
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
@@ -112,12 +115,11 @@ impl Page for BillingPage {
                 }),
             _ => Vec::new(),
         };
-        let is_owner = current_role(cx) == Some(TeamRole::Owner);
+        // Checkout's button hides itself from whom it refuses; a running subscription is
+        // changed in the portal instead.
         let subscribed = account
             .as_ref()
             .is_some_and(|account| !account.status.is_ended());
-        let can_buy = is_owner && !is_impersonated(cx) && billing.is_enabled() && !subscribed;
-        let token = csrf::ensure_token(cx);
         let notice = standing_notice(cx, entitlements.standing);
         let current = plan_name(cx, entitlements.plan.id);
         let seat_line = match entitlements.plan.seat_limit {
@@ -129,6 +131,7 @@ impl Page for BillingPage {
                 ui::page_header(
                     ui::page_title((tablo::t!(cx, "page-billing")))
                     ui::page_description((tablo::t!(cx, "billing-description")))
+                    ui::page_actions((header_action_button::<Self, ManageBilling>(cx, &())))
                 )
                 ui::page_content(
                     <div class="flex flex-col gap-6">
@@ -149,8 +152,8 @@ impl Page for BillingPage {
                         if !billing.is_enabled() {
                             <p class="text-sm text-muted-foreground">(tablo::t!(cx, "billing-off"))</p>
                         }
-                        if can_buy {
-                            (plan_cards(cx, &token))
+                        if billing.is_enabled() && !subscribed {
+                            (plan_cards(cx))
                         }
                         if !invoices.is_empty() {
                             (invoice_list(cx, invoices))
@@ -162,11 +165,8 @@ impl Page for BillingPage {
     }
 }
 
-/// The paid plans, each with a button per billing interval.
-fn plan_cards<'a>(cx: &'a Cx, token: &str) -> BoxView<'a> {
-    let token = token.to_string();
-    let primary = ui::button_variants(ui::ButtonVariant::Primary, ui::ButtonSize::Md);
-    let card_class = "flex flex-col gap-3";
+/// The paid plans, each with a Checkout button per billing interval.
+fn plan_cards(cx: &Cx) -> BoxView<'_> {
     let plans: Vec<_> = Plan::paid().collect();
     view! {
                             <div class="grid gap-4 md:grid-cols-2">
@@ -181,24 +181,25 @@ fn plan_cards<'a>(cx: &'a Cx, token: &str) -> BoxView<'a> {
                                             )))
                                         )
                                         ui::card_content(
-                                            <div class=(card_class)>
+                                            <div class="flex flex-col gap-3" data-plan=(plan.slug())>
                                                 for interval in BillingInterval::BOTH {
-                                                    <form method="post" action="/app/settings/billing/checkout">
-                                                        (csrf::field(cx, &token))
-                                                        <input type="hidden" name="plan" value=(plan.slug())>
-                                                        <input type="hidden" name="interval" value=(interval.as_str())>
-                                                        <button type="submit" class=(primary.clone())>
+                                                    <div class="flex items-center justify-between gap-3" data-interval=(interval.as_str())>
+                                                        <span class="text-sm">
                                                             (if interval == BillingInterval::Month {
-                                                                tablo::t!(cx, "billing-choose-monthly")
+                                                                tablo::t!(cx, "billing-monthly")
                                                             } else {
                                                                 tablo::t!(
                                                                     cx,
-                                                                    "billing-choose-yearly",
+                                                                    "billing-yearly",
                                                                     price = money(cx, plan.yearly_amount, CURRENCY)
                                                                 )
                                                             })
-                                                        </button>
-                                                    </form>
+                                                        </span>
+                                                        (header_action_button::<BillingPage, Checkout>(cx, &Choice {
+                                                            plan: plan.slug().to_string(),
+                                                            interval: interval.as_str().to_string(),
+                                                        }))
+                                                    </div>
                                                 }
                                             </div>
                                         )

@@ -2,9 +2,9 @@
 //! the staff-only page that starts it.
 //!
 //! Staff work in the back office, but a customer's pages live in the app panel, and Tablo acts as
-//! another user of the same panel only. So a member of staff signs in to the app panel too, with a
-//! second factor of their own there, finds the customer on [`SupportPage`] and acts as them for at
-//! most [`LIFETIME`].
+//! another user of the same panel only. So a member of staff signs in to the app panel too, which
+//! requires a second factor of staff there, finds the customer on [`SupportPage`] and acts as them
+//! for at most [`LIFETIME`].
 //!
 //! What it may reach is narrow: staff act as customers, never as staff, and Tablo keeps them off
 //! the target's profile, factors and team settings. Membership and billing refuse too, see

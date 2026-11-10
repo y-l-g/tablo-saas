@@ -3,7 +3,10 @@
 mod support;
 
 use support::harness;
-use tablo::testing::{TestClient, form_body};
+use tablo::{
+    auth::AuthThrottle,
+    testing::{TestClient, form_body},
+};
 use tablo_saas::{accounts::User, jobs::JobRow};
 use topcoat::router::Body;
 use topcoat::router::header::LOCATION;
@@ -98,4 +101,28 @@ async fn an_unverified_account_is_sent_to_verify_before_anything_else() {
         response.headers()[LOCATION].to_str().expect("ascii"),
         "/app/verify-email"
     );
+}
+
+/// Sign-in attempts count in the database, where every replica reads them: per address and per
+/// account, and never under the address in the clear.
+#[tokio::test]
+async fn a_failed_sign_in_is_counted_where_every_replica_sees_it() {
+    let harness = harness().await;
+    let client = TestClient::new(&harness.app);
+    let response = client
+        .submit(
+            "/app/login",
+            &form_body(&[("email", "ada@example.com"), ("password", "wrong")]),
+        )
+        .await;
+    assert!(response.status().is_client_error(), "{}", response.status());
+
+    let rows = AuthThrottle::all()
+        .exec(&mut harness.db.clone())
+        .await
+        .expect("query");
+    let mut scopes: Vec<_> = rows.iter().map(|row| row.scope.as_str()).collect();
+    scopes.sort_unstable();
+    assert_eq!(scopes, ["/app:account", "/app:sign-in"]);
+    assert!(rows.iter().all(|row| !row.key.contains("ada")));
 }

@@ -8,7 +8,9 @@ pub use admin::admin_panel;
 pub use app::app_panel;
 pub use brand::PRODUCT_NAME;
 
-use tablo::{Environment, Panel};
+use std::time::Duration;
+
+use tablo::{Environment, LoginThrottle, Panel};
 use topcoat::l10n::locale;
 
 use crate::platform::{config::Config, words};
@@ -37,4 +39,10 @@ fn shared(panel: Panel, config: &Config) -> Panel {
         .locales([locale!("en"), locale!("fr")])
         .translations(locale!("en"), words::ENGLISH)
         .translations(locale!("fr"), words::FRENCH)
+}
+
+/// A throttle every replica counts against together, kept in the database: one counted in each
+/// process would let N replicas allow N times the guesses, and forget them on a restart.
+fn shared_throttle(attempts: u32, window: Duration) -> LoginThrottle {
+    LoginThrottle::new(attempts, window).in_database()
 }
