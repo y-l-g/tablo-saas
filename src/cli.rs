@@ -168,9 +168,12 @@ async fn staff(db: &toasty::Db, command: StaffCommand) -> anyhow::Result<()> {
     let Some(user) = found else {
         anyhow::bail!("no account uses {email}: sign up first");
     };
+    // Granting again also vouches for the second factors the account holds now.
+    let since = role.map(|_| jiff::Timestamp::now());
     User::filter_by_id(user.id)
         .update()
         .staff_role(role)
+        .staff_since(since)
         .exec(&mut handle)
         .await?;
     tracing::info!(%email, ?role, "the staff role changed");

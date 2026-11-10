@@ -20,8 +20,8 @@ use super::{
     stripe::NewCheckout,
 };
 use crate::accounts::SignedIn;
+use crate::accounts::is_impersonated;
 use crate::platform::config::Settings;
-use crate::support::is_impersonated;
 use crate::teams::{Member, TeamRole, current_role};
 
 /// How long to tell a browser to wait while Stripe is down.

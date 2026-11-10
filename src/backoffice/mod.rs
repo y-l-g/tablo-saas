@@ -7,6 +7,7 @@ use tablo::{AuditEntry, auth, prelude::*};
 use topcoat::{context::Cx, icon::iconify::iconify_icon};
 
 use crate::accounts::{SignedIn, StaffRole, User};
+use crate::audit::IMPERSONATION_EVENTS;
 use crate::billing::{BillingAccount, StripeEvent, jobs::RefreshCustomer};
 use crate::jobs::{JobRow, JobState, enqueue};
 use crate::teams::Team;
@@ -74,9 +75,6 @@ pub struct ImpersonationResource;
 /// The app panel's prefix, as its audit entries name it.
 const APP_PANEL: &str = "/app";
 
-/// The events Tablo records for acting as another user.
-const IMPERSONATION_EVENTS: [&str; 2] = ["impersonate", "stop_impersonating"];
-
 impl Resource for ImpersonationResource {
     type Model = AuditEntry;
     type Form = NoForm<AuditEntry>;
@@ -128,7 +126,8 @@ impl Resource for ImpersonationResource {
 }
 
 /// The customer an entry names, as they were called then: Tablo records them as the `user`
-/// change's new value.
+/// change's new value. A session that ran out is stopped without the name, and Tablo writes the
+/// id in its place, which the next column already shows.
 fn customer_named(entry: &AuditEntry) -> String {
     entry
         .changes
@@ -136,7 +135,8 @@ fn customer_named(entry: &AuditEntry) -> String {
         .iter()
         .find(|change| change.field == "user")
         .and_then(|change| change.after.clone())
-        .unwrap_or_default()
+        .filter(|name| entry.record.as_deref() != Some(name.as_str()))
+        .unwrap_or_else(|| "—".to_string())
 }
 
 /// Every team.

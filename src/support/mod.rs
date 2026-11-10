@@ -7,13 +7,14 @@
 //! most [`LIFETIME`].
 //!
 //! What it may reach is narrow: staff act as customers, never as staff, and Tablo keeps them off
-//! the target's profile, factors and team settings. Billing refuses too, see [`is_impersonated`].
+//! the target's profile, factors and team settings. Membership and billing refuse too, see
+//! [`is_impersonated`](crate::accounts::is_impersonated).
 //! The start and the stop land in the app panel's audit log, which the back office reads.
 
 use std::time::Duration;
 
 use serde::Deserialize;
-use tablo::{Impersonation, Page, PageDef, PanelUser, auth, contains_expr, db::db, lens, ui};
+use tablo::{Impersonation, Page, PageDef, PanelUser, auth, db::db, ui};
 use topcoat::{
     Result,
     context::Cx,
@@ -55,12 +56,6 @@ pub fn may_act_as(actor: &SignedIn, target: &SignedIn) -> bool {
     actor.user.staff_role.is_some() && actor.app_factor && target.user.staff_role.is_none()
 }
 
-/// Whether the request's signed-in user is a customer acted as by staff. Money stays the
-/// customer's to move: billing refuses Checkout and the portal meanwhile.
-pub fn is_impersonated(cx: &Cx) -> bool {
-    auth::impersonator::<SignedIn>(cx).is_some()
-}
-
 fn is_staff(cx: &Cx) -> bool {
     auth::user::<SignedIn>(cx).is_some_and(|signed| signed.user.staff_role.is_some())
 }
@@ -99,11 +94,11 @@ impl Page for SupportPage {
             .query()
             .and_then(|query| serde_urlencoded::from_str(query).ok())
             .unwrap_or_default();
-        let term = search.q.trim().to_lowercase();
+        let term = search.q.trim();
         let found = if term.is_empty() {
             Vec::new()
         } else {
-            customers(cx, &term).await?
+            customers(cx, term).await?
         };
         let searched = !term.is_empty();
         let empty = searched && found.is_empty();
@@ -111,7 +106,7 @@ impl Page for SupportPage {
             ui::page(
                 ui::page_header(
                     ui::page_title((tablo::t!(cx, "page-support")))
-                    ui::page_description((tablo::t!(cx, "support-description")))
+                    ui::page_description((tablo::t!(cx, "support-description", minutes = LIFETIME.as_secs() / 60)))
                 )
                 ui::page_content(
                     <div class="flex flex-col gap-6">
@@ -149,20 +144,28 @@ impl Page for SupportPage {
     }
 }
 
-/// The customers whose name or address holds `term`, newest first, with a button acting as each
-/// that renders only where the rule allows it.
+/// The customers whose name or address holds `term`, ignoring case, newest first, with a button
+/// acting as each that renders only where the rule allows it.
+///
+/// Tablo's `contains_expr` is a plain `LIKE`, which ignores case on SQLite but not on PostgreSQL,
+/// where "lovelace" would miss "Ada Lovelace". So `ILIKE` where the database has it; SQLite has
+/// not, and Toasty refuses it there, but its `LIKE` already folds ASCII.
 async fn customers<'a>(cx: &'a Cx, term: &str) -> Result<Vec<Found<'a>>> {
-    let matches = [
-        contains_expr(&lens!(User.email), term),
-        contains_expr(&lens!(User.name), term),
-    ]
-    .into_iter()
-    .flatten()
-    .reduce(toasty::stmt::Expr::or);
-    let Some(matches) = matches else {
-        return Ok(Vec::new());
-    };
     let mut handle = db(cx)?;
+    let pattern = like_pattern(term);
+    let matches = if handle.capability().native_ilike {
+        let fields = User::fields();
+        fields
+            .email()
+            .ilike_with_escape(pattern.clone(), LIKE_ESCAPE)
+            .or(fields.name().ilike_with_escape(pattern, LIKE_ESCAPE))
+    } else {
+        let fields = User::fields();
+        fields
+            .email()
+            .like_with_escape(pattern.clone(), LIKE_ESCAPE)
+            .or(fields.name().like_with_escape(pattern, LIKE_ESCAPE))
+    };
     let users = User::filter(User::fields().staff_role().is_none().and(matches))
         .order_by(User::fields().created_at().desc())
         .limit(RESULTS)
@@ -185,6 +188,22 @@ async fn customers<'a>(cx: &'a Cx, term: &str) -> Result<Vec<Found<'a>>> {
         });
     }
     Ok(found)
+}
+
+const LIKE_ESCAPE: char = '\\';
+
+/// `term` matched anywhere, with `LIKE`'s wildcards escaped so a `%` finds a `%`.
+fn like_pattern(term: &str) -> String {
+    let mut pattern = String::with_capacity(term.len() + 2);
+    pattern.push('%');
+    for c in term.chars() {
+        if matches!(c, LIKE_ESCAPE | '%' | '_') {
+            pattern.push(LIKE_ESCAPE);
+        }
+        pattern.push(c);
+    }
+    pattern.push('%');
+    pattern
 }
 
 fn results<'a>(cx: &'a Cx, found: Vec<Found<'a>>) -> BoxView<'a> {

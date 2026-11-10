@@ -2,7 +2,10 @@
 
 mod support;
 
-use support::{Harness, client_for, harness, person, staff_client};
+use jiff::{SignedDuration, Timestamp};
+use support::{
+    Harness, billed_harness, client_for, harness, person, seat, staff_client, stripe::FakeStripe,
+};
 use tablo::{
     AuditEntry,
     auth::{AuthFactor, FactorKind, IMPERSONATE_FIELD},
@@ -10,36 +13,60 @@ use tablo::{
 };
 use tablo_saas::{
     accounts::{Accounts, StaffRole, User},
+    audit,
     backoffice::ImpersonationResource,
+    billing::{BillingAccount, BillingStatus, PlanId},
+    teams::{
+        IncomingInvitationResource, Invitation, Member, MemberResource, TeamRole,
+        actions::{AcceptInvitation, RemoveMember, TransferOwnership},
+    },
 };
-use topcoat::router::StatusCode;
+use topcoat::router::{StatusCode, header::LOCATION};
 
-/// A member of staff signed in to the app panel, with a second factor there when `factor` says.
+const CSRF: &str = "3f0f6d3a-8f43-4f4d-9c59-2d3b3b1f4a11";
+
+/// When a factor was confirmed, relative to the `staff` command's grant.
+#[derive(Clone, Copy, PartialEq)]
+enum Factor {
+    None,
+    BeforeGrant,
+    AfterGrant,
+}
+
+/// A member of staff signed in to the app panel, with a second factor there as `factor` says.
 async fn staff_in_app<'a>(
     harness: &'a Harness,
     email: &str,
     role: StaffRole,
-    factor: bool,
+    factor: Factor,
 ) -> (User, TestClient<'a>) {
     let (user, _) = person(&harness.db, "Sam Support", email).await;
     let mut db = harness.db.clone();
+    let granted = Timestamp::now();
     User::filter_by_id(user.id)
         .update()
         .staff_role(Some(role))
+        .staff_since(Some(granted))
         .exec(&mut db)
         .await
         .expect("make staff");
-    if factor {
+    let minute = SignedDuration::from_mins(1);
+    let confirmed = match factor {
+        Factor::None => None,
+        Factor::BeforeGrant => Some(granted - minute),
+        Factor::AfterGrant => Some(granted + minute),
+    };
+    if let Some(confirmed) = confirmed {
         toasty::create!(AuthFactor {
             user_id: user.id.to_string(),
             panel: "/app".to_string(),
             kind: FactorKind::EmailCode,
             secret: String::new(),
-            confirmed_at: Some(jiff::Timestamp::now()),
+            confirmed_at: Some(confirmed),
             last_step: None,
             failures: 0,
             retry_at: None,
-            created_at: jiff::Timestamp::now(),
+            created_at: confirmed,
         })
         .exec(&mut db)
         .await
@@ -76,12 +103,24 @@ async fn staff_find_a_customer_and_act_as_them_until_stop() {
     let harness = harness().await;
     let (ada, _) = person(&harness.db, "Ada Lovelace", "ada@example.com").await;
     person(&harness.db, "Grace Hopper", "grace@example.com").await;
-    let (_, client) = staff_in_app(&harness, "sam@example.com", StaffRole::Support, true).await;
+    let (_, client) = staff_in_app(
+        &harness,
+        "sam@example.com",
+        StaffRole::Support,
+        Factor::BeforeGrant,
+    )
+    .await;
 
     let (status, html) = search(&client, "ada").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(impersonate_buttons(&html), vec![ada.id.to_string()]);
     assert!(!html.contains("data-support-notice"), "{html}");
+    let (_, html) = search(&client, "LOVELACE").await;
+    assert_eq!(
+        impersonate_buttons(&html),
+        vec![ada.id.to_string()],
+        "a surname in no address, in another case, finds her on PostgreSQL too"
+    );
 
     let started = client.submit("/app/impersonate", &act_as(&ada)).await;
     assert_eq!(started.status(), StatusCode::SEE_OTHER);
@@ -115,7 +154,13 @@ async fn staff_find_a_customer_and_act_as_them_until_stop() {
 async fn an_administrator_reads_who_acted_as_whom() {
     let harness = harness().await;
     let (ada, _) = person(&harness.db, "Ada Lovelace", "ada@example.com").await;
-    let (_, client) = staff_in_app(&harness, "sam@example.com", StaffRole::Support, true).await;
+    let (_, client) = staff_in_app(
+        &harness,
+        "sam@example.com",
+        StaffRole::Support,
+        Factor::BeforeGrant,
+    )
+    .await;
     client.submit("/app/impersonate", &act_as(&ada)).await;
     client.submit("/app/impersonate/stop", "").await;
 
@@ -158,8 +203,13 @@ async fn an_administrator_reads_who_acted_as_whom() {
 async fn staff_without_a_factor_on_the_app_panel_act_as_nobody() {
     let harness = harness().await;
     let (ada, _) = person(&harness.db, "Ada Lovelace", "ada@example.com").await;
-    let (_, client) =
-        staff_in_app(&harness, "sam@example.com", StaffRole::Administrator, false).await;
+    let (_, client) = staff_in_app(
+        &harness,
+        "sam@example.com",
+        StaffRole::Administrator,
+        Factor::None,
+    )
+    .await;
 
     let (status, html) = search(&client, "ada").await;
     assert_eq!(status, StatusCode::OK);
@@ -175,9 +225,20 @@ async fn staff_without_a_factor_on_the_app_panel_act_as_nobody() {
 #[tokio::test]
 async fn staff_never_act_as_staff() {
     let harness = harness().await;
-    let (other, _) =
-        staff_in_app(&harness, "root@example.com", StaffRole::Administrator, true).await;
-    let (_, client) = staff_in_app(&harness, "sam@example.com", StaffRole::Support, true).await;
+    let (other, _) = staff_in_app(
+        &harness,
+        "root@example.com",
+        StaffRole::Administrator,
+        Factor::BeforeGrant,
+    )
+    .await;
+    let (_, client) = staff_in_app(
+        &harness,
+        "sam@example.com",
+        StaffRole::Support,
+        Factor::BeforeGrant,
+    )
+    .await;
 
     let (_, html) = search(&client, "root").await;
     assert!(
@@ -207,7 +268,13 @@ async fn a_customer_neither_sees_the_page_nor_acts_as_anyone() {
 async fn billing_stays_the_customers_while_staff_act_as_them() {
     let harness = harness().await;
     let (ada, _) = person(&harness.db, "Ada Lovelace", "ada@example.com").await;
-    let (_, client) = staff_in_app(&harness, "sam@example.com", StaffRole::Support, true).await;
+    let (_, client) = staff_in_app(
+        &harness,
+        "sam@example.com",
+        StaffRole::Support,
+        Factor::BeforeGrant,
+    )
+    .await;
     client.submit("/app/impersonate", &act_as(&ada)).await;
 
     assert_eq!(
@@ -226,5 +293,186 @@ async fn billing_stays_the_customers_while_staff_act_as_them() {
         client.get("/app/settings/profile").await.status(),
         StatusCode::FORBIDDEN,
         "nor are her credentials staff's to change"
+    );
+}
+
+#[tokio::test]
+async fn a_factor_added_after_the_grant_is_not_trusted() {
+    let harness = harness().await;
+    let (ada, _) = person(&harness.db, "Ada Lovelace", "ada@example.com").await;
+    let (_, client) = staff_in_app(
+        &harness,
+        "sam@example.com",
+        StaffRole::Support,
+        Factor::AfterGrant,
+    )
+    .await;
+
+    let (_, html) = search(&client, "ada").await;
+    assert!(html.contains("data-support-notice"), "{html}");
+    assert_eq!(impersonate_buttons(&html), Vec::<String>::new());
+    let refused = client.submit("/app/impersonate", &act_as(&ada)).await;
+    assert_eq!(
+        refused.status(),
+        StatusCode::FORBIDDEN,
+        "whoever held the password then may have enrolled it"
+    );
+}
+
+#[tokio::test]
+async fn who_a_team_includes_stays_the_customers_call() {
+    let harness = harness().await;
+    let (ada, team) = person(&harness.db, "Ada Lovelace", "ada@example.com").await;
+    let (grace, other) = person(&harness.db, "Grace Hopper", "grace@example.com").await;
+    let grace_seat = seat(&harness.db, &grace, &team, TeamRole::Member).await;
+    toasty::create!(Invitation {
+        team_id: other.tenant(),
+        team_name: other.name.clone(),
+        email: "ada@example.com".to_string(),
+        role: TeamRole::Member,
+        invited_by: "Grace Hopper".to_string(),
+        expires_at: Timestamp::now() + SignedDuration::from_hours(24),
+    })
+    .exec(&mut harness.db.clone())
+    .await
+    .expect("invite Ada");
+    let (_, client) = staff_in_app(
+        &harness,
+        "sam@example.com",
+        StaffRole::Support,
+        Factor::BeforeGrant,
+    )
+    .await;
+    client.submit("/app/impersonate", &act_as(&ada)).await;
+    assert!(banner(&client).await.is_some());
+
+    client
+        .csrf(CSRF)
+        .post_form(
+            "/app/settings/members/-/actions/invite",
+            form_body(&[
+                ("email", "sam@example.com"),
+                ("role", "admin"),
+                ("csrf_token", CSRF),
+            ]),
+        )
+        .await;
+    let members = client.resource::<MemberResource>();
+    members.action::<RemoveMember>(&grace_seat).submit().await;
+    members
+        .action::<TransferOwnership>(&grace_seat)
+        .submit()
+        .await;
+    let waiting = Invitation::all()
+        .exec(&mut harness.db.clone())
+        .await
+        .expect("query");
+    let incoming = waiting
+        .iter()
+        .find(|invitation| invitation.email == "ada@example.com")
+        .expect("Ada's invitation");
+    client
+        .resource::<IncomingInvitationResource>()
+        .action::<AcceptInvitation>(incoming)
+        .submit()
+        .await;
+
+    let invited: Vec<&str> = waiting.iter().map(|i| i.email.as_str()).collect();
+    assert_eq!(invited, vec!["ada@example.com"], "staff invited nobody");
+    let grace_now = Member::get_by_id(&mut harness.db.clone(), grace_seat.id)
+        .await
+        .expect("Grace is still on the team");
+    assert_eq!(grace_now.role, TeamRole::Member, "and owns nothing");
+    let ada_seats = Member::filter(Member::fields().user_id().eq(ada.id))
+        .exec(&mut harness.db.clone())
+        .await
+        .expect("query");
+    assert_eq!(ada_seats.len(), 1, "Ada joined no team");
+    assert_eq!(
+        Invitation::all()
+            .exec(&mut harness.db.clone())
+            .await
+            .expect("query")
+            .len(),
+        1,
+        "her invitation still waits for her"
+    );
+}
+
+#[tokio::test]
+async fn the_billing_portal_stays_the_customers() {
+    let stripe = FakeStripe::default();
+    let harness = billed_harness(&stripe).await;
+    let (ada, team) = person(&harness.db, "Ada Lovelace", "ada@example.com").await;
+    toasty::create!(BillingAccount {
+        team_id: team.tenant(),
+        customer_id: "cus_1".to_string(),
+        plan: PlanId::Free,
+        status: BillingStatus::None,
+        cancel_at_period_end: false,
+    })
+    .exec(&mut harness.db.clone())
+    .await
+    .expect("write the account");
+    let (_, client) = staff_in_app(
+        &harness,
+        "sam@example.com",
+        StaffRole::Support,
+        Factor::BeforeGrant,
+    )
+    .await;
+    client.submit("/app/impersonate", &act_as(&ada)).await;
+
+    let response = client
+        .csrf(CSRF)
+        .post_form(
+            "/app/settings/billing/-/actions/manage-billing",
+            form_body(&[("csrf_token", CSRF)]),
+        )
+        .await;
+    assert!(
+        response
+            .headers()
+            .get(LOCATION)
+            .is_none_or(|location| !location.to_str().unwrap_or_default().contains("stripe")),
+        "{:?}",
+        response.headers()
+    );
+}
+
+#[tokio::test]
+async fn deleting_the_staff_members_team_keeps_the_log() {
+    let harness = harness().await;
+    let (ada, _) = person(&harness.db, "Ada Lovelace", "ada@example.com").await;
+    let (sam, client) = staff_in_app(
+        &harness,
+        "sam@example.com",
+        StaffRole::Support,
+        Factor::BeforeGrant,
+    )
+    .await;
+    client.submit("/app/impersonate", &act_as(&ada)).await;
+    client.submit("/app/impersonate/stop", "").await;
+
+    let mut db = harness.db.clone();
+    let own = Member::filter(Member::fields().user_id().eq(sam.id))
+        .exec(&mut db)
+        .await
+        .expect("query");
+    for seat in own {
+        audit::forget_team(&mut db, seat.team_id)
+            .await
+            .expect("forget the team");
+    }
+    let admin = staff_client(&harness, "root@example.com", StaffRole::Administrator).await;
+    assert_eq!(
+        admin
+            .resource::<ImpersonationResource>()
+            .list()
+            .await
+            .rows()
+            .len(),
+        2,
+        "the start, filed under Sam's own team, outlives it"
     );
 }

@@ -97,8 +97,8 @@ error-transfer-first = Vous êtes propriétaire d'une équipe utilisée par d'au
 ## Support
 
 page-support = Support
-support-description = Trouvez un client et agissez en son nom pour voir ce qu'il voit. Cela dure 30 minutes au plus, et le back-office consigne chaque début et chaque fin.
-support-needs-factor = Agir au nom d'un client demande un second facteur sur ce panneau. Configurez-en un d'abord.
+support-description = Trouvez un client et agissez en son nom pour voir ce qu'il voit. Cela dure { $minutes } minutes au plus, et le back-office consigne qui a agi au nom de qui.
+support-needs-factor = Agir au nom d'un client demande un second facteur ici, dans l'application, configuré avant qu'un administrateur ne vous accorde votre rôle interne. Configurez-en un, puis redemandez ce rôle.
 support-search = Nom ou adresse e-mail
 support-find = Chercher
 support-none = Aucun client ne correspond.

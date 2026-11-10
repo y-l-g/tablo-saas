@@ -94,8 +94,8 @@ error-transfer-first = You own a team others use. Transfer it before deleting yo
 ## Support
 
 page-support = Support
-support-description = Find a customer and act as them to see what they see. It lasts 30 minutes at most, and the back office logs every start and stop.
-support-needs-factor = Acting as a customer needs a second factor on this panel. Set one up first.
+support-description = Find a customer and act as them to see what they see. It lasts { $minutes } minutes at most, and the back office logs who acted as whom.
+support-needs-factor = Acting as a customer needs a second factor here in the app, set up before an administrator granted your staff role. Set one up, then ask for the grant again.
 support-search = Name or email address
 support-find = Find
 support-none = No customer matches.

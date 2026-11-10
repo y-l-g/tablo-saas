@@ -5,8 +5,8 @@ use tablo::{HeaderAction, Outcome, WriteError, tenant_id};
 use topcoat::context::{Cx, context};
 
 use super::{Billing, account_of, page::URL};
+use crate::accounts::is_impersonated;
 use crate::platform::config::Settings;
-use crate::support::is_impersonated;
 use crate::teams::{TeamRole, current_role};
 
 /// Opens a portal session for the team the session acts for, and lands on it.

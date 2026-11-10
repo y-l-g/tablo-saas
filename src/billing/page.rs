@@ -14,7 +14,7 @@ use super::{
     Billing, BillingInterval, CURRENCY, Entitlements, Plan, PlanId, Standing, account_of,
     portal::ManageBilling, refresh_customer, stripe::Invoice,
 };
-use crate::support::is_impersonated;
+use crate::accounts::is_impersonated;
 use crate::teams::{Member, TeamRole, current_role, may_manage_members};
 
 /// Where the page lives: in the team's settings.
