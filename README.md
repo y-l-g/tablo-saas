@@ -130,7 +130,7 @@ The rules that follow from it:
 
 Every tenant-owned model carries `team_id`, and every resource over it declares `Tenancy`. Sessions
 may only switch to a team they belong to. Code outside a resource goes through `scoped_query`. See
-[`GAPS.md`](GAPS.md) for what the database does not enforce yet.
+[`ROADMAP.md`](ROADMAP.md) for what the database does not enforce yet.
 
 ## Make it yours
 
@@ -185,7 +185,7 @@ live Stripe test account, so run the paid lifecycle once with your own before tr
 card `4000 0000 0000 0341` attaches and then fails, which is the quickest way to see the grace
 period.
 
-## Gaps
+## Roadmap
 
-[`GAPS.md`](GAPS.md) lists what Tablo, Topcoat and Toasty do not offer yet, why a SaaS wants it, and
-what stands in for it here.
+[`ROADMAP.md`](ROADMAP.md) lists what Tablo, Topcoat and Toasty do not offer yet, why a SaaS
+wants it, and what stands in for it here, along with what the template can build now.
