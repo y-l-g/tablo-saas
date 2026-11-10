@@ -6,18 +6,20 @@
 //! found by lookup key, so every environment agrees on what a plan means and no price id leaks
 //! into the source. What a team may do is one pure function of the mirror: [`Entitlements::of`].
 
+mod banner;
 mod catalog;
+mod checkout;
 mod entitlements;
 pub mod jobs;
 mod models;
 mod page;
 mod plans;
 mod portal;
-mod routes;
 pub mod stripe;
 mod sync;
 mod webhook;
 
+pub use banner::{StandingBanner, is_urgent};
 pub use catalog::sync_catalog;
 pub use entitlements::{Entitlements, Standing};
 pub use models::{BillingAccount, BillingStatus, StripeEvent};

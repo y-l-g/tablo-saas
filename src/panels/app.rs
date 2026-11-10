@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use tablo::{
-    Area, Auth, AuthMail, EmailVerification, LoginThrottle, Page, PageDef, Panel, PasswordReset,
+    Area, Auth, AuthMail, EmailVerification, Page, PageDef, Panel, PasswordReset,
     TenantRegistration, TwoFactor, Widget, WidgetDef, db::db, ui,
 };
 use topcoat::{
@@ -15,7 +15,9 @@ use topcoat::{
 
 use crate::accounts::{AccountResetter, AccountVerifier, Accounts, SignedIn};
 use crate::audit;
-use crate::billing::{BILLING_URL, BillingPage, plan_name, standing_notice};
+use crate::billing::{
+    BILLING_URL, BillingPage, StandingBanner, is_urgent, plan_name, standing_notice,
+};
 use crate::platform::config::Config;
 use crate::projects::{Project, ProjectResource};
 use crate::support::{self, SupportPage};
@@ -23,7 +25,7 @@ use crate::teams::{
     IncomingInvitationResource, IncomingInvitationsWidget, InvitationResource, Member,
     MemberResource, Teams,
     actions::{DeleteAccount, DeleteTeam, ExportAccount},
-    current_entitlements,
+    current_entitlements, may_manage_members,
 };
 
 /// The panel customers use.
@@ -31,6 +33,7 @@ pub fn app_panel(config: &Config) -> Panel {
     super::lands_on_stripe(super::shared(Panel::new("app"), config))
         .auth(auth(config))
         .notifications()
+        .banner::<StandingBanner>()
         .audit_log(audit::team_trail)
         .home::<Home>()
         .resource::<ProjectResource>()
@@ -68,13 +71,16 @@ fn settings() -> Area {
 }
 
 /// Every auth page Tablo offers: sign-up, a verified address before anything else, reset, the
-/// profile and a second factor from an app or by mail; and staff acting as a customer.
+/// profile and a second factor from an app or by mail, required of staff; and staff acting as a
+/// customer.
 fn auth(config: &Config) -> Auth<SignedIn> {
     Auth::custom(Accounts)
         .registration(Accounts)
+        .throttle(super::shared_throttle(5, Duration::from_mins(1)))
         // Past the per-address limit, a guesser rotating addresses still meets this one. It is
         // high enough that only a distributed guesser locks an owner out.
-        .account_throttle(LoginThrottle::new(50, Duration::from_hours(1)))
+        .account_throttle(super::shared_throttle(50, Duration::from_hours(1)))
+        .profile_throttle(super::shared_throttle(5, Duration::from_mins(1)))
         .mail(AuthMail::new(
             config.mail.from.clone(),
             config.base_url.clone(),
@@ -82,7 +88,14 @@ fn auth(config: &Config) -> Auth<SignedIn> {
         .password_reset(PasswordReset::new(AccountResetter))
         .email_verification(EmailVerification::new(AccountVerifier))
         .profile(Accounts)
-        .two_factor(TwoFactor::new().email_codes())
+        // Staff sign in here to act as customers, so their account reaches every customer's
+        // data: a password alone is not enough for it. Customers choose for themselves.
+        .two_factor(
+            TwoFactor::new()
+                .email_codes()
+                .throttle(super::shared_throttle(5, Duration::from_mins(1)))
+                .required_for(|_cx, signed: &SignedIn| signed.user.staff_role.is_some()),
+        )
         .tenant_registration(TenantRegistration::new(Teams).required())
         .tenant_profile(Teams)
         .impersonation(support::impersonation())
@@ -121,7 +134,11 @@ impl Widget for PlanWidget {
             .exec(&mut handle)
             .await?
             .len();
-        let notice = standing_notice(cx, entitlements.standing);
+        // What the banner above the page already says is not said twice.
+        let bannered = is_urgent(entitlements.standing) && may_manage_members(cx);
+        let notice = (!bannered)
+            .then(|| standing_notice(cx, entitlements.standing))
+            .flatten();
         let usage = |used: usize, limit: Option<u32>| match limit {
             Some(limit) => format!("{used} / {limit}"),
             None => used.to_string(),

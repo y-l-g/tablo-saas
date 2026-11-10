@@ -54,3 +54,8 @@ snapshot_name = "0009_snapshot.toml"
 id = 8514698358599978163
 name = "0010_staff_since.sql"
 snapshot_name = "0010_snapshot.toml"
+
+[[migrations]]
+id = 4837384149567811927
+name = "0011_auth_throttle.sql"
+snapshot_name = "0011_snapshot.toml"

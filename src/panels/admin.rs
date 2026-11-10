@@ -1,5 +1,7 @@
 //! The `admin` panel: staff only, with a second factor required.
 
+use std::time::Duration;
+
 use tablo::{Auth, AuthMail, Panel, TwoFactor};
 
 use crate::accounts::{Accounts, SignedIn};
@@ -25,9 +27,15 @@ pub fn admin_panel(config: &Config) -> Panel {
 
 fn auth(config: &Config) -> Auth<SignedIn> {
     Auth::custom(Accounts)
+        .throttle(super::shared_throttle(5, Duration::from_mins(1)))
         .mail(AuthMail::new(
             config.mail.from.clone(),
             config.base_url.clone(),
         ))
-        .two_factor(TwoFactor::new().email_codes().required())
+        .two_factor(
+            TwoFactor::new()
+                .email_codes()
+                .throttle(super::shared_throttle(5, Duration::from_mins(1)))
+                .required(),
+        )
 }

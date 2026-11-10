@@ -60,9 +60,10 @@ To work on the back office, sign up, then give that account a role:
 cargo run -- staff grant you@example.com --role administrator
 ```
 
-To act as a customer, sign in to `/app` with that account and add a second factor under Security,
-then run the `staff grant` command again: only a factor there at the grant counts, so a stolen
-password cannot enrol one. Sign in to `/app` again, through that factor, and open Support.
+To act as a customer, sign in to `/app` with that account: staff must set up a second factor there
+before anything else. Then run the `staff grant` command again: only a factor there at the grant
+counts, so a stolen password cannot enrol one. Sign in to `/app` again, through that factor, and
+open Support.
 
 ## Connect Stripe
 
@@ -170,8 +171,6 @@ secrets. See [`.env.example`](.env.example) for every variable.
 Before going live:
 
 - [ ] Terminate TLS in front of the app, and set `TRUSTED_PROXIES`.
-- [ ] Rate limit `/app/login` and `/admin/login` at the edge. The built-in throttle counts per
-      replica.
 - [ ] Keep `APP_COOKIE_KEY` stable. Rotating it locks out every enrolled authenticator, and
       strands the auth mail still queued.
 - [ ] Back up Postgres, and test a restore.

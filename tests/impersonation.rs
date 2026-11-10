@@ -150,6 +150,35 @@ async fn staff_find_a_customer_and_act_as_them_until_stop() {
     assert!(events.contains(&"stop_impersonating".to_string()));
 }
 
+/// Signing out while acting as a customer ends it, and the log says so: a start with no stop
+/// is left only by a session that expired.
+#[tokio::test]
+async fn signing_out_while_acting_as_a_customer_logs_a_stop() {
+    let harness = harness().await;
+    let (ada, _) = person(&harness.db, "Ada Lovelace", "ada@example.com").await;
+    let (_, client) = staff_in_app(
+        &harness,
+        "sam@example.com",
+        StaffRole::Support,
+        Factor::BeforeGrant,
+    )
+    .await;
+    client.submit("/app/impersonate", &act_as(&ada)).await;
+    let out = client.submit("/app/logout", "").await;
+    assert_eq!(out.status(), StatusCode::SEE_OTHER);
+
+    let mut events: Vec<String> = AuditEntry::all()
+        .exec(&mut harness.db.clone())
+        .await
+        .expect("query")
+        .into_iter()
+        .filter(|entry| entry.panel == "/app")
+        .map(|entry| entry.event)
+        .collect();
+    events.sort_unstable();
+    assert_eq!(events, ["impersonate", "stop_impersonating"]);
+}
+
 #[tokio::test]
 async fn an_administrator_reads_who_acted_as_whom() {
     let harness = harness().await;
@@ -179,11 +208,15 @@ async fn an_administrator_reads_who_acted_as_whom() {
     }
     let events: Vec<String> = rows.iter().map(|row| row.cells.join(" | ")).collect();
     assert!(
-        events.iter().any(|text| text.contains("Started")),
-        "{events:?}"
+        events
+            .iter()
+            .any(|text| text.contains("Started") && text.contains(" UTC")),
+        "a start says when it ends at the latest: {events:?}"
     );
     assert!(
-        events.iter().any(|text| text.contains("Stopped")),
+        events
+            .iter()
+            .any(|text| text.contains("Stopped") && !text.contains(" UTC")),
         "{events:?}"
     );
 
@@ -199,8 +232,10 @@ async fn an_administrator_reads_who_acted_as_whom() {
     );
 }
 
+/// The app panel requires a factor of staff, whom customers' data is open to, so one without is
+/// sent to set it up before anything else, acting as a customer included.
 #[tokio::test]
-async fn staff_without_a_factor_on_the_app_panel_act_as_nobody() {
+async fn staff_without_a_factor_on_the_app_panel_are_sent_to_set_one_up() {
     let harness = harness().await;
     let (ada, _) = person(&harness.db, "Ada Lovelace", "ada@example.com").await;
     let (_, client) = staff_in_app(
@@ -211,15 +246,13 @@ async fn staff_without_a_factor_on_the_app_panel_act_as_nobody() {
     )
     .await;
 
-    let (status, html) = search(&client, "ada").await;
-    assert_eq!(status, StatusCode::OK);
-    assert!(html.contains("data-support-notice"), "{html}");
-    assert!(html.contains("data-customer=\"ada@example.com\""), "{html}");
-    assert_eq!(impersonate_buttons(&html), Vec::<String>::new());
+    let page = client.get("/app/support?q=ada").await;
+    assert_eq!(page.status(), StatusCode::TEMPORARY_REDIRECT);
+    let setup = page.headers()[LOCATION].to_str().expect("ascii");
+    assert!(setup.contains("two-factor"), "{setup}");
 
     let refused = client.submit("/app/impersonate", &act_as(&ada)).await;
     assert_eq!(refused.status(), StatusCode::FORBIDDEN);
-    assert!(banner(&client).await.is_none());
 }
 
 #[tokio::test]
@@ -284,7 +317,7 @@ async fn billing_stays_the_customers_while_staff_act_as_them() {
     );
     let checkout = client
         .submit(
-            "/app/settings/billing/checkout",
+            "/app/settings/billing/-/actions/checkout",
             &form_body(&[("plan", "pro"), ("interval", "month")]),
         )
         .await;

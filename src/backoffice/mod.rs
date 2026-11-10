@@ -115,6 +115,7 @@ impl Resource for ImpersonationResource {
                             }
                         })
                         .badge(),
+                    ComputedColumn::new(tablo::text!("impersonation-until"), ends_by),
                     ComputedColumn::new(tablo::text!("impersonation-customer"), customer_named),
                     TextColumn::new(lens!(AuditEntry.record))
                         .label(tablo::text!("impersonation-customer-id"))
@@ -137,6 +138,21 @@ fn customer_named(entry: &AuditEntry) -> String {
         .and_then(|change| change.after.clone())
         .filter(|name| entry.record.as_deref() != Some(name.as_str()))
         .unwrap_or_else(|| "—".to_string())
+}
+
+/// When a start was due to end at the latest, as Tablo records it in the `until` change: a start
+/// with no stop after it, whose session simply expired, ended then. A stop has none.
+fn ends_by(entry: &AuditEntry) -> String {
+    entry
+        .changes
+        .0
+        .iter()
+        .find(|change| change.field == "until")
+        .and_then(|change| change.after.as_deref()?.parse::<Timestamp>().ok())
+        .map_or_else(
+            || "—".to_string(),
+            |until| until.strftime("%Y-%m-%d %H:%M UTC").to_string(),
+        )
 }
 
 /// Every team.

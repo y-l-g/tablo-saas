@@ -252,7 +252,7 @@ async fn an_owner_leaves_for_checkout_with_the_team_seat_count() {
     let response = client
         .csrf(CSRF)
         .post_form(
-            "/app/settings/billing/checkout",
+            "/app/settings/billing/-/actions/checkout",
             form_body(&[("plan", "pro"), ("interval", "month"), ("csrf_token", CSRF)]),
         )
         .await;
@@ -351,7 +351,7 @@ async fn only_the_owner_reaches_checkout_and_never_without_the_token() {
     let admin = client_for(&harness, &grace, &team).await;
     let response = admin
         .csrf(CSRF)
-        .post_form("/app/settings/billing/checkout", form(CSRF))
+        .post_form("/app/settings/billing/-/actions/checkout", form(CSRF))
         .await;
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 
@@ -359,7 +359,7 @@ async fn only_the_owner_reaches_checkout_and_never_without_the_token() {
     let response = owner
         .csrf(CSRF)
         .post_form(
-            "/app/settings/billing/checkout",
+            "/app/settings/billing/-/actions/checkout",
             form("00000000-0000-4000-8000-000000000000"),
         )
         .await;
@@ -369,7 +369,7 @@ async fn only_the_owner_reaches_checkout_and_never_without_the_token() {
     let stranger = TestClient::new(&harness.app);
     let response = stranger
         .csrf(CSRF)
-        .post_form("/app/settings/billing/checkout", form(CSRF))
+        .post_form("/app/settings/billing/-/actions/checkout", form(CSRF))
         .await;
     assert_ne!(response.status(), StatusCode::OK);
     assert_eq!(stripe.with(|state| state.checkouts.len()), 0);
@@ -394,7 +394,7 @@ async fn an_unverified_account_does_not_reach_checkout() {
     let response = client
         .csrf(CSRF)
         .post_form(
-            "/app/settings/billing/checkout",
+            "/app/settings/billing/-/actions/checkout",
             form_body(&[("plan", "pro"), ("interval", "month"), ("csrf_token", CSRF)]),
         )
         .await;
@@ -422,7 +422,7 @@ async fn a_running_subscription_is_not_bought_twice() {
     let response = client
         .csrf(CSRF)
         .post_form(
-            "/app/settings/billing/checkout",
+            "/app/settings/billing/-/actions/checkout",
             form_body(&[
                 ("plan", "business"),
                 ("interval", "year"),
@@ -561,4 +561,64 @@ async fn the_panel_policy_lets_the_billing_forms_land_on_stripe() {
         .expect("ascii");
     assert!(policy.contains("https://checkout.stripe.com"), "{policy}");
     assert!(policy.contains("https://billing.stripe.com"), "{policy}");
+}
+
+/// Each plan card carries a Checkout button per interval, posting that card's plan to the
+/// page's action; the portal's button sits in the page's header.
+#[tokio::test]
+async fn each_plan_card_posts_its_own_plan_and_interval() {
+    let stripe = FakeStripe::default();
+    let harness = billed_harness(&stripe).await;
+    let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
+
+    let client = client_for(&harness, &ada, &team).await;
+    let html = body_string(client.get("/app/settings/billing").await).await;
+    let forms = html
+        .matches("action=\"/app/settings/billing/-/actions/checkout\"")
+        .count();
+    assert_eq!(forms, 4, "two paid plans, two intervals each: {html}");
+    for (plan, interval) in [("pro", "month"), ("business", "year")] {
+        assert!(
+            html.contains(&format!("name=\"plan\" value=\"{plan}\"")),
+            "{html}"
+        );
+        assert!(
+            html.contains(&format!("name=\"interval\" value=\"{interval}\"")),
+            "{html}"
+        );
+    }
+    assert!(
+        html.contains("action=\"/app/settings/billing/-/actions/manage-billing\""),
+        "{html}"
+    );
+}
+
+/// A failed payment reaches the owner on every page, but not where the billing page says it
+/// already, and not a member, who cannot open that page.
+#[tokio::test]
+async fn a_failed_payment_shows_above_every_page_for_those_who_can_fix_it() {
+    let stripe = FakeStripe::default();
+    let mut harness = billed_harness(&stripe).await;
+    let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
+    let (grace, _) = person(&harness.db, "Grace", "grace@example.com").await;
+    seat(&harness.db, &grace, &team, TeamRole::Member).await;
+    account(&harness, &team, "cus_1").await;
+    stripe.subscribe("cus_1", "past_due", "pro_month", 1);
+    signed(&harness, &event("evt_1", "invoice.payment_failed", "cus_1")).await;
+    harness.run_jobs().await;
+
+    let owner = client_for(&harness, &ada, &team).await;
+    let home = body_string(owner.get("/app").await).await;
+    assert_eq!(home.matches("data-billing-banner").count(), 1, "{home}");
+    assert!(home.contains("Your last payment failed."), "{home}");
+    assert!(!home.contains("data-billing-notice"), "said once: {home}");
+    let projects = body_string(owner.get("/app/projects").await).await;
+    assert!(projects.contains("data-billing-banner"), "{projects}");
+    let billing = body_string(owner.get("/app/settings/billing").await).await;
+    assert!(!billing.contains("data-billing-banner"), "{billing}");
+    assert!(billing.contains("data-billing-notice"), "{billing}");
+
+    let member = client_for(&harness, &grace, &team).await;
+    let home = body_string(member.get("/app").await).await;
+    assert!(!home.contains("data-billing-banner"), "{home}");
 }
