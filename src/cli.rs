@@ -8,6 +8,7 @@ use topcoat::asset::AssetBundle;
 use crate::accounts::{StaffRole, User, normalize_email};
 use crate::background;
 use crate::billing::{Billing, sync_catalog};
+use crate::jobs::MailSeal;
 use crate::platform::{config::Config, database, mail::Postbox, telemetry};
 use crate::router::{App, router};
 
@@ -107,7 +108,14 @@ impl Cli {
             config: &config,
         })
         .map_err(|error| anyhow::anyhow!("{error:#}"))?;
-        let worker = background::worker(db, &built.app_panel, config.settings(), billing, mail);
+        let worker = background::worker(
+            db,
+            &built.app_panel,
+            config.settings(),
+            billing,
+            mail,
+            MailSeal::new(&config.cookie_key),
+        );
 
         match command {
             Command::Migrate | Command::Billing { .. } | Command::Staff { .. } => {

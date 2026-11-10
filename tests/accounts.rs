@@ -4,7 +4,7 @@ mod support;
 
 use support::harness;
 use tablo::testing::{TestClient, form_body};
-use tablo_saas::accounts::User;
+use tablo_saas::{accounts::User, jobs::JobRow};
 use topcoat::router::Body;
 use topcoat::router::header::LOCATION;
 
@@ -41,6 +41,34 @@ async fn a_sign_up_stores_a_lowercase_address_and_mails_a_verification_link() {
 
     let sent = harness.mail(1).await;
     assert_eq!(sent[0].to()[0].address(), "ada@example.com");
+}
+
+#[tokio::test]
+async fn auth_mail_waits_in_the_queue_sealed_until_the_worker_sends_it() {
+    let harness = harness().await;
+    let client = TestClient::new(&harness.app);
+    sign_up(&client, "ada@example.com").await;
+
+    let mut queued = Vec::new();
+    for _ in 0..200 {
+        queued = JobRow::filter(JobRow::fields().kind().eq("send-mail"))
+            .exec(&mut harness.db.clone())
+            .await
+            .expect("query");
+        if !queued.is_empty() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    assert_eq!(queued.len(), 1, "the verification mail is queued");
+    assert!(harness.outbox.sent().is_empty(), "the worker sends it");
+    let payload = &queued[0].payload;
+    assert!(!payload.contains("ada@example.com"), "{payload}");
+    assert!(!payload.contains("token"), "{payload}");
+
+    let sent = harness.mail(1).await;
+    assert_eq!(sent[0].to()[0].address(), "ada@example.com");
+    assert!(sent[0].text().expect("a text body").contains("token="));
 }
 
 #[tokio::test]

@@ -4241,6 +4241,7 @@ dependencies = [
 name = "tablo-saas"
 version = "0.1.0"
 dependencies = [
+ "aes-gcm 0.10.3",
  "anyhow",
  "clap",
  "dotenvy",

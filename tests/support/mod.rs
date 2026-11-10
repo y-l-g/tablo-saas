@@ -17,7 +17,7 @@ use tablo_saas::{
     accounts::{Accounts, StaffRole, User},
     background,
     billing::Billing,
-    jobs::Worker,
+    jobs::{MailSeal, Worker},
     platform::{config::Config, database},
     router::{App, router},
     teams::{Member, Team, TeamRole, create_team},
@@ -32,7 +32,7 @@ pub struct Harness {
     pub admin_panel: PanelHandle,
     pub db: Db,
     pub outbox: MemoryTransport,
-    worker: Option<Worker>,
+    worker: Arc<Worker>,
 }
 
 fn config() -> Config {
@@ -90,6 +90,7 @@ async fn build(billing: Billing) -> Harness {
         config.settings(),
         billing,
         outbox.clone(),
+        MailSeal::new(&config.cookie_key),
     );
     Harness {
         app: built.router,
@@ -97,28 +98,30 @@ async fn build(billing: Billing) -> Harness {
         admin_panel: built.admin_panel,
         db,
         outbox,
-        worker: Some(worker),
+        worker: Arc::new(worker),
     }
 }
 
 impl Harness {
     /// Runs every job due now, as a worker would.
     pub async fn run_jobs(&mut self) {
-        let worker = self.worker.take().expect("a harness drains once");
-        let worker = Arc::new(worker);
-        while Arc::clone(&worker)
+        self.drain().await;
+    }
+
+    async fn drain(&self) {
+        while Arc::clone(&self.worker)
             .drain_once()
             .await
             .expect("the queue runs")
             > 0
         {}
-        self.worker = Arc::into_inner(worker);
     }
 
-    /// What the outbox holds once `count` mails arrived. Tablo sends its auth mail after the
-    /// response, so a test waits for it rather than racing it.
+    /// What the outbox holds once `count` mails arrived, running the queue meanwhile. Tablo queues
+    /// its auth mail after the response, so a test waits for it rather than racing it.
     pub async fn mail(&self, count: usize) -> Vec<topcoat::mail::Mail> {
         for _ in 0..200 {
+            self.drain().await;
             let sent = self.outbox.sent();
             if sent.len() >= count {
                 return sent;

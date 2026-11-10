@@ -13,7 +13,7 @@ use crate::billing::{
         SendBillingNotice, SyncSeats,
     },
 };
-use crate::jobs::{Recurring, Registry, Worker, housekeeping::PruneJobs};
+use crate::jobs::{MailSeal, Recurring, Registry, SendMail, Worker, housekeeping::PruneJobs};
 use crate::platform::config::Settings;
 use crate::teams::{CancelSubscription, PruneInvitations, SendInvitation};
 
@@ -21,6 +21,7 @@ use crate::teams::{CancelSubscription, PruneInvitations, SendInvitation};
 fn registry() -> Registry {
     Registry::default()
         .register::<PruneJobs>()
+        .register::<SendMail>()
         .register::<SendInvitation>()
         .register::<CancelSubscription>()
         .register::<PruneInvitations>()
@@ -55,13 +56,15 @@ fn schedules() -> Vec<Recurring> {
 }
 
 /// A worker reading what the app reads, through the mounted panel: its database and its resources.
-/// Each run gets a context of its own, because one context is one unit of work.
+/// Each run gets a context of its own, because one context is one unit of work. `mail` delivers,
+/// and `seal` opens what the router's outbox queued.
 pub fn worker<T: Transport + Clone + Send + Sync + 'static>(
     db: Db,
     panel: &PanelHandle,
     settings: Settings,
     billing: Billing,
     mail: T,
+    seal: MailSeal,
 ) -> Worker {
     let panel = panel.clone();
     Worker::new(db, registry(), schedules(), move || {
@@ -70,5 +73,6 @@ pub fn worker<T: Transport + Clone + Send + Sync + 'static>(
             .with(settings.clone())
             .with(billing.clone())
             .with(Mailer::new(mail.clone()))
+            .with(seal.clone())
     })
 }

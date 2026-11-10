@@ -12,7 +12,8 @@ pub struct Job {
     /// The `Job::KIND` that runs it.
     #[index]
     pub kind: String,
-    /// Its fields, as JSON. Never a secret: mail jobs name rows and render when they run.
+    /// Its fields, as JSON. Never a secret in the clear: mail jobs name rows and render when they
+    /// run, and `send-mail` carries its mail sealed.
     pub payload: String,
     pub state: JobState,
     /// Runs in one lane run one at a time, so two syncs of one customer never interleave.

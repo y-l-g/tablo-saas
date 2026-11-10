@@ -17,7 +17,8 @@ keep the rest.
 - **A durable job queue** in Postgres: lanes, dedupe, backoff, a dead state, schedules, and a
   transactional outbox, so a job exists exactly when its write committed.
 - **Accounts.** Email verification, password reset, two-factor by authenticator or email, and
-  account deletion that erases what it should and anonymises the rest.
+  account deletion that erases what it should and anonymises the rest. Their mail leaves through
+  the queue, sealed, so a crash or an SMTP outage loses none.
 - **A back office** at `/admin`, separate from the app, with two-factor required for staff: accounts,
   teams, subscriptions, webhook events and jobs, with the filters support reaches for, and an audit
   log of what staff did.
@@ -161,7 +162,8 @@ Before going live:
 - [ ] Terminate TLS in front of the app, and set `TRUSTED_PROXIES`.
 - [ ] Rate limit `/app/login` and `/admin/login` at the edge. The built-in throttle counts per
       replica.
-- [ ] Keep `APP_COOKIE_KEY` stable. Rotating it locks out every enrolled authenticator.
+- [ ] Keep `APP_COOKIE_KEY` stable. Rotating it locks out every enrolled authenticator, and
+      strands the auth mail still queued.
 - [ ] Back up Postgres, and test a restore.
 - [ ] Point `/readyz` at your load balancer and `/healthz` at your liveness check.
 - [ ] Alert on jobs in the `dead` state, visible at `/admin/jobs`.

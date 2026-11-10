@@ -23,6 +23,7 @@ required-features = ["toasty-cli"]
 toasty-cli = ["dep:toasty-cli"]
 
 [dependencies]
+aes-gcm = "0.10"
 anyhow = "1"
 clap = { version = "4", features = ["derive", "env"] }
 dotenvy = "0.15"

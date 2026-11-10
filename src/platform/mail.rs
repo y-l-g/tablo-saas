@@ -11,8 +11,8 @@ use topcoat::{
 
 use super::config::{Settings, Smtp};
 
-/// How many times a send is tried before it fails. Tablo sends its auth mail once, after the
-/// response, so a passing SMTP outage would otherwise cost a person their reset link.
+/// How many times a send is tried before it fails. A blip costs seconds here rather than the
+/// half-minute a job waits before its retry, and a mail sent outside the queue gets no other.
 const ATTEMPTS: u32 = 3;
 
 /// The app's transport. Cloning shares one connection pool.
