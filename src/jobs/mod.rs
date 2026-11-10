@@ -11,12 +11,14 @@
 //! next worker takes the job over.
 
 pub mod housekeeping;
+mod mail;
 mod models;
 mod queue;
 mod registry;
 mod schedule;
 mod worker;
 
+pub use mail::{MailSeal, Outbox, SendMail};
 pub use models::{Job as JobRow, JobState, ScheduleRun};
 pub use queue::{Enqueue, enqueue};
 pub use registry::{Job, Registry};

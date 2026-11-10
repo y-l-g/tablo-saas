@@ -11,6 +11,7 @@ use topcoat::{
 };
 
 use crate::billing::Billing;
+use crate::jobs::{MailSeal, Outbox};
 use crate::panels::{admin_panel, app_panel};
 use crate::platform::{config::Config, http::Https};
 use crate::site::SitePanel;
@@ -51,7 +52,11 @@ pub fn router<T: Transport + 'static>(app: App<'_, T>) -> topcoat::Result<Built>
         .with(Https(config.base_url.starts_with("https://")))
         .with(config.settings())
         .with(billing)
-        .with(Mailer::new(mail));
+        // Mail sent inside a request is queued, so a crash after the response loses none.
+        .with(Mailer::new(Outbox::new(
+            mail,
+            MailSeal::new(&config.cookie_key),
+        )));
     if !config.trusted_proxies.is_empty() {
         builder =
             builder.trusted_proxies(TrustedProxies::new().networks(config.trusted_proxies.clone()));

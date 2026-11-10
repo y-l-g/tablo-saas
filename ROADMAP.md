@@ -30,7 +30,6 @@ template can build it today. When a gap closes, delete its row along with the wo
 | --- | --- | --- | --- |
 | Jobs and schedules | Tablo, Topcoat | Webhooks, mail, reconciliation and pruning all need durable work | `src/jobs`: a Postgres queue with lanes, dedupe, retries, a transactional outbox and recurring schedules |
 | `SELECT … FOR UPDATE SKIP LOCKED` | Toasty | The standard way to claim a job. Toasty takes locks inside its engine and exposes no lock clause on a query | A compare-and-swap on `#[version]`. Correct, but workers contend under load |
-| Durable auth mail | Implementable now | Verification and reset mail leaves in a `tokio::spawn` after the response. A crash or an SMTP outage loses it | `Postbox` retries three times. The person can ask for the mail again. The app supplies the `Mailer`, so a `Transport` that writes to the jobs outbox would make it durable without a Tablo change |
 
 ## Data
 
