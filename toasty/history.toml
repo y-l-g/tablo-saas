@@ -59,3 +59,8 @@ snapshot_name = "0010_snapshot.toml"
 id = 4837384149567811927
 name = "0011_auth_throttle.sql"
 snapshot_name = "0011_snapshot.toml"
+
+[[migrations]]
+id = 6654666914214880439
+name = "0012_google_identities.sql"
+snapshot_name = "0012_snapshot.toml"

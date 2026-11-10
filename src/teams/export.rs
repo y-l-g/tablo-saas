@@ -22,7 +22,7 @@ use topcoat::{
 };
 
 use super::{Invitation, Member, Team, TeamRole};
-use crate::accounts::{SignedIn, StaffRole, User};
+use crate::accounts::{Identity, SignedIn, StaffRole, User};
 use crate::billing::{BillingAccount, BillingInterval, BillingStatus, PlanId};
 use crate::projects::{Project, ProjectStatus};
 
@@ -34,6 +34,8 @@ pub const EXPORT_URL: &str = "/app/settings/profile/export";
 pub struct AccountExport {
     pub exported_at: Timestamp,
     pub user: UserExport,
+    /// The Google accounts that sign in as this one.
+    pub identities: Vec<IdentityExport>,
     pub memberships: Vec<MembershipExport>,
     /// The teams the account owns, with what deleting it would erase or hand over.
     pub owned_teams: Vec<TeamExport>,
@@ -56,6 +58,25 @@ pub struct UserExport {
     pub locale: Option<String>,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
+}
+
+/// A provider's account linked to this one: which provider, its id for the account there, and
+/// when it was linked.
+#[derive(Serialize)]
+pub struct IdentityExport {
+    pub issuer: String,
+    pub subject: String,
+    pub linked_at: Timestamp,
+}
+
+impl From<Identity> for IdentityExport {
+    fn from(identity: Identity) -> Self {
+        Self {
+            issuer: identity.issuer,
+            subject: identity.subject,
+            linked_at: identity.created_at,
+        }
+    }
 }
 
 /// One seat on one team.
@@ -235,6 +256,9 @@ pub async fn export_account(
     user: uuid::Uuid,
 ) -> Result<AccountExport> {
     let account = User::get_by_id(&mut *ex, user).await?;
+    let identities = Identity::filter(Identity::fields().user_id().eq(user))
+        .exec(&mut *ex)
+        .await?;
     let seats = Member::filter(Member::fields().user_id().eq(user))
         .exec(&mut *ex)
         .await?;
@@ -266,6 +290,7 @@ pub async fn export_account(
     Ok(AccountExport {
         exported_at: Timestamp::now(),
         user: account.into(),
+        identities: by_date(identities, |identity| identity.created_at),
         memberships,
         owned_teams,
         invitations: invitations.into_iter().map(Into::into).collect(),

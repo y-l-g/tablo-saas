@@ -32,7 +32,21 @@ pub struct Config {
     pub mail: MailSettings,
     /// `None` runs the app with billing off, which production refuses.
     pub stripe: Option<StripeSettings>,
+    /// `None` offers no "Continue with Google".
+    pub google: Option<GoogleSettings>,
 }
+
+/// The Google OAuth client customers sign in through.
+#[derive(Clone)]
+pub struct GoogleSettings {
+    pub client_id: String,
+    pub client_secret: String,
+    /// Google's issuer, or a stand-in provider's for tests.
+    pub issuer: String,
+}
+
+/// The issuer Google's ID tokens name.
+pub const GOOGLE_ISSUER: &str = "https://accounts.google.com";
 
 /// How the app reaches Stripe.
 #[derive(Clone)]
@@ -114,6 +128,16 @@ impl Config {
             "STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are required in production"
         );
 
+        let google = match (var("GOOGLE_CLIENT_ID"), var("GOOGLE_CLIENT_SECRET")) {
+            (Some(client_id), Some(client_secret)) => Some(GoogleSettings {
+                client_id,
+                client_secret,
+                issuer: var("GOOGLE_ISSUER").unwrap_or_else(|| GOOGLE_ISSUER.to_string()),
+            }),
+            (None, None) => None,
+            _ => bail!("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set together or not at all"),
+        };
+
         let environment_name = var("APP_ENVIRONMENT_NAME")
             .or_else(|| (!production).then(|| "Development".to_string()));
 
@@ -133,6 +157,7 @@ impl Config {
                 .unwrap_or_default(),
             mail,
             stripe,
+            google,
         })
     }
 

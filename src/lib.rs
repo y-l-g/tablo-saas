@@ -29,6 +29,7 @@ pub use panels::PRODUCT_NAME;
 pub fn models() -> toasty::schema::ModelSet {
     tablo::models!(
         accounts::User,
+        accounts::Identity,
         jobs::JobRow,
         jobs::ScheduleRun,
         teams::Team,

@@ -12,7 +12,7 @@ use tablo::{
 use topcoat::context::{Cx, context};
 
 use super::{Invitation, Member, Team, TeamRole, access};
-use crate::accounts::{SignedIn, User};
+use crate::accounts::{Identity, SignedIn, User};
 use crate::audit;
 use crate::billing::{Billing, BillingAccount};
 use crate::jobs::{Job, enqueue};
@@ -77,13 +77,18 @@ pub async fn delete_team(ex: &mut dyn toasty::Executor, team: TenantId) -> topco
     Ok(())
 }
 
-/// Deletes the rows Tablo keeps for `user` beside the account, on the caller's transaction: its
-/// sessions, pending links and codes, second factors, list column choices and notifications.
-/// Tablo leaves them behind when a user goes, since only the app knows a user went.
+/// Deletes the rows that sign `user` in beside the account, on the caller's transaction: Tablo's
+/// sessions, pending links and codes, second factors, list column choices and notifications,
+/// which it leaves behind since only the app knows a user went, and the Google identities linked
+/// to it.
 pub async fn forget_sign_in(
     ex: &mut dyn toasty::Executor,
     user: uuid::Uuid,
 ) -> topcoat::Result<()> {
+    Identity::filter(Identity::fields().user_id().eq(user))
+        .delete()
+        .exec(&mut *ex)
+        .await?;
     let id = user.to_string();
     AuthSession::filter(AuthSession::fields().user_id().eq(&id))
         .delete()
