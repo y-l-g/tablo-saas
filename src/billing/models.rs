@@ -39,7 +39,8 @@ pub struct BillingAccount {
 }
 
 /// A subscription's status, as Stripe spells it, with `None` before there is one.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, toasty::Embed, tablo::Options)]
+#[serde(rename_all = "snake_case")]
 pub enum BillingStatus {
     #[option(color = "gray")]
     None,

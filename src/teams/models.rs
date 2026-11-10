@@ -65,7 +65,8 @@ pub struct Invitation {
 }
 
 /// What a member may do on their team.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, toasty::Embed, tablo::Options)]
+#[serde(rename_all = "snake_case")]
 pub enum TeamRole {
     /// Everything, billing and deleting the team included. A team has exactly one.
     #[option(color = "warning")]

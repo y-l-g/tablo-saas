@@ -4,7 +4,11 @@
 //! crash can delete the customer's data and keep charging them, or cancel a team that still exists.
 
 use serde::{Deserialize, Serialize};
-use tablo::{HeaderAction, Outcome, TenantId, WriteError, auth, auth::verify_password};
+use tablo::{
+    HeaderAction, Outcome, TenantId, WriteError, auth,
+    auth::{AuthFactor, AuthSession, AuthToken, ColumnPreference, verify_password},
+    notification::StoredNotification,
+};
 use topcoat::context::{Cx, context};
 
 use super::{Invitation, Member, Team, TeamRole, access};
@@ -70,6 +74,37 @@ pub async fn delete_team(ex: &mut dyn toasty::Executor, team: TenantId) -> topco
         .exec(&mut *ex)
         .await?;
     Team::filter_by_id(team.get()).delete().exec(ex).await?;
+    Ok(())
+}
+
+/// Deletes the rows Tablo keeps for `user` beside the account, on the caller's transaction: its
+/// sessions, pending links and codes, second factors, list column choices and notifications.
+/// Tablo leaves them behind when a user goes, since only the app knows a user went.
+pub async fn forget_sign_in(
+    ex: &mut dyn toasty::Executor,
+    user: uuid::Uuid,
+) -> topcoat::Result<()> {
+    let id = user.to_string();
+    AuthSession::filter(AuthSession::fields().user_id().eq(&id))
+        .delete()
+        .exec(&mut *ex)
+        .await?;
+    AuthToken::filter(AuthToken::fields().user_id().eq(&id))
+        .delete()
+        .exec(&mut *ex)
+        .await?;
+    AuthFactor::filter(AuthFactor::fields().user_id().eq(&id))
+        .delete()
+        .exec(&mut *ex)
+        .await?;
+    ColumnPreference::filter(ColumnPreference::fields().user_id().eq(&id))
+        .delete()
+        .exec(&mut *ex)
+        .await?;
+    StoredNotification::filter(StoredNotification::fields().user_id().eq(&id))
+        .delete()
+        .exec(ex)
+        .await?;
     Ok(())
 }
 
@@ -163,6 +198,7 @@ impl HeaderAction for DeleteAccount {
             .delete()
             .exec(&mut *ex)
             .await?;
+        forget_sign_in(&mut *ex, signed.user.id).await?;
         User::filter_by_id(signed.user.id).delete().exec(ex).await?;
         Ok(Outcome::done().redirect("/"))
     }

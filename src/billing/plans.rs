@@ -10,7 +10,8 @@ use std::fmt;
 pub const CURRENCY: &str = "eur";
 
 /// A plan a team can be on.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, toasty::Embed, tablo::Options)]
+#[serde(rename_all = "snake_case")]
 pub enum PlanId {
     #[option(color = "gray")]
     Free,
@@ -21,7 +22,8 @@ pub enum PlanId {
 }
 
 /// How often a subscription renews.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, toasty::Embed, tablo::Options)]
+#[serde(rename_all = "snake_case")]
 pub enum BillingInterval {
     Month,
     Year,

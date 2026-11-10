@@ -4,7 +4,9 @@ mod support;
 
 use support::{Harness, billed_harness, client_for, harness, person, seat, stripe::FakeStripe};
 use tablo::{
-    AuditEntry,
+    AuditEntry, Notification,
+    auth::{AuthFactor, AuthSession, AuthToken, ColumnPreference, FactorKind, TokenPurpose},
+    notification::StoredNotification,
     testing::{body_string, form_body},
 };
 use tablo_saas::{
@@ -249,6 +251,127 @@ async fn an_owner_of_a_shared_team_transfers_before_leaving() {
             .await
             .expect("query")
             .is_some()
+    );
+}
+
+/// Writes one of each row Tablo keeps per user, as signing in, a reset link, enrolling a factor,
+/// hiding a column and a notification would.
+async fn sign_in_traces(harness: &Harness, user: &User) {
+    let mut db = harness.db.clone();
+    let id = user.id.to_string();
+    let now = jiff::Timestamp::now();
+    let later = now + jiff::SignedDuration::from_hours(1);
+    toasty::create!(AuthToken {
+        token_hash: format!("token-{id}"),
+        purpose: TokenPurpose::PasswordReset,
+        user_id: id.clone(),
+        panel: "/app".to_string(),
+        email: Some(user.email.clone()),
+        expires_at: later,
+        created_at: now,
+    })
+    .exec(&mut db)
+    .await
+    .expect("write the token");
+    toasty::create!(AuthFactor {
+        user_id: id.clone(),
+        panel: "/app".to_string(),
+        kind: FactorKind::RecoveryCode,
+        secret: "sealed".to_string(),
+        confirmed_at: Some(now),
+        last_step: None,
+        failures: 0,
+        retry_at: None,
+        created_at: now,
+    })
+    .exec(&mut db)
+    .await
+    .expect("write the factor");
+    toasty::create!(ColumnPreference {
+        key: format!("columns-{id}"),
+        user_id: id.clone(),
+        panel: "/app".to_string(),
+        resource: "projects".to_string(),
+        columns: "hide=status".to_string(),
+    })
+    .exec(&mut db)
+    .await
+    .expect("write the choice");
+    toasty::create!(StoredNotification {
+        user_id: id.clone(),
+        panel: "/app".to_string(),
+        tenant: None,
+        notification: toasty::Json(Notification::info("Hello")),
+        read_at: None,
+        created_at: now,
+    })
+    .exec(&mut db)
+    .await
+    .expect("write the notification");
+}
+
+/// How many rows Tablo keeps for `user`, table by table.
+async fn traces_of(harness: &Harness, user: &User) -> [usize; 5] {
+    let mut db = harness.db.clone();
+    let id = user.id.to_string();
+    [
+        AuthSession::filter(AuthSession::fields().user_id().eq(&id))
+            .exec(&mut db)
+            .await
+            .expect("query")
+            .len(),
+        AuthToken::filter(AuthToken::fields().user_id().eq(&id))
+            .exec(&mut db)
+            .await
+            .expect("query")
+            .len(),
+        AuthFactor::filter(AuthFactor::fields().user_id().eq(&id))
+            .exec(&mut db)
+            .await
+            .expect("query")
+            .len(),
+        ColumnPreference::filter(ColumnPreference::fields().user_id().eq(&id))
+            .exec(&mut db)
+            .await
+            .expect("query")
+            .len(),
+        StoredNotification::filter(StoredNotification::fields().user_id().eq(&id))
+            .exec(&mut db)
+            .await
+            .expect("query")
+            .len(),
+    ]
+}
+
+#[tokio::test]
+async fn deleting_an_account_leaves_no_session_factor_or_notification_behind() {
+    let harness = harness().await;
+    let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
+    let (grace, other) = person(&harness.db, "Grace", "grace@example.com").await;
+    let ada = with_password(&harness, &ada).await;
+    sign_in_traces(&harness, &ada).await;
+    sign_in_traces(&harness, &grace).await;
+    let _grace_signed_in = client_for(&harness, &grace, &other).await;
+
+    let client = client_for(&harness, &ada, &team).await;
+    assert_eq!(traces_of(&harness, &ada).await, [1; 5]);
+    let response = client
+        .csrf(CSRF)
+        .post_form(
+            "/app/settings/profile/-/actions/delete-account",
+            form_body(&[
+                ("password", PASSWORD),
+                ("confirm", "1"),
+                ("csrf_token", CSRF),
+            ]),
+        )
+        .await;
+    assert!(response.status().is_redirection(), "{}", response.status());
+    assert_eq!(traces_of(&harness, &ada).await, [0; 5]);
+    assert_eq!(
+        traces_of(&harness, &grace).await,
+        [1; 5],
+        "Grace keeps hers"
     );
 }
 

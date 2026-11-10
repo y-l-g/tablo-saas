@@ -47,4 +47,3 @@ template can build it today. When a gap closes, delete its row along with the wo
 | --- | --- | --- | --- |
 | A shared sign-in throttle | Tablo | `LoginThrottle` counts in process memory, so N replicas allow N times the attempts, and a restart forgets them | One limit per replica. Set a stricter edge limit on `/app/login` and `/admin/login` |
 | General rate limiting | Topcoat | Webhooks and public pages can be flooded | Left to the reverse proxy |
-| Account deletion and data export | Implementable now | GDPR erasure and access requests | Deletion in `src/teams/deletion.rs`, which anonymises the audit trail. Export per resource through Tablo's CSV action. A whole-account export is the app's to write, since only it knows what an account owns |
