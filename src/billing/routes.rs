@@ -20,6 +20,7 @@ use super::{
     stripe::NewCheckout,
 };
 use crate::accounts::SignedIn;
+use crate::accounts::is_impersonated;
 use crate::platform::config::Settings;
 use crate::teams::{Member, TeamRole, current_role};
 
@@ -35,11 +36,12 @@ struct CheckoutForm {
     interval: String,
 }
 
-/// Lets the request through when it comes from the team's owner and carries the form's token.
+/// Lets the request through when it comes from the team's owner, themselves rather than staff
+/// acting as them, and carries the form's token.
 fn owner<'a>(cx: &'a Cx, token: Option<&str>) -> Result<&'a SignedIn> {
     csrf::verify(cx, token)?;
     let signed = auth::require_user::<SignedIn>(cx)?;
-    if current_role(cx) != Some(TeamRole::Owner) {
+    if current_role(cx) != Some(TeamRole::Owner) || is_impersonated(cx) {
         return Err(forbidden().into());
     }
     Ok(signed)

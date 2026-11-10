@@ -18,6 +18,7 @@ use crate::audit;
 use crate::billing::{BILLING_URL, BillingPage, plan_name, standing_notice};
 use crate::platform::config::Config;
 use crate::projects::{Project, ProjectResource};
+use crate::support::{self, SupportPage};
 use crate::teams::{
     IncomingInvitationResource, IncomingInvitationsWidget, InvitationResource, Member,
     MemberResource, Teams,
@@ -33,6 +34,7 @@ pub fn app_panel(config: &Config) -> Panel {
         .audit_log(audit::team_trail)
         .home::<Home>()
         .resource::<ProjectResource>()
+        .page::<SupportPage>()
         .area(settings())
 }
 
@@ -66,7 +68,7 @@ fn settings() -> Area {
 }
 
 /// Every auth page Tablo offers: sign-up, a verified address before anything else, reset, the
-/// profile and a second factor from an app or by mail.
+/// profile and a second factor from an app or by mail; and staff acting as a customer.
 fn auth(config: &Config) -> Auth<SignedIn> {
     Auth::custom(Accounts)
         .registration(Accounts)
@@ -83,6 +85,7 @@ fn auth(config: &Config) -> Auth<SignedIn> {
         .two_factor(TwoFactor::new().email_codes())
         .tenant_registration(TenantRegistration::new(Teams).required())
         .tenant_profile(Teams)
+        .impersonation(support::impersonation())
 }
 
 /// The page a signed-in customer lands on.

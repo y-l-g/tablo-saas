@@ -1,12 +1,13 @@
 //! The `admin` panel: where staff see customers and repair what went wrong. Only an account with a
 //! [`StaffRole`] gets in, with a second factor, and every write lands in the back office's audit log.
-//! Support reads; an administrator also acts.
+//! Support reads; an administrator also acts, and reads who acted as a customer in the app panel.
 
 use jiff::Timestamp;
-use tablo::{auth, prelude::*};
+use tablo::{AuditEntry, auth, prelude::*};
 use topcoat::{context::Cx, icon::iconify::iconify_icon};
 
 use crate::accounts::{SignedIn, StaffRole, User};
+use crate::audit::IMPERSONATION_EVENTS;
 use crate::billing::{BillingAccount, StripeEvent, jobs::RefreshCustomer};
 use crate::jobs::{JobRow, JobState, enqueue};
 use crate::teams::Team;
@@ -64,6 +65,78 @@ impl Resource for AccountResource {
                 .default_sort_desc(lens!(User.created_at)),
             )
     }
+}
+
+/// Every time staff started or stopped acting as a customer. The app panel's audit log files each
+/// entry under a team, the actor's on the way in and the customer's on the way out, so neither
+/// team's trail tells the whole story, and the back office's own trail lists `/admin` alone.
+pub struct ImpersonationResource;
+
+/// The app panel's prefix, as its audit entries name it.
+const APP_PANEL: &str = "/app";
+
+impl Resource for ImpersonationResource {
+    type Model = AuditEntry;
+    type Form = NoForm<AuditEntry>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("impersonations")
+            .label(tablo::text!("impersonation-entry"))
+            .plural_label(tablo::text!("impersonation-log"))
+            .icon(iconify_icon!("lucide:shield-check"))
+            .tenancy(Tenancy::none())
+            .policy(ReadOnly.and(when(is_administrator)))
+            .without_page(ResourcePage::View)
+            .without_global_search()
+            .query(|_cx, query| {
+                let fields = AuditEntry::fields();
+                query.filter(
+                    fields.panel().eq(APP_PANEL.to_string()).and(
+                        fields
+                            .event()
+                            .in_list(IMPERSONATION_EVENTS.map(String::from)),
+                    ),
+                )
+            })
+            .table(
+                Table::new((
+                    DateColumn::new(lens!(AuditEntry.created_at)).sortable(),
+                    TextColumn::new(lens!(AuditEntry.actor))
+                        .label(tablo::text!("impersonation-staff"))
+                        .searchable(),
+                    TextColumn::new(lens!(AuditEntry.event))
+                        .label(tablo::text!("impersonation-event"))
+                        .format(|event: &String| {
+                            if event == "impersonate" {
+                                tablo::text!("impersonation-started")
+                            } else {
+                                tablo::text!("impersonation-stopped")
+                            }
+                        })
+                        .badge(),
+                    ComputedColumn::new(tablo::text!("impersonation-customer"), customer_named),
+                    TextColumn::new(lens!(AuditEntry.record))
+                        .label(tablo::text!("impersonation-customer-id"))
+                        .searchable(),
+                ))
+                .default_sort_desc(lens!(AuditEntry.created_at)),
+            )
+    }
+}
+
+/// The customer an entry names, as they were called then: Tablo records them as the `user`
+/// change's new value. A session that ran out is stopped without the name, and Tablo writes the
+/// id in its place, which the next column already shows.
+fn customer_named(entry: &AuditEntry) -> String {
+    entry
+        .changes
+        .0
+        .iter()
+        .find(|change| change.field == "user")
+        .and_then(|change| change.after.clone())
+        .filter(|name| entry.record.as_deref() != Some(name.as_str()))
+        .unwrap_or_else(|| "—".to_string())
 }
 
 /// Every team.

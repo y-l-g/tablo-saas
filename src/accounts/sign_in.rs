@@ -3,7 +3,7 @@
 use jiff::Timestamp;
 use tablo::{
     Authenticator, FieldErrors, Membership, PanelUser, Registrar, TenantId,
-    auth::{hash_password, new_password_errors, verify_password},
+    auth::{AuthFactor, FactorKind, hash_password, new_password_errors, verify_password},
     db::db,
 };
 use topcoat::{context::Cx, l10n::Locale};
@@ -19,6 +19,14 @@ pub struct SignedIn {
     pub user: User,
     pub teams: Vec<Membership>,
     pub seats: Vec<Seat>,
+    /// Whether a member of staff holds a second factor on the app panel that was confirmed before
+    /// the `staff` command granted their role, which acting as a customer asks for.
+    ///
+    /// A factor signs in to the one panel that enrolled it, so the back office's does not count.
+    /// And setting one up asks for the password alone, so one confirmed after the grant may be a
+    /// thief's: only the deploy-level grant vouches for it. Always `false` for a customer, whose
+    /// rows are not read.
+    pub app_factor: bool,
 }
 
 /// What a user is on one team.
@@ -51,7 +59,7 @@ impl PanelUser for SignedIn {
     /// has a rule here.
     fn can_access_panel(&self, panel: &str) -> bool {
         match panel {
-            "/app" => true,
+            APP_PANEL => true,
             "/admin" => self.user.staff_role.is_some(),
             _ => false,
         }
@@ -66,6 +74,40 @@ impl PanelUser for SignedIn {
         self.user.language()
     }
 }
+
+/// Whether `user` holds an authenticator or mailed codes on the app panel, confirmed no later
+/// than `vouched`. A recovery code alone is what remains of a factor, not one.
+async fn has_app_factor(
+    ex: &mut dyn toasty::Executor,
+    user: uuid::Uuid,
+    vouched: Timestamp,
+) -> topcoat::Result<bool> {
+    let factors = AuthFactor::filter(
+        AuthFactor::fields()
+            .user_id()
+            .eq(user.to_string())
+            .and(AuthFactor::fields().panel().eq(APP_PANEL.to_string())),
+    )
+    .exec(ex)
+    .await?;
+    Ok(factors.iter().any(|factor| {
+        factor.kind != FactorKind::RecoveryCode
+            && factor
+                .confirmed_at
+                .is_some_and(|confirmed| confirmed <= vouched)
+    }))
+}
+
+/// Whether the request's signed-in user is a customer whom staff act as.
+///
+/// Tablo keeps the actor off the target's credentials and tenant settings. What else stays the
+/// customer's own call refuses here too: who their teams include, and their money.
+pub fn is_impersonated(cx: &Cx) -> bool {
+    tablo::auth::impersonator::<SignedIn>(cx).is_some()
+}
+
+/// The prefix of the panel customers use.
+const APP_PANEL: &str = "/app";
 
 /// Reads users and creates them from the sign-up page.
 pub struct Accounts;
@@ -104,7 +146,16 @@ impl Accounts {
                 entitlements: Entitlements::of(account, now),
             });
         }
-        Ok(SignedIn { user, teams, seats })
+        let app_factor = match (user.staff_role, user.staff_since) {
+            (Some(_), Some(vouched)) => has_app_factor(&mut *ex, user.id, vouched).await?,
+            _ => false,
+        };
+        Ok(SignedIn {
+            user,
+            teams,
+            seats,
+            app_factor,
+        })
     }
 
     /// The account `email` signs in as.

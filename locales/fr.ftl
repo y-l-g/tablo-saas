@@ -94,6 +94,26 @@ error-team-name-mismatch = Saisissez exactement le nom de l'équipe.
 error-password-wrong = Ce mot de passe est incorrect.
 error-transfer-first = Vous êtes propriétaire d'une équipe utilisée par d'autres. Transférez-la avant de supprimer votre compte.
 
+## Support
+
+page-support = Support
+support-description = Trouvez un client et agissez en son nom pour voir ce qu'il voit. Cela dure { $minutes } minutes au plus, et le back-office consigne qui a agi au nom de qui.
+support-needs-factor = Agir au nom d'un client demande un second facteur ici, dans l'application, configuré avant qu'un administrateur ne vous accorde votre rôle interne. Configurez-en un, puis redemandez ce rôle.
+support-search = Nom ou adresse e-mail
+support-find = Chercher
+support-none = Aucun client ne correspond.
+support-name = Nom
+support-email = E-mail
+support-teams = Équipes
+impersonation-entry = Session au nom d'un client
+impersonation-log = Sessions au nom de clients
+impersonation-staff = Membre de l'équipe interne
+impersonation-event = Événement
+impersonation-started = Début
+impersonation-stopped = Fin
+impersonation-customer = Client
+impersonation-customer-id = Identifiant du client
+
 ## Site
 
 site-pricing = Tarifs

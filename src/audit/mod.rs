@@ -36,16 +36,31 @@ pub fn staff_trail(def: ResourceDef<AuditLog>) -> ResourceDef<AuditLog> {
         .without_global_search()
 }
 
-/// Deletes every entry of `team`, for a team being erased.
+/// The events Tablo records when staff start and stop acting as a customer.
+pub const IMPERSONATION_EVENTS: [&str; 2] = ["impersonate", "stop_impersonating"];
+
+/// Deletes every entry of `team`, for a team being erased, but those of staff acting as someone.
+///
+/// Tablo files a start under the actor's own team, so erasing it with that team would let the
+/// person the log watches wipe it by deleting their account. The entries stay, as the record of
+/// who reached which account.
 ///
 /// # Errors
 ///
 /// When the delete fails.
 pub async fn forget_team(ex: &mut dyn toasty::Executor, team: TenantId) -> Result<()> {
-    AuditEntry::filter(AuditEntry::fields().tenant().eq(Some(team)))
-        .delete()
-        .exec(ex)
-        .await?;
+    let fields = AuditEntry::fields();
+    AuditEntry::filter(
+        fields.tenant().eq(Some(team)).and(
+            fields
+                .event()
+                .in_list(IMPERSONATION_EVENTS.map(String::from))
+                .not(),
+        ),
+    )
+    .delete()
+    .exec(ex)
+    .await?;
     Ok(())
 }
 

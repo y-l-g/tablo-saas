@@ -91,6 +91,26 @@ error-team-name-mismatch = Type the team's name exactly.
 error-password-wrong = That password isn't right.
 error-transfer-first = You own a team others use. Transfer it before deleting your account.
 
+## Support
+
+page-support = Support
+support-description = Find a customer and act as them to see what they see. It lasts { $minutes } minutes at most, and the back office logs who acted as whom.
+support-needs-factor = Acting as a customer needs a second factor here in the app, set up before an administrator granted your staff role. Set one up, then ask for the grant again.
+support-search = Name or email address
+support-find = Find
+support-none = No customer matches.
+support-name = Name
+support-email = Email
+support-teams = Teams
+impersonation-entry = Impersonation
+impersonation-log = Impersonations
+impersonation-staff = Staff
+impersonation-event = Event
+impersonation-started = Started
+impersonation-stopped = Stopped
+impersonation-customer = Customer
+impersonation-customer-id = Customer id
+
 ## Website
 
 site-pricing = Pricing

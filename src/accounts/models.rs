@@ -24,6 +24,10 @@ pub struct User {
     /// What the account does as staff, which opens the back office. Sign-up writes none: only
     /// the `staff` command hands roles out, so no page can make an administrator.
     pub staff_role: Option<StaffRole>,
+    /// When the `staff` command last granted the role. A second factor the account enrolled
+    /// afterwards was added by whoever held its password then, so acting as a customer does not
+    /// trust it: see `support::may_act_as`.
+    pub staff_since: Option<Timestamp>,
     /// The language picked from a panel's language menu, such as `fr`. None until a pick: pages
     /// then follow the browser, and mail the panels' default.
     pub locale: Option<String>,

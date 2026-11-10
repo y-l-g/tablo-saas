@@ -15,7 +15,7 @@ use super::{
     access::{current_entitlements, may_manage_members},
     members::AssignableRole,
 };
-use crate::accounts::{SignedIn, User, normalize_email};
+use crate::accounts::{SignedIn, User, is_impersonated, normalize_email};
 use crate::billing::{Entitlements, account_of, jobs::sync_seats_later};
 use crate::jobs::enqueue;
 
@@ -42,8 +42,10 @@ impl HeaderAction for InviteMember {
     type Input = InviteInput;
     const NAME: &'static str = "invite";
 
+    /// Staff acting as a customer invite nobody, themselves least of all: an accepted invitation
+    /// would outlast the session.
     fn can_run(cx: &Cx) -> bool {
-        may_manage_members(cx)
+        may_manage_members(cx) && !is_impersonated(cx)
     }
 
     async fn run(
@@ -169,6 +171,10 @@ impl Action<InvitationResource> for RevokeInvitation {
     const CONFIRM: bool = true;
     const COLOR: Color = Color::Danger;
 
+    fn can_run(cx: &Cx, _invitation: &Invitation) -> bool {
+        !is_impersonated(cx)
+    }
+
     async fn run(
         _cx: &Cx,
         invitations: &[Invitation],
@@ -244,6 +250,10 @@ impl Action<IncomingInvitationResource> for AcceptInvitation {
     const PLACES: Places = Places::ROW;
     const COLOR: Color = Color::Success;
 
+    fn can_run(cx: &Cx, _invitation: &Invitation) -> bool {
+        !is_impersonated(cx)
+    }
+
     async fn run(
         cx: &Cx,
         invitations: &[Invitation],
@@ -290,6 +300,10 @@ impl Action<IncomingInvitationResource> for DeclineInvitation {
     const NAME: &'static str = "decline";
     const PLACES: Places = Places::ROW;
     const CONFIRM: bool = true;
+
+    fn can_run(cx: &Cx, _invitation: &Invitation) -> bool {
+        !is_impersonated(cx)
+    }
 
     async fn run(
         _cx: &Cx,
