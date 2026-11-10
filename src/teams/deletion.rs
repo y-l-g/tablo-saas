@@ -113,6 +113,44 @@ pub async fn forget_sign_in(
     Ok(())
 }
 
+/// Erases the account `user`, whose owner never proved its address, for a provider sign-in to
+/// sign up in its place: the teams it alone is on, its seats on others, its name in the audit
+/// log and every way it signs in. Invitations to the address stay, since they are its true
+/// owner's.
+pub async fn erase_unproved(
+    cx: &Cx,
+    ex: &mut dyn toasty::Executor,
+    user: uuid::Uuid,
+) -> topcoat::Result<()> {
+    let seats = Member::filter(Member::fields().user_id().eq(user))
+        .exec(&mut *ex)
+        .await?;
+    for seat in seats {
+        let members = Member::filter(Member::fields().team_id().eq(seat.team_id))
+            .exec(&mut *ex)
+            .await?
+            .len();
+        if members == 1 {
+            delete_team(&mut *ex, seat.team_id).await?;
+        }
+    }
+    erase(cx, ex, user).await
+}
+
+/// Deletes `user`'s remaining seats, their name in the audit log, every way they sign in and the
+/// account, on the caller's transaction.
+async fn erase(cx: &Cx, ex: &mut dyn toasty::Executor, user: uuid::Uuid) -> topcoat::Result<()> {
+    Member::filter(Member::fields().user_id().eq(user))
+        .delete()
+        .exec(&mut *ex)
+        .await?;
+    // Other teams keep what happened, but no longer who did it.
+    audit::forget_actor(cx, &mut *ex, user).await?;
+    forget_sign_in(&mut *ex, user).await?;
+    User::filter_by_id(user).delete().exec(ex).await?;
+    Ok(())
+}
+
 /// What deleting a team asks for: its name, typed.
 #[derive(tablo::FormInput)]
 pub struct TeamConfirmation {
@@ -193,18 +231,11 @@ impl HeaderAction for DeleteAccount {
         for team in alone_on {
             delete_team(&mut *ex, team).await?;
         }
-        Member::filter(Member::fields().user_id().eq(signed.user.id))
-            .delete()
-            .exec(&mut *ex)
-            .await?;
-        // Other teams keep what happened, but no longer who did it.
-        audit::forget_actor(cx, &mut *ex, signed.user.id).await?;
         Invitation::filter(Invitation::fields().email().eq(&signed.user.email))
             .delete()
             .exec(&mut *ex)
             .await?;
-        forget_sign_in(&mut *ex, signed.user.id).await?;
-        User::filter_by_id(signed.user.id).delete().exec(ex).await?;
+        erase(cx, ex, signed.user.id).await?;
         Ok(Outcome::done().redirect("/"))
     }
 }

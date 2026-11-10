@@ -1,14 +1,11 @@
 //! Signing in with Google: which account each Google identity is, linked on first sign-in.
 
 use jiff::Timestamp;
-use tablo::{
-    IdentityLinker, ProviderIdentity,
-    auth::{AuthFactor, AuthSession, AuthToken, hash_password},
-};
+use tablo::{IdentityLinker, ProviderIdentity, auth::hash_password};
 use topcoat::context::Cx;
 
 use super::{Accounts, SignedIn, User, normalize_email};
-use crate::teams::create_team;
+use crate::teams::{create_team, erase_unproved};
 
 /// An account at a provider that signs in as a user. The issuer and subject name it there for
 /// good, where its address can change hands.
@@ -31,9 +28,10 @@ pub struct Identity {
 impl IdentityLinker for Accounts {
     type User = SignedIn;
 
-    /// A linked identity signs in as its user. A new one links to the user holding the address
-    /// the provider verified, or signs up as a new user with a personal team. An address the
-    /// provider has not verified signs nobody in: whoever registered it there could be anyone.
+    /// A linked identity signs in as its user. A new one links to the verified user holding the
+    /// address the provider verified, or signs up as a new user with a personal team, erasing
+    /// first an account whose owner never proved the address. An address the provider has not
+    /// verified signs nobody in: whoever registered it there could be anyone.
     async fn sign_in(
         &self,
         cx: &Cx,
@@ -64,7 +62,13 @@ impl IdentityLinker for Accounts {
         };
         let user = match Self::by_email(&mut *ex, email).await? {
             Some(user) if user.email_verified_at.is_some() => user,
-            Some(user) => claim_unverified(ex, user).await?,
+            Some(unproved) => {
+                // Anyone can sign up with an address they do not read and wait for its owner, so
+                // nothing the unproved account holds is the owner's: it goes, and the owner signs
+                // up afresh.
+                erase_unproved(cx, &mut *ex, unproved.id).await?;
+                sign_up(cx, ex, identity, email).await?
+            }
             None => sign_up(cx, ex, identity, email).await?,
         };
         toasty::create!(Identity {
@@ -82,38 +86,6 @@ impl IdentityLinker for Accounts {
 /// password with a reset link.
 async fn unknown_password() -> topcoat::Result<String> {
     hash_password(&uuid::Uuid::new_v4().to_string()).await
-}
-
-/// Hands `user`, whose address nobody proved, to whoever the provider says holds it.
-///
-/// Anyone can sign up with an address they do not read and wait for its owner, so what the
-/// unproved account holds is the squatter's: its password, its sessions, its pending links and
-/// its second factors all go, and the address counts as proved.
-async fn claim_unverified(ex: &mut dyn toasty::Executor, user: User) -> topcoat::Result<User> {
-    let id = user.id.to_string();
-    AuthSession::filter(AuthSession::fields().user_id().eq(&id))
-        .delete()
-        .exec(&mut *ex)
-        .await?;
-    AuthToken::filter(AuthToken::fields().user_id().eq(&id))
-        .delete()
-        .exec(&mut *ex)
-        .await?;
-    AuthFactor::filter(AuthFactor::fields().user_id().eq(&id))
-        .delete()
-        .exec(&mut *ex)
-        .await?;
-    let now = Timestamp::now();
-    User::filter_by_id(user.id)
-        .update()
-        .password(unknown_password().await?)
-        .email_verified_at(Some(now))
-        .exec(&mut *ex)
-        .await?;
-    Ok(User {
-        email_verified_at: Some(now),
-        ..user
-    })
 }
 
 /// A new user for `identity`, whose provider verified `email`, with their personal team.

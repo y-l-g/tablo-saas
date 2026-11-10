@@ -132,7 +132,14 @@ impl Config {
             (Some(client_id), Some(client_secret)) => Some(GoogleSettings {
                 client_id,
                 client_secret,
-                issuer: var("GOOGLE_ISSUER").unwrap_or_else(|| GOOGLE_ISSUER.to_string()),
+                // Tests stand Google in on a loopback port; production signs in at Google only.
+                issuer: match var("GOOGLE_ISSUER") {
+                    Some(_) if production => {
+                        bail!("GOOGLE_ISSUER is for tests: unset it in production")
+                    }
+                    Some(issuer) => issuer,
+                    None => GOOGLE_ISSUER.to_string(),
+                },
             }),
             (None, None) => None,
             _ => bail!("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set together or not at all"),
@@ -325,6 +332,17 @@ mod tests {
             .into_iter()
             .filter(|(key, _)| *key != "SMTP_HOST")
             .collect();
+        assert!(Config::load(&environment(&pairs)).is_err());
+    }
+
+    #[test]
+    fn production_signs_in_at_google_only() {
+        let mut pairs = production();
+        pairs.push(("GOOGLE_CLIENT_ID", "id".to_string()));
+        pairs.push(("GOOGLE_CLIENT_SECRET", "secret".to_string()));
+        let config = Config::load(&environment(&pairs)).expect("loads");
+        assert_eq!(config.google.expect("Google is on").issuer, GOOGLE_ISSUER);
+        pairs.push(("GOOGLE_ISSUER", "https://elsewhere.test".to_string()));
         assert!(Config::load(&environment(&pairs)).is_err());
     }
 

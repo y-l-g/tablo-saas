@@ -5,7 +5,7 @@ mod support;
 
 use support::{GOOGLE_CLIENT, Harness, google_harness, person};
 use tablo::{
-    auth::{AuthSession, hash_password, verify_password},
+    auth::{AuthSession, hash_password},
     testing::{
         FakeAccount, FakeProvider, TestClient, provider_buttons, response_cookies,
         session_cookie_value,
@@ -13,7 +13,7 @@ use tablo::{
 };
 use tablo_saas::{
     accounts::{Accounts, Identity, User},
-    teams::Member,
+    teams::{Member, Team, create_team},
 };
 use topcoat::router::header::LOCATION;
 
@@ -144,20 +144,24 @@ async fn a_verified_address_links_the_account_holding_it() {
 }
 
 /// An account whose owner never proved the address may be a squatter's, waiting: Google's proof
-/// hands it over, without the password, sessions or factors whoever made it holds.
+/// erases it, with its name, its team and its sessions, and signs the owner up afresh.
 #[tokio::test]
-async fn an_unproved_account_goes_to_whoever_google_says_holds_the_address() {
-    const SQUATTER: &str = "the squatter's password";
+async fn an_unproved_account_gives_way_to_whoever_google_says_holds_the_address() {
     let google = google().await;
     let harness = google_harness(&google).await;
     let squatted = toasty::create!(User {
         name: "Not Ada".to_string(),
         email: "ada@example.com".to_string(),
-        password: hash_password(SQUATTER).await.expect("hash"),
+        password: hash_password("the squatter's password")
+            .await
+            .expect("hash"),
     })
     .exec(&mut harness.db.clone())
     .await
     .expect("write the account");
+    create_team(&mut harness.db.clone(), "Not Ada's team", &squatted)
+        .await
+        .expect("the squatter's team");
     let signed = Accounts::signed_in(squatted.clone(), &mut harness.db.clone())
         .await
         .expect("load the account");
@@ -165,19 +169,29 @@ async fn an_unproved_account_goes_to_whoever_google_says_holds_the_address() {
         .sign_in(&harness.db, "app", &signed)
         .await;
 
-    let (_, session) = continue_with(
-        &harness,
-        &google,
-        &FakeAccount::verified("ada-1", "ada@example.com"),
-    )
-    .await;
+    let account = FakeAccount {
+        name: Some("Ada Lovelace".to_string()),
+        ..FakeAccount::verified("ada-1", "ada@example.com")
+    };
+    let (_, session) = continue_with(&harness, &google, &account).await;
     assert!(session.is_some());
-    let claimed = User::get_by_id(&mut harness.db.clone(), squatted.id)
+    let gone = User::filter_by_id(squatted.id)
+        .first()
+        .exec(&mut harness.db.clone())
         .await
         .expect("query");
-    assert!(claimed.email_verified_at.is_some());
-    assert!(!verify_password(SQUATTER, Some(&claimed.password)).await);
-    let sessions = AuthSession::filter(AuthSession::fields().user_id().eq(squatted.id.to_string()))
+    assert!(gone.is_none(), "the unproved account is erased");
+    let ada = user_by_email(&harness, "ada@example.com")
+        .await
+        .expect("the owner signed up");
+    assert_eq!(ada.name, "Ada Lovelace");
+    let teams = Team::all()
+        .exec(&mut harness.db.clone())
+        .await
+        .expect("query");
+    assert_eq!(teams.len(), 1, "the squatter's team went with the account");
+    assert!(teams[0].name.contains("Ada Lovelace"), "{}", teams[0].name);
+    let sessions = AuthSession::all()
         .exec(&mut harness.db.clone())
         .await
         .expect("query");
@@ -186,6 +200,7 @@ async fn an_unproved_account_goes_to_whoever_google_says_holds_the_address() {
         1,
         "only the session Google's sign-in started"
     );
+    assert_eq!(sessions[0].user_id, ada.id.to_string());
 }
 
 #[tokio::test]
