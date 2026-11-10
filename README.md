@@ -198,5 +198,4 @@ period.
 
 ## Roadmap
 
-[`ROADMAP.md`](ROADMAP.md) lists what Tablo, Topcoat and Toasty do not offer yet, why a SaaS
-wants it, and what stands in for it here, along with what the template can build now.
+[`ROADMAP.md`](ROADMAP.md) lists what is planned and what blocks it.

@@ -1,8 +1,7 @@
 # Tablo SaaS — Agent Instructions
 
 A production SaaS template built on [Tablo](https://github.com/y-l-g/tablo). When a feature needs
-something Tablo, Topcoat or Toasty lacks, record it in [`ROADMAP.md`](ROADMAP.md) with what blocks it and
-what the template does meanwhile.
+something Tablo, Topcoat or Toasty lacks, record it in [`ROADMAP.md`](ROADMAP.md) with what blocks it.
 
 ## Layout
 
