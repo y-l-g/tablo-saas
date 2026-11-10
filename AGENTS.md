@@ -57,3 +57,5 @@ Never pipe a command whose exit code you need. Report what you ran and what you 
 - A comment explains why, never what the next line does. Every public item has a doc comment.
 - Commits use Conventional Commits without a scope, e.g. `feat: bill per seat`. A PR says what
   changed and which checks ran.
+
+This codebase is yours: what it's for and how it's built are your call, and you'll keep building on it.
