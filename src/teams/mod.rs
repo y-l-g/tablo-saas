@@ -25,7 +25,7 @@ pub mod actions {
     pub use super::members::{ChangeRole, LeaveTeam, RemoveMember, TransferOwnership};
 }
 
-pub use access::{current_entitlements, current_role, may_manage_members, role_in};
+pub use access::{TeamPlan, current_entitlements, current_role, may_manage_members, role_in};
 pub use deletion::{CancelSubscription, delete_team, erase_unproved};
 pub use export::{AccountExport, EXPORT_URL, export_account};
 pub use invitations::{

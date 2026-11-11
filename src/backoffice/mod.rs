@@ -89,16 +89,13 @@ impl Resource for ImpersonationResource {
             .policy(ReadOnly.and(when(is_administrator)))
             .without_page(ResourcePage::View)
             .without_global_search()
-            .query(|_cx, query| {
-                let fields = AuditEntry::fields();
-                query.filter(
-                    fields.panel().eq(APP_PANEL.to_string()).and(
-                        fields
-                            .event()
-                            .in_list(IMPERSONATION_EVENTS.map(String::from)),
-                    ),
-                )
-            })
+            .query(
+                AuditEntry::fields().panel().eq(APP_PANEL.to_string()).and(
+                    AuditEntry::fields()
+                        .event()
+                        .in_list(IMPERSONATION_EVENTS.map(String::from)),
+                ),
+            )
             .table(
                 Table::new((
                     DateColumn::new(lens!(AuditEntry.created_at)).sortable(),

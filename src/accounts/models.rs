@@ -4,6 +4,8 @@ use jiff::Timestamp;
 use toasty::Deferred;
 use topcoat::l10n::Locale;
 
+pub use tablo::auth::normalize_email;
+
 use crate::teams::Member;
 
 /// A person with an account. A row without a staff role is a customer.
@@ -56,19 +58,4 @@ pub enum StaffRole {
     /// Reads customers and their billing, to answer them.
     #[option(color = "info")]
     Support,
-}
-
-/// The one spelling an address is stored and looked up in.
-pub fn normalize_email(email: &str) -> String {
-    email.trim().to_lowercase()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::normalize_email;
-
-    #[test]
-    fn an_address_has_one_spelling() {
-        assert_eq!(normalize_email("  Ada@Example.COM "), "ada@example.com");
-    }
 }

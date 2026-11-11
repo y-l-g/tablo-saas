@@ -1,12 +1,30 @@
 //! What a member's role lets them do. Everything the team pages decide is decided here.
 
 use jiff::Timestamp;
-use tablo::{TenantId, auth, tenant_id};
+use tablo::{Load, TenantId, auth, db::db, loaded, tenant_id};
 use topcoat::context::Cx;
 
 use super::{Member, TeamRole};
 use crate::accounts::SignedIn;
-use crate::billing::Entitlements;
+use crate::billing::{BillingAccount, Entitlements};
+
+/// What the plan of the team the request acts for allows, which the app panel loads once per
+/// request for its policies, since a policy cannot query.
+pub struct TeamPlan(pub Entitlements);
+
+impl Load for TeamPlan {
+    async fn load(cx: &Cx) -> topcoat::Result<Self> {
+        let now = Timestamp::now();
+        let Some(team) = tenant_id(cx) else {
+            return Ok(Self(Entitlements::of(None, now)));
+        };
+        let account = BillingAccount::filter(BillingAccount::fields().team_id().eq(team))
+            .first()
+            .exec(&mut db(cx)?)
+            .await?;
+        Ok(Self(Entitlements::of(account.as_ref(), now)))
+    }
+}
 
 /// The signed-in user's role on `team`, `None` when they are not on it.
 pub fn role_in(signed: &SignedIn, team: TenantId) -> Option<TeamRole> {
@@ -23,15 +41,10 @@ pub fn current_role(cx: &Cx) -> Option<TeamRole> {
     role_in(signed, tenant_id(cx)?)
 }
 
-/// What the current team's plan allows, the free plan when the session acts for none.
+/// What the current team's plan allows, the free plan when the session acts for none or the
+/// request loaded no [`TeamPlan`].
 pub fn current_entitlements(cx: &Cx) -> Entitlements {
-    auth::user::<SignedIn>(cx)
-        .zip(tenant_id(cx))
-        .and_then(|(signed, team)| signed.seats.iter().find(|seat| seat.team == team))
-        .map_or_else(
-            || Entitlements::of(None, Timestamp::now()),
-            |seat| seat.entitlements,
-        )
+    loaded::<TeamPlan>(cx).map_or_else(|| Entitlements::of(None, Timestamp::now()), |plan| plan.0)
 }
 
 /// Whether the request may invite and remove people and rename the team.

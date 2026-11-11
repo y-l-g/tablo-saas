@@ -72,7 +72,7 @@ impl Resource for SupportResource {
             .plural_label(tablo::text!("page-support"))
             .icon(iconify_icon!("lucide:shield-check"))
             .tenancy(Tenancy::none())
-            .query(|_cx, query| query.filter(User::fields().staff_role().is_none()))
+            .query(User::fields().staff_role().is_none())
             .record_title(lens!(User.email))
             .policy(
                 Abilities::<User>::new()

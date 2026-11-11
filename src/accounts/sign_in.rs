@@ -2,14 +2,14 @@
 
 use jiff::Timestamp;
 use tablo::{
-    Authenticator, FieldErrors, Membership, PanelUser, Registrar, TenantId,
-    auth::{AuthFactor, FactorKind, hash_password, new_password_errors, verify_password},
+    FieldErrors, Lens, Membership, PanelUser, PasswordAccount, PasswordAuth, Registrar, TenantId,
+    auth::{AuthFactor, FactorKind, hash_password, new_password_errors},
     db::db,
+    lens,
 };
 use topcoat::{context::Cx, l10n::Locale};
 
 use super::{User, normalize_email};
-use crate::billing::{BillingAccount, Entitlements};
 use crate::teams::{Member, Team, TeamRole, create_team};
 
 /// The signed-in user and the teams they sit on, reloaded on every request, so removing a member
@@ -29,13 +29,12 @@ pub struct SignedIn {
     pub app_factor: bool,
 }
 
-/// What a user is on one team.
+/// What a user is on one team. What the team's plan allows is
+/// [`TeamPlan`](crate::teams::TeamPlan), which the panel loads for the team the request acts for.
 #[derive(Debug, Clone, Copy)]
 pub struct Seat {
     pub team: TenantId,
     pub role: TeamRole,
-    /// What the team's plan allows, read here because a policy cannot query.
-    pub entitlements: Entitlements,
 }
 
 impl PanelUser for SignedIn {
@@ -109,7 +108,7 @@ pub fn is_impersonated(cx: &Cx) -> bool {
 /// The prefix of the panel customers use.
 const APP_PANEL: &str = "/app";
 
-/// Reads users and creates them from the sign-up page.
+/// Creates users from the sign-up page and from a first sign-in with Google.
 pub struct Accounts;
 
 impl Accounts {
@@ -122,28 +121,19 @@ impl Accounts {
             .exec(&mut *ex)
             .await?;
         let ids: Vec<uuid::Uuid> = members.iter().map(|member| member.team_id.get()).collect();
-        let tenants: Vec<TenantId> = members.iter().map(|member| member.team_id).collect();
         let names = Team::filter(Team::fields().id().in_list(ids))
             .exec(&mut *ex)
             .await?;
-        let accounts = BillingAccount::filter(BillingAccount::fields().team_id().in_list(tenants))
-            .exec(&mut *ex)
-            .await?;
-        let now = Timestamp::now();
         let mut teams = Vec::with_capacity(members.len());
         let mut seats = Vec::with_capacity(members.len());
         for member in members {
             let Some(team) = names.iter().find(|team| team.id == member.team_id.get()) else {
                 continue;
             };
-            let account = accounts
-                .iter()
-                .find(|account| account.team_id == member.team_id);
             teams.push(Membership::new(member.team_id, team.name.clone()));
             seats.push(Seat {
                 team: member.team_id,
                 role: member.role,
-                entitlements: Entitlements::of(account, now),
             });
         }
         let app_factor = match (user.staff_role, user.staff_since) {
@@ -172,40 +162,45 @@ impl Accounts {
     }
 }
 
-impl Authenticator for Accounts {
+/// Signs users in, and edits, resets and verifies their accounts.
+pub fn password_auth() -> PasswordAuth<User> {
+    PasswordAuth::default()
+}
+
+/// The columns [`password_auth`] reads, and what it signs in: the user with their teams.
+impl PasswordAccount for User {
     type User = SignedIn;
 
-    async fn verify(
-        &self,
-        cx: &Cx,
-        login: &str,
-        password: &str,
-    ) -> topcoat::Result<Option<SignedIn>> {
-        let mut handle = db(cx)?;
-        let user = Self::by_email(&mut handle, login).await?;
-        // An unknown address costs the same work as a wrong password.
-        if !verify_password(password, user.as_ref().map(|user| user.password.as_str())).await {
-            return Ok(None);
-        }
-        match user {
-            Some(user) => Ok(Some(Self::signed_in(user, &mut handle).await?)),
-            None => Ok(None),
-        }
+    fn name() -> Lens<Self, String> {
+        lens!(User.name)
     }
 
-    async fn find_by_id(&self, cx: &Cx, id: &str) -> topcoat::Result<Option<SignedIn>> {
-        let Ok(id) = id.parse::<uuid::Uuid>() else {
-            return Ok(None);
-        };
-        let mut handle = db(cx)?;
-        match User::filter_by_id(id).first().exec(&mut handle).await? {
-            Some(user) => Ok(Some(Self::signed_in(user, &mut handle).await?)),
-            None => Ok(None),
-        }
+    fn email() -> Lens<Self, String> {
+        lens!(User.email)
+    }
+
+    fn password_hash() -> Lens<Self, String> {
+        lens!(User.password)
+    }
+
+    fn email_verified_at() -> Lens<Self, Option<Timestamp>> {
+        lens!(User.email_verified_at)
+    }
+
+    fn account(user: &SignedIn) -> &Self {
+        &user.user
+    }
+
+    async fn sign_in(
+        self,
+        _cx: &Cx,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<Option<SignedIn>> {
+        Ok(Some(Accounts::signed_in(self, ex).await?))
     }
 
     /// Keeps the language picked from the menu on the account, for every browser and for mail.
-    async fn store_locale(&self, cx: &Cx, user: &SignedIn, locale: &Locale) -> topcoat::Result<()> {
+    async fn store_locale(cx: &Cx, user: &SignedIn, locale: &Locale) -> topcoat::Result<()> {
         User::filter_by_id(user.user.id)
             .update()
             .locale(Some(locale.to_string()))
