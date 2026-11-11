@@ -1,4 +1,4 @@
-//! Staff acting as a customer from the app panel's support page, and the back office's log of it.
+//! Staff acting as a customer from the app panel's support list, and the back office's log of it.
 
 mod support;
 
@@ -9,13 +9,16 @@ use support::{
 use tablo::{
     AuditEntry,
     auth::{AuthFactor, FactorKind, IMPERSONATE_FIELD},
-    testing::{TestClient, body_string, form_body, impersonate_buttons, impersonation_banner},
+    testing::{
+        FieldOf, Reply, TestClient, action_label, body_string, form_body, impersonation_banner,
+    },
 };
 use tablo_saas::{
     accounts::{Accounts, StaffRole, User},
     audit,
     backoffice::ImpersonationResource,
     billing::{BillingAccount, BillingStatus, PlanId},
+    support::{ActAs, SupportResource},
     teams::{
         IncomingInvitationResource, Invitation, Member, MemberResource, TeamRole,
         actions::{AcceptInvitation, RemoveMember, TransferOwnership},
@@ -87,9 +90,35 @@ fn act_as(user: &User) -> String {
     form_body(&[(IMPERSONATE_FIELD, &user.id.to_string())])
 }
 
-async fn search(client: &TestClient<'_>, term: &str) -> (StatusCode, String) {
-    let page = client.get(&format!("/app/support?q={term}")).await;
-    (page.status(), body_string(page).await)
+async fn search<'c, 'a>(
+    client: &'c TestClient<'a>,
+    term: &str,
+) -> Reply<'c, 'a, FieldOf<SupportResource>> {
+    client
+        .resource::<SupportResource>()
+        .list_with(&format!("q={term}"))
+        .await
+}
+
+/// Whether `list` holds a row reading `email`.
+fn lists(list: &Reply<'_, '_, FieldOf<SupportResource>>, email: &str) -> bool {
+    list.rows()
+        .iter()
+        .any(|row| row.cells.iter().any(|cell| cell == email))
+}
+
+/// Whether `list` offers to act as `user`.
+fn offers_to_act_as(
+    client: &TestClient<'_>,
+    list: &Reply<'_, '_, FieldOf<SupportResource>>,
+    user: &User,
+) -> bool {
+    let url = client
+        .resource::<SupportResource>()
+        .action::<ActAs>(user)
+        .url()
+        .to_string();
+    action_label(list.html(), &url).is_some()
 }
 
 async fn banner(client: &TestClient<'_>) -> Option<tablo::testing::ImpersonationBanner> {
@@ -111,33 +140,43 @@ async fn staff_find_a_customer_and_act_as_them_until_stop() {
     )
     .await;
 
-    let (status, html) = search(&client, "ada").await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(impersonate_buttons(&html), vec![ada.id.to_string()]);
-    assert!(!html.contains("data-support-notice"), "{html}");
-    let (_, html) = search(&client, "LOVELACE").await;
-    assert_eq!(
-        impersonate_buttons(&html),
-        vec![ada.id.to_string()],
+    let found = search(&client, "ada").await;
+    assert_eq!(found.status(), StatusCode::OK);
+    assert!(lists(&found, "ada@example.com"));
+    assert!(!lists(&found, "grace@example.com"));
+    assert!(offers_to_act_as(&client, &found, &ada));
+    assert!(
+        !found.html().contains("data-support-notice"),
+        "{}",
+        found.html()
+    );
+    let found = search(&client, "LOVELACE").await;
+    assert!(
+        lists(&found, "ada@example.com"),
         "a surname in no address, in another case, finds her on PostgreSQL too"
     );
 
-    let started = client.submit("/app/impersonate", &act_as(&ada)).await;
+    let started = client
+        .resource::<SupportResource>()
+        .action::<ActAs>(&ada)
+        .submit()
+        .await;
     assert_eq!(started.status(), StatusCode::SEE_OTHER);
+    assert_eq!(started.location(), Some("/app"));
     let shown = banner(&client).await.expect("the banner shows");
     assert_eq!(shown.user_id, ada.id.to_string());
     assert!(shown.text.contains("Ada Lovelace"), "{}", shown.text);
     assert_eq!(
-        client.get("/app/support").await.status(),
+        client.resource::<SupportResource>().list().await.status(),
         StatusCode::FORBIDDEN,
-        "acting as a customer, the page is the customer's to see, and they may not"
+        "acting as a customer, the list is the customer's to see, and they may not"
     );
 
     let stopped = client.submit("/app/impersonate/stop", "").await;
     assert_eq!(stopped.status(), StatusCode::SEE_OTHER);
     assert!(banner(&client).await.is_none());
 
-    let events: Vec<String> = AuditEntry::all()
+    let mut events: Vec<String> = AuditEntry::all()
         .exec(&mut harness.db.clone())
         .await
         .expect("query")
@@ -145,9 +184,12 @@ async fn staff_find_a_customer_and_act_as_them_until_stop() {
         .filter(|entry| entry.panel == "/app")
         .map(|entry| entry.event)
         .collect();
-    assert_eq!(events.len(), 2, "{events:?}");
-    assert!(events.contains(&"impersonate".to_string()));
-    assert!(events.contains(&"stop_impersonating".to_string()));
+    events.sort_unstable();
+    assert_eq!(
+        events,
+        ["action:act-as", "impersonate", "stop_impersonating"],
+        "the button's run, then what Tablo records of acting as her"
+    );
 }
 
 /// Signing out while acting as a customer ends it, and the log says so: a start with no stop
@@ -273,13 +315,25 @@ async fn staff_never_act_as_staff() {
     )
     .await;
 
-    let (_, html) = search(&client, "root").await;
+    let all = client.resource::<SupportResource>().list().await;
+    assert_eq!(all.status(), StatusCode::OK);
     assert!(
-        !html.contains("data-customer="),
-        "the search lists customers only"
+        !lists(&all, "root@example.com") && !lists(&all, "sam@example.com"),
+        "the list holds customers only"
+    );
+    let refused = client
+        .resource::<SupportResource>()
+        .action::<ActAs>(&other)
+        .submit()
+        .await;
+    assert_eq!(
+        refused.status(),
+        StatusCode::NOT_FOUND,
+        "staff are outside the list's query, so no action loads one"
     );
     let refused = client.submit("/app/impersonate", &act_as(&other)).await;
     assert_eq!(refused.status(), StatusCode::FORBIDDEN);
+    assert!(banner(&client).await.is_none());
 }
 
 #[tokio::test]
@@ -290,9 +344,15 @@ async fn a_customer_neither_sees_the_page_nor_acts_as_anyone() {
     let client = client_for(&harness, &ada, &team).await;
 
     assert_eq!(
-        client.get("/app/support").await.status(),
+        client.resource::<SupportResource>().list().await.status(),
         StatusCode::FORBIDDEN
     );
+    let refused = client
+        .resource::<SupportResource>()
+        .action::<ActAs>(&grace)
+        .submit()
+        .await;
+    assert_eq!(refused.status(), StatusCode::FORBIDDEN);
     let refused = client.submit("/app/impersonate", &act_as(&grace)).await;
     assert_eq!(refused.status(), StatusCode::FORBIDDEN);
 }
@@ -341,9 +401,14 @@ async fn a_factor_added_after_the_grant_is_not_trusted() {
     )
     .await;
 
-    let (_, html) = search(&client, "ada").await;
-    assert!(html.contains("data-support-notice"), "{html}");
-    assert_eq!(impersonate_buttons(&html), Vec::<String>::new());
+    let found = search(&client, "ada").await;
+    assert!(
+        found.html().contains("data-support-notice"),
+        "{}",
+        found.html()
+    );
+    assert!(lists(&found, "ada@example.com"));
+    assert!(!offers_to_act_as(&client, &found, &ada));
     let refused = client.submit("/app/impersonate", &act_as(&ada)).await;
     assert_eq!(
         refused.status(),
