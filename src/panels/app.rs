@@ -20,7 +20,7 @@ use crate::billing::{
 };
 use crate::platform::config::{Config, GOOGLE_ISSUER, GoogleSettings};
 use crate::projects::{Project, ProjectResource};
-use crate::support::{self, SupportPage};
+use crate::support::{self, SupportResource};
 use crate::teams::{
     IncomingInvitationResource, IncomingInvitationsWidget, InvitationResource, Member,
     MemberResource, Teams,
@@ -37,7 +37,7 @@ pub fn app_panel(config: &Config) -> Panel {
         .audit_log(audit::team_trail)
         .home::<Home>()
         .resource::<ProjectResource>()
-        .page::<SupportPage>()
+        .resource::<SupportResource>()
         .area(settings())
 }
 
