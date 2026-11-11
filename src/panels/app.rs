@@ -13,7 +13,7 @@ use topcoat::{
     view::{View, view},
 };
 
-use crate::accounts::{AccountResetter, AccountVerifier, Accounts, SignedIn};
+use crate::accounts::{Accounts, SignedIn, password_auth};
 use crate::audit;
 use crate::billing::{
     BILLING_URL, BillingPage, StandingBanner, is_urgent, plan_name, standing_notice,
@@ -23,7 +23,7 @@ use crate::projects::{Project, ProjectResource};
 use crate::support::{self, SupportResource};
 use crate::teams::{
     IncomingInvitationResource, IncomingInvitationsWidget, InvitationResource, Member,
-    MemberResource, Teams,
+    MemberResource, TeamPlan, Teams,
     actions::{DeleteAccount, DeleteTeam, ExportAccount},
     current_entitlements, may_manage_members,
 };
@@ -32,6 +32,8 @@ use crate::teams::{
 pub fn app_panel(config: &Config) -> Panel {
     super::lands_on_stripe(super::shared(Panel::new("app"), config))
         .auth(auth(config))
+        // What the team's plan allows, which the policies read.
+        .load::<TeamPlan>()
         .notifications()
         .banner::<StandingBanner>()
         .audit_log(audit::team_trail)
@@ -74,7 +76,7 @@ fn settings() -> Area {
 /// profile and a second factor from an app or by mail, required of staff; "Continue with Google"
 /// when configured; and staff acting as a customer.
 fn auth(config: &Config) -> Auth<SignedIn> {
-    let auth = Auth::custom(Accounts)
+    let auth = Auth::custom(password_auth())
         .registration(Accounts)
         .throttle(super::shared_throttle(5, Duration::from_mins(1)))
         // Past the per-address limit, a guesser rotating addresses still meets this one. It is
@@ -85,9 +87,9 @@ fn auth(config: &Config) -> Auth<SignedIn> {
             config.mail.from.clone(),
             config.base_url.clone(),
         ))
-        .password_reset(PasswordReset::new(AccountResetter))
-        .email_verification(EmailVerification::new(AccountVerifier))
-        .profile(Accounts)
+        .password_reset(PasswordReset::new(password_auth()))
+        .email_verification(EmailVerification::new(password_auth()))
+        .profile(password_auth())
         // Staff sign in here to act as customers, so their account reaches every customer's
         // data: a password alone is not enough for it. Customers choose for themselves.
         .two_factor(

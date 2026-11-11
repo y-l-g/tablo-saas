@@ -208,8 +208,8 @@ impl Resource for IncomingInvitationResource {
             .plural_label(tablo::text!("resource-incoming-invitation.plural"))
             .icon(iconify_icon!("lucide:user-plus"))
             .tenancy(Tenancy::none())
-            .query(|cx, query| {
-                query.filter(
+            .query_fn(|cx| {
+                Some(
                     Invitation::fields()
                         .email()
                         .eq(own_email(cx))

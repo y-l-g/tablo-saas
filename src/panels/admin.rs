@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use tablo::{Auth, AuthMail, Panel, TwoFactor};
 
-use crate::accounts::{Accounts, SignedIn};
+use crate::accounts::{SignedIn, password_auth};
 use crate::audit;
 use crate::backoffice::{
     AccountResource, CustomerResource, ImpersonationResource, JobResource, SubscriptionResource,
@@ -26,7 +26,7 @@ pub fn admin_panel(config: &Config) -> Panel {
 }
 
 fn auth(config: &Config) -> Auth<SignedIn> {
-    Auth::custom(Accounts)
+    Auth::custom(password_auth())
         .throttle(super::shared_throttle(5, Duration::from_mins(1)))
         .mail(AuthMail::new(
             config.mail.from.clone(),
