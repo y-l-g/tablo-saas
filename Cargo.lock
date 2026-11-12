@@ -4167,7 +4167,7 @@ dependencies = [
 [[package]]
 name = "tablo"
 version = "0.10.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=9931d2798b7cb9f14f865d20c609bb1315da9db6#9931d2798b7cb9f14f865d20c609bb1315da9db6"
+source = "git+https://github.com/y-l-g/tablo.git?rev=5c9e26f7995147f0f833aaf11b3315db610875d7#5c9e26f7995147f0f833aaf11b3315db610875d7"
 dependencies = [
  "tablo-core",
  "tablo-test",
@@ -4179,7 +4179,7 @@ dependencies = [
 [[package]]
 name = "tablo-build"
 version = "0.10.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=9931d2798b7cb9f14f865d20c609bb1315da9db6#9931d2798b7cb9f14f865d20c609bb1315da9db6"
+source = "git+https://github.com/y-l-g/tablo.git?rev=5c9e26f7995147f0f833aaf11b3315db610875d7#5c9e26f7995147f0f833aaf11b3315db610875d7"
 dependencies = [
  "topcoat",
 ]
@@ -4187,7 +4187,7 @@ dependencies = [
 [[package]]
 name = "tablo-core"
 version = "0.10.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=9931d2798b7cb9f14f865d20c609bb1315da9db6#9931d2798b7cb9f14f865d20c609bb1315da9db6"
+source = "git+https://github.com/y-l-g/tablo.git?rev=5c9e26f7995147f0f833aaf11b3315db610875d7#5c9e26f7995147f0f833aaf11b3315db610875d7"
 dependencies = [
  "aes-gcm 0.11.1",
  "ammonia",
@@ -4231,7 +4231,7 @@ dependencies = [
 [[package]]
 name = "tablo-macros"
 version = "0.10.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=9931d2798b7cb9f14f865d20c609bb1315da9db6#9931d2798b7cb9f14f865d20c609bb1315da9db6"
+source = "git+https://github.com/y-l-g/tablo.git?rev=5c9e26f7995147f0f833aaf11b3315db610875d7#5c9e26f7995147f0f833aaf11b3315db610875d7"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -4271,7 +4271,7 @@ dependencies = [
 [[package]]
 name = "tablo-test"
 version = "0.10.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=9931d2798b7cb9f14f865d20c609bb1315da9db6#9931d2798b7cb9f14f865d20c609bb1315da9db6"
+source = "git+https://github.com/y-l-g/tablo.git?rev=5c9e26f7995147f0f833aaf11b3315db610875d7#5c9e26f7995147f0f833aaf11b3315db610875d7"
 dependencies = [
  "data-encoding",
  "form_urlencoded",
@@ -4293,7 +4293,7 @@ dependencies = [
 [[package]]
 name = "tablo-ui"
 version = "0.10.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=9931d2798b7cb9f14f865d20c609bb1315da9db6#9931d2798b7cb9f14f865d20c609bb1315da9db6"
+source = "git+https://github.com/y-l-g/tablo.git?rev=5c9e26f7995147f0f833aaf11b3315db610875d7#5c9e26f7995147f0f833aaf11b3315db610875d7"
 dependencies = [
  "topcoat",
 ]
