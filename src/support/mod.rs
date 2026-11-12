@@ -11,12 +11,12 @@
 //! [`is_impersonated`](crate::accounts::is_impersonated).
 //! The start and the stop land in the app panel's audit log, which the back office reads.
 
-use std::{convert::Infallible, time::Duration};
+use std::time::Duration;
 
 use tablo::{Impersonation, Widget, WidgetDef, auth, prelude::*};
 use topcoat::{
     context::Cx,
-    icon::{IconData, iconify::iconify_icon},
+    icon::iconify::iconify_icon,
     view::{View, view},
 };
 
@@ -66,6 +66,7 @@ impl Resource for SupportResource {
     type Form = NoForm<User>;
 
     fn declare() -> ResourceDef<Self> {
+        let col = User::columns();
         ResourceDef::new()
             .slug("support")
             .label(tablo::text!("page-support"))
@@ -86,13 +87,13 @@ impl Resource for SupportResource {
             .list_widget::<SupportNotice>()
             .table(
                 Table::new((
-                    TextColumn::new(lens!(User.name)).searchable().sortable(),
-                    TextColumn::new(lens!(User.email)).searchable().sortable(),
-                    ComputedColumn::new(tablo::text!("support-teams"), |user: &User| {
+                    col.name.text().searchable().sortable(),
+                    col.email.text().searchable().sortable(),
+                    ComputedColumn::new(tablo::text!("support-teams"), |_, user: &User| {
                         user.memberships.get().len().to_string()
                     })
                     .include_unscoped(User::fields().memberships()),
-                    DateColumn::new(lens!(User.created_at)).sortable(),
+                    col.created_at.date().sortable(),
                 ))
                 .default_sort_desc(lens!(User.created_at)),
             )
@@ -108,16 +109,17 @@ impl Action<SupportResource> for ActAs {
     type Input = ();
 
     const NAME: &'static str = "act-as";
-    const PLACES: Places = Places::ROW;
-    const ICON: Option<IconData> = Some(tablo::ui::icons::EYE);
 
-    fn label() -> Text {
-        tablo::text!("support-act-as")
-    }
-
-    /// The button shows where the rule allows; running it asks the rule again.
-    fn can_run(cx: &Cx, user: &User) -> bool {
-        auth::user::<SignedIn>(cx).is_some_and(|actor| may_act_as(actor, user))
+    fn declare() -> ActionDef<SupportResource> {
+        ActionDef::new()
+            .places(Places::ROW)
+            .icon(tablo::ui::icons::EYE)
+            .label(tablo::text!("support-act-as"))
+            // The button shows where the rule allows; running it asks the rule again.
+            .can_run(|cx, user: &User| {
+                auth::user::<SignedIn>(cx).is_some_and(|actor| may_act_as(actor, user))
+            })
+            .success(|_| tablo::text!("support-acting"))
     }
 
     async fn run(
@@ -125,17 +127,13 @@ impl Action<SupportResource> for ActAs {
         users: &[User],
         (): (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<Infallible>> {
+    ) -> Result<Outcome, WriteError<()>> {
         let [user] = users else {
             return Err(WriteError::declined(tablo::text!("support-act-as-one")));
         };
         let target = Accounts::signed_in(user.clone(), &mut *ex).await?;
         auth::impersonate(cx, ex, &target).await?;
         Ok(Outcome::done().redirect(APP_HOME))
-    }
-
-    fn success(_count: usize) -> Text {
-        tablo::text!("support-acting")
     }
 }
 

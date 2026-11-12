@@ -7,7 +7,7 @@ use toasty::Deferred;
 use crate::accounts::User;
 
 /// A customer organisation: the tenant, and the unit a subscription belongs to.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub struct Team {
     #[key]
     #[auto]
@@ -26,7 +26,7 @@ impl Team {
 }
 
 /// One user's seat on one team.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 #[unique(team_id, user_id)]
 pub struct Member {
     #[key]
@@ -44,7 +44,7 @@ pub struct Member {
 }
 
 /// An address asked to join a team, until it accepts, declines or expires.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 #[unique(team_id, email)]
 pub struct Invitation {
     #[key]

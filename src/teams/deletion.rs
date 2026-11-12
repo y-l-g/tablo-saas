@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use tablo::{
-    HeaderAction, Outcome, TenantId, WriteError, auth,
+    HeaderAction, HeaderActionDef, Outcome, TenantId, WriteError, auth,
     auth::{AuthFactor, AuthSession, AuthToken, ColumnPreference, verify_password},
     notification::StoredNotification,
 };
@@ -163,23 +163,27 @@ pub struct DeleteTeam;
 impl HeaderAction for DeleteTeam {
     type Input = TeamConfirmation;
     const NAME: &'static str = "delete-team";
-    const COLOR: tablo::Color = tablo::Color::Danger;
 
-    fn can_run(cx: &Cx) -> bool {
-        let other_teams = auth::user::<SignedIn>(cx).is_some_and(|signed| signed.seats.len() > 1);
-        access::current_role(cx) == Some(TeamRole::Owner) && other_teams
+    fn declare() -> HeaderActionDef {
+        HeaderActionDef::new()
+            .color(tablo::Color::Danger)
+            .can_run(|cx| {
+                let other_teams =
+                    auth::user::<SignedIn>(cx).is_some_and(|signed| signed.seats.len() > 1);
+                access::current_role(cx) == Some(TeamRole::Owner) && other_teams
+            })
     }
 
     async fn run(
         cx: &Cx,
         input: TeamConfirmation,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<TeamConfirmationField>> {
+    ) -> Result<Outcome, WriteError<TeamConfirmation>> {
         let membership = auth::membership(cx)
             .ok_or_else(|| WriteError::declined(tablo::text!("error-no-team")))?;
         if input.name.trim() != membership.name {
-            return Err(WriteError::field(
-                TeamConfirmationField::Name,
+            return Err(WriteError::<TeamConfirmation>::field(
+                |f| f.name,
                 tablo::text!("error-team-name-mismatch"),
             ));
         }
@@ -202,17 +206,20 @@ pub struct DeleteAccount;
 impl HeaderAction for DeleteAccount {
     type Input = AccountConfirmation;
     const NAME: &'static str = "delete-account";
-    const COLOR: tablo::Color = tablo::Color::Danger;
+
+    fn declare() -> HeaderActionDef {
+        HeaderActionDef::new().color(tablo::Color::Danger)
+    }
 
     async fn run(
         cx: &Cx,
         input: AccountConfirmation,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<AccountConfirmationField>> {
+    ) -> Result<Outcome, WriteError<AccountConfirmation>> {
         let signed = auth::require_user::<SignedIn>(cx)?;
         if !verify_password(&input.password, Some(&signed.user.password)).await {
-            return Err(WriteError::field(
-                AccountConfirmationField::Password,
+            return Err(WriteError::<AccountConfirmation>::field(
+                |f| f.password,
                 tablo::text!("error-password-wrong"),
             ));
         }

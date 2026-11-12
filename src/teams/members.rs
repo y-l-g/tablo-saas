@@ -1,7 +1,5 @@
 //! The team's members, and what changes them.
 
-use std::convert::Infallible;
-
 use tablo::{auth, prelude::*};
 use topcoat::{context::Cx, icon::iconify::iconify_icon};
 
@@ -25,6 +23,7 @@ impl Resource for MemberResource {
     type Form = NoForm<Member>;
 
     fn declare() -> ResourceDef<Self> {
+        let col = Member::columns();
         ResourceDef::new()
             .slug("members")
             .icon(iconify_icon!("lucide:users"))
@@ -50,11 +49,11 @@ impl Resource for MemberResource {
                 Table::new((
                     // No resource administers accounts here: tenancy already limits the rows to
                     // this team, and the column reads nothing else of the account.
-                    RelationColumn::unscoped(relation!(Member.user), |user: &User| {
+                    RelationColumn::unscoped(relation!(Member.user), |_, user: &User| {
                         format!("{} <{}>", user.name, user.email)
                     }),
-                    TextColumn::new(lens!(Member.role)).badge(),
-                    DateColumn::new(lens!(Member.created_at)).sortable(),
+                    col.role.text().badge(),
+                    col.created_at.date().sortable(),
                 ))
                 .default_sort(lens!(Member.created_at)),
             )
@@ -88,7 +87,7 @@ impl tablo::Options for AssignableRole {
 async fn seats_changed(
     members: &[Member],
     ex: &mut dyn toasty::Executor,
-) -> Result<(), WriteError<Infallible>> {
+) -> Result<(), WriteError<()>> {
     for member in members {
         sync_seats_later(&mut *ex, member.team_id)
             .await
@@ -103,10 +102,11 @@ pub struct ChangeRole;
 impl Action<MemberResource> for ChangeRole {
     type Input = RoleChange;
     const NAME: &'static str = "change-role";
-    const PLACES: Places = Places::ROW;
 
-    fn can_run(cx: &Cx, member: &Member) -> bool {
-        may_change(cx, member) && !is_impersonated(cx)
+    fn declare() -> ActionDef<MemberResource> {
+        ActionDef::new()
+            .places(Places::ROW)
+            .can_run(|cx, member: &Member| may_change(cx, member) && !is_impersonated(cx))
     }
 
     async fn run(
@@ -114,11 +114,11 @@ impl Action<MemberResource> for ChangeRole {
         members: &[Member],
         change: RoleChange,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<RoleChangeField>> {
+    ) -> Result<Outcome, WriteError<RoleChange>> {
         // The form offers no owner, and a hand-built post is refused here.
         if change.role == TeamRole::Owner {
-            return Err(WriteError::field(
-                RoleChangeField::Role,
+            return Err(WriteError::<RoleChange>::field(
+                |f| f.role,
                 tablo::text!("error-owner-by-transfer"),
             ));
         }
@@ -137,12 +137,13 @@ pub struct RemoveMember;
 impl Action<MemberResource> for RemoveMember {
     type Input = ();
     const NAME: &'static str = "remove";
-    const PLACES: Places = Places::ROW;
-    const CONFIRM: bool = true;
-    const COLOR: Color = Color::Danger;
 
-    fn can_run(cx: &Cx, member: &Member) -> bool {
-        may_change(cx, member) && !is_impersonated(cx)
+    fn declare() -> ActionDef<MemberResource> {
+        ActionDef::new()
+            .places(Places::ROW)
+            .confirm()
+            .color(Color::Danger)
+            .can_run(|cx, member: &Member| may_change(cx, member) && !is_impersonated(cx))
     }
 
     async fn run(
@@ -150,7 +151,7 @@ impl Action<MemberResource> for RemoveMember {
         members: &[Member],
         (): (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<Infallible>> {
+    ) -> Result<Outcome, WriteError<()>> {
         Member::filter(filter_keys(members))
             .delete()
             .exec(&mut *ex)
@@ -166,14 +167,17 @@ pub struct TransferOwnership;
 impl Action<MemberResource> for TransferOwnership {
     type Input = ();
     const NAME: &'static str = "transfer-ownership";
-    const PLACES: Places = Places::ROW;
-    const CONFIRM: bool = true;
-    const COLOR: Color = Color::Warning;
 
-    fn can_run(cx: &Cx, member: &Member) -> bool {
-        current_role(cx) == Some(TeamRole::Owner)
-            && own_id(cx) != Some(member.user_id)
-            && !is_impersonated(cx)
+    fn declare() -> ActionDef<MemberResource> {
+        ActionDef::new()
+            .places(Places::ROW)
+            .confirm()
+            .color(Color::Warning)
+            .can_run(|cx, member: &Member| {
+                current_role(cx) == Some(TeamRole::Owner)
+                    && own_id(cx) != Some(member.user_id)
+                    && !is_impersonated(cx)
+            })
     }
 
     async fn run(
@@ -181,7 +185,7 @@ impl Action<MemberResource> for TransferOwnership {
         members: &[Member],
         (): (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<Infallible>> {
+    ) -> Result<Outcome, WriteError<()>> {
         let [successor] = members else {
             return Err(WriteError::declined(tablo::text!("error-transfer-one")));
         };
@@ -212,16 +216,20 @@ pub struct LeaveTeam;
 impl Action<MemberResource> for LeaveTeam {
     type Input = ();
     const NAME: &'static str = "leave";
-    const PLACES: Places = Places::ROW;
-    const CONFIRM: bool = true;
-    const COLOR: Color = Color::Danger;
 
-    fn can_run(cx: &Cx, member: &Member) -> bool {
-        let last_team = auth::user::<SignedIn>(cx).is_none_or(|signed| signed.seats.len() < 2);
-        own_id(cx) == Some(member.user_id)
-            && member.role != TeamRole::Owner
-            && !last_team
-            && !is_impersonated(cx)
+    fn declare() -> ActionDef<MemberResource> {
+        ActionDef::new()
+            .places(Places::ROW)
+            .confirm()
+            .color(Color::Danger)
+            .can_run(|cx, member: &Member| {
+                let last_team =
+                    auth::user::<SignedIn>(cx).is_none_or(|signed| signed.seats.len() < 2);
+                own_id(cx) == Some(member.user_id)
+                    && member.role != TeamRole::Owner
+                    && !last_team
+                    && !is_impersonated(cx)
+            })
     }
 
     async fn run(
@@ -229,7 +237,7 @@ impl Action<MemberResource> for LeaveTeam {
         members: &[Member],
         (): (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<Infallible>> {
+    ) -> Result<Outcome, WriteError<()>> {
         Member::filter(filter_keys(members))
             .delete()
             .exec(&mut *ex)

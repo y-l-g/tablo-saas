@@ -1,7 +1,7 @@
 //! The button that opens Stripe's billing portal, where an owner changes the plan, the card or
 //! the seats Stripe bills.
 
-use tablo::{HeaderAction, Outcome, WriteError, tenant_id};
+use tablo::{HeaderAction, HeaderActionDef, Outcome, WriteError, tenant_id};
 use topcoat::context::{Cx, context};
 
 use super::{Billing, account_of, page::URL};
@@ -16,18 +16,21 @@ impl HeaderAction for ManageBilling {
     type Input = ();
     const NAME: &'static str = "manage-billing";
 
-    /// The owner alone, and not staff acting as them: the portal cancels and changes cards.
-    fn can_run(cx: &Cx) -> bool {
-        current_role(cx) == Some(TeamRole::Owner)
-            && !is_impersonated(cx)
-            && context::<Billing>(cx).is_enabled()
+    fn declare() -> HeaderActionDef {
+        HeaderActionDef::new()
+            // The owner alone, and not staff acting as them: the portal cancels and changes cards.
+            .can_run(|cx| {
+                current_role(cx) == Some(TeamRole::Owner)
+                    && !is_impersonated(cx)
+                    && context::<Billing>(cx).is_enabled()
+            })
     }
 
     async fn run(
         cx: &Cx,
         (): (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<std::convert::Infallible>> {
+    ) -> Result<Outcome, WriteError<()>> {
         let team =
             tenant_id(cx).ok_or_else(|| WriteError::declined(tablo::text!("error-no-team")))?;
         let account = account_of(ex, team).await.map_err(unavailable)?;
@@ -46,7 +49,7 @@ impl HeaderAction for ManageBilling {
     }
 }
 
-fn unavailable(error: impl std::fmt::Display) -> WriteError<std::convert::Infallible> {
+fn unavailable(error: impl std::fmt::Display) -> WriteError<()> {
     tracing::error!(%error, "a billing step failed");
     WriteError::declined(tablo::text!("error-billing-unavailable"))
 }

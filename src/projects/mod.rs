@@ -11,7 +11,7 @@ use topcoat::{context::Cx, icon::iconify::iconify_icon};
 use crate::teams::{current_entitlements, current_role, may_manage_members};
 
 /// Something a team is working on.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub struct Project {
     #[key]
     #[auto]
@@ -57,6 +57,7 @@ impl Resource for ProjectResource {
     type Form = ProjectForm;
 
     fn declare() -> ResourceDef<Self> {
+        let col = Project::columns();
         ResourceDef::new()
             .icon(iconify_icon!("lucide:folder"))
             .tenancy(Tenancy::column(lens!(Project.team_id)))
@@ -71,9 +72,9 @@ impl Resource for ProjectResource {
             )
             .table(
                 Table::new((
-                    TextColumn::new(lens!(Project.name)).searchable().sortable(),
-                    TextColumn::new(lens!(Project.status)).badge(),
-                    DateColumn::new(lens!(Project.created_at)).sortable(),
+                    col.name.text().searchable().sortable(),
+                    col.status.text().badge(),
+                    col.created_at.date().sortable(),
                 ))
                 .option_tabs(lens!(Project.status))
                 .default_sort_desc(lens!(Project.created_at)),
@@ -85,7 +86,7 @@ impl Resource for ProjectResource {
         cx: &Cx,
         form: ProjectForm,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Project, WriteError<ProjectFormField>> {
+    ) -> Result<Project, WriteError<ProjectForm>> {
         let team = tablo::require_tenant(cx)?;
         let projects = Project::filter(Project::fields().team_id().eq(team))
             .exec(&mut *ex)

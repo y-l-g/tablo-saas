@@ -7,7 +7,7 @@ use super::{BillingInterval, PlanId};
 
 /// A team's billing state: one row per team that ever started paying, written only by the sync
 /// from Stripe. A team without a row is on the free plan.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 #[table = "billing_accounts"]
 pub struct BillingAccount {
     #[key]
@@ -86,7 +86,7 @@ impl BillingStatus {
 
 /// A Stripe event that arrived: the inbox that makes delivery idempotent. It keeps the id, the
 /// kind and the customer, and not the payload, which holds personal data the API can give again.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 #[table = "stripe_events"]
 pub struct StripeEvent {
     #[key]

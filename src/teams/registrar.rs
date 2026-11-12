@@ -1,6 +1,6 @@
 //! Creating a team, and renaming the one the session acts for.
 
-use tablo::{FieldErrors, Membership, TenantId, auth::TenantEditor};
+use tablo::{FieldErrors, Membership, TenantEditor, TenantId};
 use topcoat::context::Cx;
 
 use super::{Member, Team, TeamRole, access};
@@ -16,7 +16,7 @@ impl NewTeam {
     fn errors(&self) -> FieldErrors {
         let mut errors = FieldErrors::new();
         if self.name.trim().is_empty() {
-            errors.add("name", tablo::text!("error-team-name-required"));
+            errors.add_field("name", tablo::text!("error-team-name-required"));
         }
         errors
     }
@@ -47,7 +47,7 @@ pub async fn create_team(
 /// Creates a team for a signed-in user, and renames the current one.
 pub struct Teams;
 
-impl tablo::auth::TenantRegistrar for Teams {
+impl tablo::TenantRegistrar for Teams {
     type User = SignedIn;
     type Input = NewTeam;
 

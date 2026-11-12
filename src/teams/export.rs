@@ -362,7 +362,7 @@ impl HeaderAction for ExportAccount {
         _cx: &Cx,
         (): (),
         _ex: &mut dyn toasty::Executor,
-    ) -> std::result::Result<Outcome, WriteError<std::convert::Infallible>> {
+    ) -> std::result::Result<Outcome, WriteError<()>> {
         Ok(Outcome::done().redirect(EXPORT_URL))
     }
 }

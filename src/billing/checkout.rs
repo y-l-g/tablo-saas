@@ -1,7 +1,7 @@
 //! The plan cards' buttons, which leave for Stripe Checkout: one header action of the billing
 //! page, placed on each card with that card's plan and interval.
 
-use tablo::{FormInput, HeaderAction, Outcome, WriteError, auth, tenant_id};
+use tablo::{FormInput, HeaderAction, HeaderActionDef, Outcome, WriteError, auth, tenant_id};
 use topcoat::context::{Cx, context};
 
 use super::{
@@ -28,18 +28,21 @@ impl HeaderAction for Checkout {
     type Input = Choice;
     const NAME: &'static str = "checkout";
 
-    /// The owner alone, and not staff acting as them: Checkout charges the customer's card.
-    fn can_run(cx: &Cx) -> bool {
-        current_role(cx) == Some(TeamRole::Owner)
-            && !is_impersonated(cx)
-            && context::<Billing>(cx).is_enabled()
+    fn declare() -> HeaderActionDef {
+        HeaderActionDef::new()
+            // The owner alone, and not staff acting as them: Checkout charges the customer's card.
+            .can_run(|cx| {
+                current_role(cx) == Some(TeamRole::Owner)
+                    && !is_impersonated(cx)
+                    && context::<Billing>(cx).is_enabled()
+            })
     }
 
     async fn run(
         cx: &Cx,
         choice: Choice,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<ChoiceField>> {
+    ) -> Result<Outcome, WriteError<Choice>> {
         let invalid = || WriteError::declined(tablo::text!("error-plan-invalid"));
         let plan = Plan::by_slug(&choice.plan)
             .filter(|plan| plan.id != PlanId::Free)
@@ -94,7 +97,7 @@ impl HeaderAction for Checkout {
     }
 }
 
-fn unavailable(error: impl std::fmt::Display) -> WriteError<ChoiceField> {
+fn unavailable(error: impl std::fmt::Display) -> WriteError<Choice> {
     tracing::error!(%error, "a billing step failed");
     WriteError::declined(tablo::text!("error-billing-unavailable"))
 }

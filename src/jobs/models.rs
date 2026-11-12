@@ -3,7 +3,7 @@
 use jiff::Timestamp;
 
 /// One unit of background work.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 #[table = "jobs"]
 pub struct Job {
     #[key]
