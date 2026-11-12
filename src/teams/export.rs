@@ -8,8 +8,11 @@
 use jiff::Timestamp;
 use serde::Serialize;
 use tablo::{
-    AuditChange, AuditEntry, HeaderAction, Notification, Outcome, TenantId, WriteError, auth,
-    db::db, notification::StoredNotification,
+    HeaderAction, Notification, Outcome, TenantId, WriteError,
+    audit::{AuditChange, AuditEntry},
+    auth,
+    db::db,
+    notification::StoredNotification,
 };
 use topcoat::{
     Result,

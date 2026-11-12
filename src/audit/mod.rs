@@ -1,4 +1,4 @@
-//! Who did what, kept by Tablo's audit log: each panel writes an [`AuditEntry`] per record a write
+//! Who did what, kept by `tablo::audit`: each panel writes an [`AuditEntry`] per record a write
 //! names, in the write's own transaction, with the fields it changed. A team reads its own trail on
 //! a plan with [`Feature::AuditLog`]; the trail is written on every plan, so upgrading shows
 //! history. Staff read the back office's.
@@ -7,7 +7,11 @@
 //! [`forget_team`] or [`forget_actor`] removes it. The actions that erase both are page header
 //! actions, which run no commit hook, so the log keeps no entry of its own for them.
 
-use tablo::{AuditEntry, AuditLog, ReadOnly, ResourceDef, TenantId, auth, when};
+use tablo::{
+    ResourceDef, TenantId,
+    audit::{AuditEntry, AuditLog},
+    auth, when,
+};
 use topcoat::{Result, context::Cx, icon::iconify::iconify_icon};
 
 use crate::accounts::{SignedIn, StaffRole};
@@ -18,7 +22,7 @@ use crate::teams::{current_entitlements, may_manage_members};
 /// in the team's settings, beside members and billing.
 pub fn team_trail(def: ResourceDef<AuditLog>) -> ResourceDef<AuditLog> {
     def.icon(iconify_icon!("lucide:rotate-ccw-clock"))
-        .policy(ReadOnly.and(when(reads_the_trail)))
+        .policy(when(reads_the_trail))
         .without_global_search()
 }
 

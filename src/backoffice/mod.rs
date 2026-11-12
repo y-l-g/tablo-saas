@@ -3,7 +3,7 @@
 //! Support reads; an administrator also acts, and reads who acted as a customer in the app panel.
 
 use jiff::Timestamp;
-use tablo::{AuditEntry, auth, prelude::*};
+use tablo::{audit::AuditEntry, auth, prelude::*};
 use topcoat::{context::Cx, icon::iconify::iconify_icon};
 
 use crate::accounts::{SignedIn, StaffRole, User};

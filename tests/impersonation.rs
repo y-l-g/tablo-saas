@@ -7,7 +7,7 @@ use support::{
     Harness, billed_harness, client_for, harness, person, seat, staff_client, stripe::FakeStripe,
 };
 use tablo::{
-    AuditEntry,
+    audit::AuditEntry,
     auth::{AuthFactor, FactorKind, IMPERSONATE_FIELD},
     testing::{
         FieldOf, Reply, TestClient, action_label, body_string, form_body, impersonation_banner,

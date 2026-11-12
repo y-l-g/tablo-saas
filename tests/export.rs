@@ -4,7 +4,7 @@ mod support;
 
 use support::{Harness, client_for, harness, person, seat};
 use tablo::{
-    AuditEntry,
+    audit::AuditEntry,
     testing::{TestClient, body_string, form_body},
 };
 use tablo_saas::{

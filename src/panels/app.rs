@@ -4,7 +4,10 @@ use std::time::Duration;
 
 use tablo::{
     Area, Auth, AuthMail, EmailVerification, Oidc, OidcProvider, Page, PageDef, Panel,
-    PasswordReset, TenantRegistration, Theme, TwoFactor, Widget, WidgetDef, db::db, ui,
+    PasswordReset, TenantRegistration, Theme, TwoFactor, Widget, WidgetDef,
+    audit::{AuditLog, PanelAuditExt},
+    db::db,
+    ui,
 };
 use topcoat::{
     Result,
@@ -36,7 +39,7 @@ pub fn app_panel(config: &Config) -> Panel {
         .load::<TeamPlan>()
         .notifications()
         .banner::<StandingBanner>()
-        .audit_log(audit::team_trail)
+        .audit_trail()
         .home::<Home>()
         .resource::<ProjectResource>()
         .resource::<SupportResource>()
@@ -68,7 +71,7 @@ fn settings() -> Area {
                 .resource::<MemberResource>()
                 .resource::<InvitationResource>()
                 .page::<BillingPage>()
-                .audit_log()
+                .resource_with::<AuditLog>(audit::team_trail)
         })
 }
 

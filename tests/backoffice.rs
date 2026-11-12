@@ -3,7 +3,10 @@
 mod support;
 
 use support::{client_for, harness, person, seat, staff_client};
-use tablo::{AuditEntry, AuditLog, testing::TestClient};
+use tablo::{
+    audit::{AuditEntry, AuditLog},
+    testing::TestClient,
+};
 use tablo_saas::{
     accounts::{Accounts, StaffRole},
     backoffice::{JobResource, RetryJob},

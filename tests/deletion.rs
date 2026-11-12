@@ -4,7 +4,8 @@ mod support;
 
 use support::{Harness, billed_harness, client_for, harness, person, seat, stripe::FakeStripe};
 use tablo::{
-    AuditEntry, Notification,
+    Notification,
+    audit::AuditEntry,
     auth::{AuthFactor, AuthSession, AuthToken, ColumnPreference, FactorKind, TokenPurpose},
     notification::StoredNotification,
     testing::{body_string, form_body},
