@@ -1,6 +1,6 @@
-//! The product's name and marks, served by the app itself.
+//! The product's name, marks and themes, the marks served by the app itself.
 
-use tablo::Brand;
+use tablo::{Brand, Theme};
 use topcoat::{
     Result,
     context::Cx,
@@ -17,11 +17,14 @@ pub const PRODUCT_NAME: &str = "Tablo SaaS";
 const LOGO_URL: &str = "/brand/logo.svg";
 const DARK_LOGO_URL: &str = "/brand/logo-dark.svg";
 
-pub(super) fn brand() -> Brand {
+/// The product's brand in `theme`: Iris where customers work and on the marketing site, Graphite
+/// where staff do, so neither is mistaken for the other.
+pub(super) fn brand(theme: Theme) -> Brand {
     Brand::new(PRODUCT_NAME)
         .logo(LOGO_URL)
         .dark_logo(DARK_LOGO_URL)
         .favicon(LOGO_URL)
+        .theme(theme)
 }
 
 /// `GET /brand/logo.svg`.
