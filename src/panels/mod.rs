@@ -10,7 +10,7 @@ pub use brand::PRODUCT_NAME;
 
 use std::time::Duration;
 
-use tablo::{Environment, LoginThrottle, Panel};
+use tablo::{Environment, LoginThrottle, Panel, Theme};
 use topcoat::l10n::locale;
 
 use crate::platform::{config::Config, words};
@@ -27,15 +27,15 @@ fn lands_on_stripe(panel: Panel) -> Panel {
     })
 }
 
-/// What every panel shares: the brand, the deployment's ribbon, and the languages, the browser
-/// choosing between them.
-fn shared(panel: Panel, config: &Config) -> Panel {
+/// What every panel shares: the brand in the panel's `theme`, the deployment's ribbon, and the
+/// languages, the browser choosing between them.
+fn shared(panel: Panel, theme: Theme, config: &Config) -> Panel {
     let panel = match &config.environment_name {
         Some(name) => panel.environment(Environment::new(name.clone())),
         None => panel,
     };
     panel
-        .brand(brand::brand())
+        .brand(brand::brand(theme))
         .locales([locale!("en"), locale!("fr")])
         .translations(locale!("en"), words::ENGLISH)
         .translations(locale!("fr"), words::FRENCH)

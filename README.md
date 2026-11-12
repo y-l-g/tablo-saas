@@ -147,7 +147,8 @@ may only switch to a team they belong to. Code outside a resource goes through `
 
 ## Make it yours
 
-1. Rename the package and brand: `Cargo.toml`, `src/panels/brand.rs`, `styles.css`, `src/site/`.
+1. Rename the package and brand, and pick each panel's theme: `Cargo.toml`, `src/panels/brand.rs`,
+   `styles.css`, `src/site/`, and the hex primary in `assets/brand/` and `src/platform/mail.rs`.
 2. Set plans and limits in `src/billing/plans.rs`, then run `billing sync-catalog`.
 3. Replace `src/projects/` with your product. Copy its shape: a model with `team_id`, a resource
    with `Tenancy` and a policy, and a limit from `Entitlements`.

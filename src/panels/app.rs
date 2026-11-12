@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use tablo::{
     Area, Auth, AuthMail, EmailVerification, Oidc, OidcProvider, Page, PageDef, Panel,
-    PasswordReset, TenantRegistration, TwoFactor, Widget, WidgetDef, db::db, ui,
+    PasswordReset, TenantRegistration, Theme, TwoFactor, Widget, WidgetDef, db::db, ui,
 };
 use topcoat::{
     Result,
@@ -30,7 +30,7 @@ use crate::teams::{
 
 /// The panel customers use.
 pub fn app_panel(config: &Config) -> Panel {
-    super::lands_on_stripe(super::shared(Panel::new("app"), config))
+    super::lands_on_stripe(super::shared(Panel::new("app"), Theme::Iris, config))
         .auth(auth(config))
         // What the team's plan allows, which the policies read.
         .load::<TeamPlan>()

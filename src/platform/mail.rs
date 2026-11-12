@@ -86,7 +86,7 @@ pub async fn send_message(cx: &Cx, message: Message<'_>) -> anyhow::Result<()> {
             <h1 style="font-size: 1.25rem;">(title)</h1>
             <p style="line-height: 1.5;">(body)</p>
             <p>
-                <a href=(url) style="display: inline-block; background: #2f6bed; color: #fff; padding: 0.625rem 1rem; border-radius: 0.5rem; text-decoration: none;">
+                <a href=(url) style="display: inline-block; background: #594ddc; color: #fff; padding: 0.625rem 1rem; border-radius: 0.5rem; text-decoration: none;">
                     (action)
                 </a>
             </p>
