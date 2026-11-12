@@ -9,7 +9,7 @@ pub use tablo::auth::normalize_email;
 use crate::teams::Member;
 
 /// A person with an account. A row without a staff role is a customer.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub struct User {
     #[key]
     #[auto]

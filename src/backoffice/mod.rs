@@ -32,6 +32,7 @@ impl Resource for AccountResource {
     type Form = NoForm<User>;
 
     fn declare() -> ResourceDef<Self> {
+        let col = User::columns();
         ResourceDef::new()
             .slug("accounts")
             .icon(iconify_icon!("lucide:users"))
@@ -41,10 +42,10 @@ impl Resource for AccountResource {
             .without_page(ResourcePage::View)
             .table(
                 Table::new((
-                    TextColumn::new(lens!(User.name)).searchable().sortable(),
-                    TextColumn::new(lens!(User.email)).searchable().sortable(),
-                    TextColumn::new(lens!(User.staff_role)).badge(),
-                    DateColumn::new(lens!(User.created_at)).sortable(),
+                    col.name.text().searchable().sortable(),
+                    col.email.text().searchable().sortable(),
+                    col.staff_role.text().badge(),
+                    col.created_at.date().sortable(),
                 ))
                 .filters((
                     // Every account of one company: `?f.email=acme.com&f.email.op=ends`.
@@ -104,7 +105,7 @@ impl Resource for ImpersonationResource {
                         .searchable(),
                     TextColumn::new(lens!(AuditEntry.event))
                         .label(tablo::text!("impersonation-event"))
-                        .format(|event: &String| {
+                        .format(|_, event: &String| {
                             if event == "impersonate" {
                                 tablo::text!("impersonation-started")
                             } else {
@@ -126,7 +127,7 @@ impl Resource for ImpersonationResource {
 /// The customer an entry names, as they were called then: Tablo records them as the `user`
 /// change's new value. A session that ran out is stopped without the name, and Tablo writes the
 /// id in its place, which the next column already shows.
-fn customer_named(entry: &AuditEntry) -> String {
+fn customer_named(_cx: &Cx, entry: &AuditEntry) -> String {
     entry
         .changes
         .0
@@ -139,7 +140,7 @@ fn customer_named(entry: &AuditEntry) -> String {
 
 /// When a start was due to end at the latest, as Tablo records it in the `until` change: a start
 /// with no stop after it, whose session simply expired, ended then. A stop has none.
-fn ends_by(entry: &AuditEntry) -> String {
+fn ends_by(_cx: &Cx, entry: &AuditEntry) -> String {
     entry
         .changes
         .0
@@ -160,6 +161,7 @@ impl Resource for CustomerResource {
     type Form = NoForm<Team>;
 
     fn declare() -> ResourceDef<Self> {
+        let col = Team::columns();
         ResourceDef::new()
             .slug("customers")
             .icon(iconify_icon!("lucide:building"))
@@ -169,8 +171,8 @@ impl Resource for CustomerResource {
             .without_page(ResourcePage::View)
             .table(
                 Table::new((
-                    TextColumn::new(lens!(Team.name)).searchable().sortable(),
-                    DateColumn::new(lens!(Team.created_at)).sortable(),
+                    col.name.text().searchable().sortable(),
+                    col.created_at.date().sortable(),
                 ))
                 .default_sort_desc(lens!(Team.created_at)),
             )
@@ -185,6 +187,7 @@ impl Resource for SubscriptionResource {
     type Form = NoForm<BillingAccount>;
 
     fn declare() -> ResourceDef<Self> {
+        let col = BillingAccount::columns();
         ResourceDef::new()
             .slug("subscriptions")
             .icon(iconify_icon!("lucide:credit-card"))
@@ -200,12 +203,12 @@ impl Resource for SubscriptionResource {
             .action::<Resync>()
             .table(
                 Table::new((
-                    TextColumn::new(lens!(BillingAccount.customer_id)).searchable(),
-                    TextColumn::new(lens!(BillingAccount.plan)).badge(),
-                    TextColumn::new(lens!(BillingAccount.status)).badge(),
-                    TextColumn::new(lens!(BillingAccount.seats)),
-                    DateColumn::new(lens!(BillingAccount.current_period_end)).sortable(),
-                    DateColumn::new(lens!(BillingAccount.synced_at)).sortable(),
+                    col.customer_id.text().searchable(),
+                    col.plan.text().badge(),
+                    col.status.text().badge(),
+                    col.seats.text(),
+                    col.current_period_end.date().sortable(),
+                    col.synced_at.date().sortable(),
                 ))
                 .filters((
                     SelectFilter::of(lens!(BillingAccount.status)),
@@ -223,8 +226,8 @@ impl Action<SubscriptionResource> for Resync {
     type Input = ();
     const NAME: &'static str = "resync";
 
-    fn tooltip() -> Option<Text> {
-        Some(tablo::text!("hint-resync"))
+    fn declare() -> ActionDef<SubscriptionResource> {
+        ActionDef::new().tooltip(tablo::text!("hint-resync"))
     }
 
     async fn run(
@@ -232,7 +235,7 @@ impl Action<SubscriptionResource> for Resync {
         accounts: &[BillingAccount],
         (): (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<std::convert::Infallible>> {
+    ) -> Result<Outcome, WriteError<()>> {
         for account in accounts {
             enqueue(&RefreshCustomer {
                 customer: account.customer_id.clone(),
@@ -254,6 +257,7 @@ impl Resource for WebhookResource {
     type Form = NoForm<StripeEvent>;
 
     fn declare() -> ResourceDef<Self> {
+        let col = StripeEvent::columns();
         ResourceDef::new()
             .slug("webhooks")
             .icon(iconify_icon!("lucide:zap"))
@@ -263,10 +267,10 @@ impl Resource for WebhookResource {
             .without_global_search()
             .table(
                 Table::new((
-                    DateColumn::new(lens!(StripeEvent.received_at)).sortable(),
-                    TextColumn::new(lens!(StripeEvent.kind)).searchable(),
-                    TextColumn::new(lens!(StripeEvent.customer_id)).searchable(),
-                    DateColumn::new(lens!(StripeEvent.processed_at)).sortable(),
+                    col.received_at.date().sortable(),
+                    col.kind.text().searchable(),
+                    col.customer_id.text().searchable(),
+                    col.processed_at.date().sortable(),
                 ))
                 .filters(
                     (PresenceFilter::new(lens!(StripeEvent.processed_at)).labels(
@@ -287,6 +291,7 @@ impl Resource for JobResource {
     type Form = NoForm<JobRow>;
 
     fn declare() -> ResourceDef<Self> {
+        let col = JobRow::columns();
         ResourceDef::new()
             .slug("jobs")
             .icon(iconify_icon!("lucide:list-checks"))
@@ -303,11 +308,11 @@ impl Resource for JobResource {
             .action::<RetryJob>()
             .table(
                 Table::new((
-                    TextColumn::new(lens!(JobRow.kind)).searchable(),
-                    TextColumn::new(lens!(JobRow.state)).badge(),
-                    TextColumn::new(lens!(JobRow.attempts)),
-                    DateColumn::new(lens!(JobRow.run_at)).sortable(),
-                    TextColumn::new(lens!(JobRow.last_error)).limit(80),
+                    col.kind.text().searchable(),
+                    col.state.text().badge(),
+                    col.attempts.text(),
+                    col.run_at.date().sortable(),
+                    col.last_error.text().limit(80),
                 ))
                 .option_tabs(lens!(JobRow.state))
                 .filters((NumberFilter::new(lens!(JobRow.attempts)).range(),))
@@ -323,12 +328,10 @@ impl Action<JobResource> for RetryJob {
     type Input = ();
     const NAME: &'static str = "retry";
 
-    fn tooltip() -> Option<Text> {
-        Some(tablo::text!("hint-retry"))
-    }
-
-    fn can_run(_cx: &Cx, job: &JobRow) -> bool {
-        job.state == JobState::Dead
+    fn declare() -> ActionDef<JobResource> {
+        ActionDef::new()
+            .tooltip(tablo::text!("hint-retry"))
+            .can_run(|_, job: &JobRow| job.state == JobState::Dead)
     }
 
     async fn run(
@@ -336,7 +339,7 @@ impl Action<JobResource> for RetryJob {
         jobs: &[JobRow],
         (): (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<std::convert::Infallible>> {
+    ) -> Result<Outcome, WriteError<()>> {
         for job in jobs.iter().filter(|job| job.state == JobState::Dead) {
             JobRow::filter_by_id(job.id)
                 .update()

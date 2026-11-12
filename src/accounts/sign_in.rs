@@ -56,11 +56,13 @@ impl PanelUser for SignedIn {
 
     /// Each panel is named and the rest refused, so a panel added later admits nobody until it
     /// has a rule here.
-    fn can_access_panel(&self, panel: &str) -> bool {
-        match panel {
-            APP_PANEL => true,
-            "/admin" => self.user.staff_role.is_some(),
-            _ => false,
+    fn can_access_panel(&self, panel: &tablo::PanelId) -> bool {
+        if panel == APP_PANEL {
+            true
+        } else if panel == "admin" {
+            self.user.staff_role.is_some()
+        } else {
+            false
         }
     }
 
@@ -234,10 +236,10 @@ impl Registrar for Accounts {
     ) -> topcoat::Result<FieldErrors> {
         let mut errors = new_password_errors(&sign_up.password, &sign_up.password_confirmation);
         if sign_up.name.trim().is_empty() {
-            errors.add("name", tablo::text!("error-name-required"));
+            errors.add_field("name", tablo::text!("error-name-required"));
         }
         if Self::by_email(ex, &sign_up.email).await?.is_some() {
-            errors.add("email", tablo::text!("error-email-taken"));
+            errors.add_field("email", tablo::text!("error-email-taken"));
         }
         Ok(errors)
     }

@@ -1,7 +1,5 @@
 //! Inviting people: the team's outgoing invitations, and the ones addressed to the signed-in user.
 
-use std::convert::Infallible;
-
 use jiff::{SignedDuration, Timestamp};
 use tablo::{Notification, Widget, WidgetDef, auth, db::db, prelude::*};
 use topcoat::{
@@ -42,18 +40,19 @@ impl HeaderAction for InviteMember {
     type Input = InviteInput;
     const NAME: &'static str = "invite";
 
-    /// Staff acting as a customer invite nobody, themselves least of all: an accepted invitation
-    /// would outlast the session.
-    fn can_run(cx: &Cx) -> bool {
-        may_manage_members(cx) && !is_impersonated(cx)
+    fn declare() -> HeaderActionDef {
+        HeaderActionDef::new()
+            // Staff acting as a customer invite nobody, themselves least of all: an accepted invitation
+            // would outlast the session.
+            .can_run(|cx| may_manage_members(cx) && !is_impersonated(cx))
     }
 
     async fn run(
         cx: &Cx,
         input: InviteInput,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<InviteInputField>> {
-        let refuse = |message| Err(WriteError::field(InviteInputField::Email, message));
+    ) -> Result<Outcome, WriteError<InviteInput>> {
+        let refuse = |message| Err(WriteError::<InviteInput>::field(|f| f.email, message));
         let membership = auth::membership(cx)
             .ok_or_else(|| WriteError::declined(tablo::text!("error-no-team")))?;
         let signed = auth::require_user::<SignedIn>(cx)?;
@@ -62,8 +61,8 @@ impl HeaderAction for InviteMember {
             return refuse(tablo::text!("error-email-invalid"));
         }
         if input.role == TeamRole::Owner {
-            return Err(WriteError::field(
-                InviteInputField::Role,
+            return Err(WriteError::<InviteInput>::field(
+                |f| f.role,
                 tablo::text!("error-owner-by-transfer"),
             ));
         }
@@ -136,6 +135,7 @@ impl Resource for InvitationResource {
     type Form = NoForm<Invitation>;
 
     fn declare() -> ResourceDef<Self> {
+        let col = Invitation::columns();
         ResourceDef::new()
             // `invitations` is the signed-in user's own, in the same settings area.
             .slug("pending-invitations")
@@ -152,10 +152,10 @@ impl Resource for InvitationResource {
             .action::<RevokeInvitation>()
             .table(
                 Table::new((
-                    TextColumn::new(lens!(Invitation.email)).searchable(),
-                    TextColumn::new(lens!(Invitation.role)).badge(),
-                    TextColumn::new(lens!(Invitation.invited_by)),
-                    DateColumn::new(lens!(Invitation.expires_at)).sortable(),
+                    col.email.text().searchable(),
+                    col.role.text().badge(),
+                    col.invited_by.text(),
+                    col.expires_at.date().sortable(),
                 ))
                 .default_sort_desc(lens!(Invitation.created_at)),
             )
@@ -168,11 +168,12 @@ pub struct RevokeInvitation;
 impl Action<InvitationResource> for RevokeInvitation {
     type Input = ();
     const NAME: &'static str = "revoke";
-    const CONFIRM: bool = true;
-    const COLOR: Color = Color::Danger;
 
-    fn can_run(cx: &Cx, _invitation: &Invitation) -> bool {
-        !is_impersonated(cx)
+    fn declare() -> ActionDef<InvitationResource> {
+        ActionDef::new()
+            .confirm()
+            .color(Color::Danger)
+            .can_run(|cx, _invitation: &Invitation| !is_impersonated(cx))
     }
 
     async fn run(
@@ -180,7 +181,7 @@ impl Action<InvitationResource> for RevokeInvitation {
         invitations: &[Invitation],
         (): (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<Infallible>> {
+    ) -> Result<Outcome, WriteError<()>> {
         Invitation::filter(filter_keys(invitations))
             .delete()
             .exec(ex)
@@ -202,6 +203,7 @@ impl Resource for IncomingInvitationResource {
     type Form = NoForm<Invitation>;
 
     fn declare() -> ResourceDef<Self> {
+        let col = Invitation::columns();
         ResourceDef::new()
             .slug("invitations")
             .label(tablo::text!("resource-incoming-invitation"))
@@ -231,10 +233,10 @@ impl Resource for IncomingInvitationResource {
             .action::<DeclineInvitation>()
             .table(
                 Table::new((
-                    TextColumn::new(lens!(Invitation.team_name)),
-                    TextColumn::new(lens!(Invitation.invited_by)),
-                    TextColumn::new(lens!(Invitation.role)).badge(),
-                    DateColumn::new(lens!(Invitation.expires_at)),
+                    col.team_name.text(),
+                    col.invited_by.text(),
+                    col.role.text().badge(),
+                    col.expires_at.date(),
                 ))
                 .default_sort_desc(lens!(Invitation.created_at)),
             )
@@ -247,11 +249,12 @@ pub struct AcceptInvitation;
 impl Action<IncomingInvitationResource> for AcceptInvitation {
     type Input = ();
     const NAME: &'static str = "accept";
-    const PLACES: Places = Places::ROW;
-    const COLOR: Color = Color::Success;
 
-    fn can_run(cx: &Cx, _invitation: &Invitation) -> bool {
-        !is_impersonated(cx)
+    fn declare() -> ActionDef<IncomingInvitationResource> {
+        ActionDef::new()
+            .places(Places::ROW)
+            .color(Color::Success)
+            .can_run(|cx, _invitation: &Invitation| !is_impersonated(cx))
     }
 
     async fn run(
@@ -259,7 +262,7 @@ impl Action<IncomingInvitationResource> for AcceptInvitation {
         invitations: &[Invitation],
         (): (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<Infallible>> {
+    ) -> Result<Outcome, WriteError<()>> {
         let signed = auth::require_user::<SignedIn>(cx)?;
         let as_error = |error: anyhow::Error| topcoat::Error::msg(format!("{error:#}"));
         for invitation in invitations {
@@ -298,11 +301,12 @@ pub struct DeclineInvitation;
 impl Action<IncomingInvitationResource> for DeclineInvitation {
     type Input = ();
     const NAME: &'static str = "decline";
-    const PLACES: Places = Places::ROW;
-    const CONFIRM: bool = true;
 
-    fn can_run(cx: &Cx, _invitation: &Invitation) -> bool {
-        !is_impersonated(cx)
+    fn declare() -> ActionDef<IncomingInvitationResource> {
+        ActionDef::new()
+            .places(Places::ROW)
+            .confirm()
+            .can_run(|cx, _invitation: &Invitation| !is_impersonated(cx))
     }
 
     async fn run(
@@ -310,7 +314,7 @@ impl Action<IncomingInvitationResource> for DeclineInvitation {
         invitations: &[Invitation],
         (): (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<Infallible>> {
+    ) -> Result<Outcome, WriteError<()>> {
         Invitation::filter(filter_keys(invitations))
             .delete()
             .exec(ex)
