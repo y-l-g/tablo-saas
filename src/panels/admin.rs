@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use tablo::{Auth, AuthMail, Panel, Theme, TwoFactor};
+use tablo::{Auth, AuthMail, Panel, Theme, TwoFactor, audit::PanelAuditExt};
 
 use crate::accounts::{SignedIn, password_auth};
 use crate::audit;

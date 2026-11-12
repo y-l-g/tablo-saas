@@ -37,6 +37,7 @@ pub fn models() -> toasty::schema::ModelSet {
         teams::Invitation,
         billing::BillingAccount,
         billing::StripeEvent,
-        projects::Project
+        projects::Project,
+        tablo::audit::AuditEntry
     )
 }
