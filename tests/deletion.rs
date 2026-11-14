@@ -224,6 +224,63 @@ async fn other_teams_keep_the_trail_without_the_name_of_who_left() {
     assert_eq!(trail[0].actor_id, None);
 }
 
+/// An entry on `panel` for `team`, by `user`.
+async fn entry(harness: &Harness, panel: &str, team: &Team, user: &User, event: &str) {
+    toasty::create!(AuditEntry {
+        panel: panel.to_string(),
+        tenant: Some(team.tenant()),
+        actor_id: Some(user.id.to_string()),
+        actor: user.name.clone(),
+        event: event.to_string(),
+        resource: None,
+        record: None,
+        url: None,
+        changes: toasty::Json(Vec::new()),
+        created_at: jiff::Timestamp::now(),
+    })
+    .exec(&mut harness.db.clone())
+    .await
+    .expect("write the entry");
+}
+
+/// An administrator's back-office entries name their personal team, as Tablo files them while
+/// the back office acts for it: deleting the account erases the team's own trail, not those.
+#[tokio::test]
+async fn deleting_an_account_keeps_what_its_staff_did_in_the_back_office() {
+    let harness = harness().await;
+    let (ada, personal) = person(&harness.db, "Ada", "ada@example.com").await;
+    entry(&harness, "/app", &personal, &ada, "action:remove").await;
+    entry(&harness, "/admin", &personal, &ada, "action:retry").await;
+    let ada = with_password(&harness, &ada).await;
+
+    let client = client_for(&harness, &ada, &personal).await;
+    let response = client
+        .csrf(CSRF)
+        .post_form(
+            "/app/settings/profile/-/actions/delete-account",
+            form_body(&[
+                ("password", PASSWORD),
+                ("confirm", "1"),
+                ("csrf_token", CSRF),
+            ]),
+        )
+        .await;
+    assert!(response.status().is_redirection(), "{}", response.status());
+    let trail = AuditEntry::all()
+        .exec(&mut harness.db.clone())
+        .await
+        .expect("query");
+    let events: Vec<(&str, &str)> = trail
+        .iter()
+        .map(|entry| (entry.panel.as_str(), entry.event.as_str()))
+        .collect();
+    assert_eq!(events, [("/admin", "action:retry")]);
+    assert_eq!(
+        trail[0].actor_id, None,
+        "the entry no longer names who did it"
+    );
+}
+
 #[tokio::test]
 async fn an_owner_of_a_shared_team_transfers_before_leaving() {
     let harness = harness().await;
