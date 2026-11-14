@@ -43,11 +43,17 @@ pub fn staff_trail(def: ResourceDef<AuditLog>) -> ResourceDef<AuditLog> {
 /// The events Tablo records when staff start and stop acting as a customer.
 pub const IMPERSONATION_EVENTS: [&str; 2] = ["impersonate", "stop_impersonating"];
 
-/// Deletes every entry of `team`, for a team being erased, but those of staff acting as someone.
+/// The panel whose entries make up a team's own trail.
+const TEAM_PANEL: &str = "/app";
+
+/// Deletes `team`'s own trail, for a team being erased: its entries on `/app`, but those of staff
+/// acting as someone.
 ///
-/// Tablo files a start under the actor's own team, so erasing it with that team would let the
-/// person the log watches wipe it by deleting their account. The entries stay, as the record of
-/// who reached which account.
+/// Entries on other panels stay whatever team they name. The back office acts for no team, so its
+/// entries name none; one that does, as an older Tablo filed them under the staff member's team,
+/// would otherwise let an administrator wipe what they did there by deleting their account. A
+/// start of acting as someone is filed under the actor's own team, and stays for the same reason,
+/// as the record of who reached which account.
 ///
 /// # Errors
 ///
@@ -55,12 +61,16 @@ pub const IMPERSONATION_EVENTS: [&str; 2] = ["impersonate", "stop_impersonating"
 pub async fn forget_team(ex: &mut dyn toasty::Executor, team: TenantId) -> Result<()> {
     let fields = AuditEntry::fields();
     AuditEntry::filter(
-        fields.tenant().eq(Some(team)).and(
-            fields
-                .event()
-                .in_list(IMPERSONATION_EVENTS.map(String::from))
-                .not(),
-        ),
+        fields
+            .tenant()
+            .eq(Some(team))
+            .and(fields.panel().eq(TEAM_PANEL))
+            .and(
+                fields
+                    .event()
+                    .in_list(IMPERSONATION_EVENTS.map(String::from))
+                    .not(),
+            ),
     )
     .delete()
     .exec(ex)
