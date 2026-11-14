@@ -28,12 +28,14 @@ use topcoat::router::{StatusCode, header::LOCATION};
 
 const CSRF: &str = "3f0f6d3a-8f43-4f4d-9c59-2d3b3b1f4a11";
 
-/// When a factor was confirmed, relative to the `staff` command's grant.
+/// When a factor was confirmed, relative to the `staff` command's grant, and on which panel.
 #[derive(Clone, Copy, PartialEq)]
 enum Factor {
     None,
     BeforeGrant,
     AfterGrant,
+    /// Before the grant, on the back office, which shares its factors with the app panel.
+    BackOfficeBeforeGrant,
 }
 
 /// A member of staff signed in to the app panel, with a second factor there as `factor` says.
@@ -56,13 +58,14 @@ async fn staff_in_app<'a>(
     let minute = SignedDuration::from_mins(1);
     let confirmed = match factor {
         Factor::None => None,
-        Factor::BeforeGrant => Some(granted - minute),
-        Factor::AfterGrant => Some(granted + minute),
+        Factor::BeforeGrant => Some((granted - minute, "/app")),
+        Factor::AfterGrant => Some((granted + minute, "/app")),
+        Factor::BackOfficeBeforeGrant => Some((granted - minute, "/admin")),
     };
-    if let Some(confirmed) = confirmed {
+    if let Some((confirmed, panel)) = confirmed {
         toasty::create!(AuthFactor {
             user_id: user.id.to_string(),
-            panel: "/app".to_string(),
+            panel: panel.to_string(),
             kind: FactorKind::EmailCode,
             secret: String::new(),
             confirmed_at: Some(confirmed),
@@ -218,7 +221,7 @@ async fn signing_out_while_acting_as_a_customer_logs_a_stop() {
         .map(|entry| entry.event)
         .collect();
     events.sort_unstable();
-    assert_eq!(events, ["impersonate", "stop_impersonating"]);
+    assert_eq!(events, ["impersonate", "sign_out", "stop_impersonating"]);
 }
 
 #[tokio::test]
@@ -295,6 +298,35 @@ async fn staff_without_a_factor_on_the_app_panel_are_sent_to_set_one_up() {
 
     let refused = client.submit("/app/impersonate", &act_as(&ada)).await;
     assert_eq!(refused.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn a_factor_set_up_on_the_back_office_lets_staff_act_as_a_customer() {
+    let harness = harness().await;
+    let (ada, _) = person(&harness.db, "Ada Lovelace", "ada@example.com").await;
+    let (_, client) = staff_in_app(
+        &harness,
+        "sam@example.com",
+        StaffRole::Support,
+        Factor::BackOfficeBeforeGrant,
+    )
+    .await;
+
+    let found = search(&client, "ada").await;
+    assert_eq!(
+        found.status(),
+        StatusCode::OK,
+        "no second set-up on the app panel"
+    );
+    assert!(offers_to_act_as(&client, &found, &ada));
+    let started = client
+        .resource::<SupportResource>()
+        .action::<ActAs>(&ada)
+        .submit()
+        .await;
+    assert_eq!(started.status(), StatusCode::SEE_OTHER);
+    let shown = banner(&client).await.expect("the banner shows");
+    assert_eq!(shown.user_id, ada.id.to_string());
 }
 
 #[tokio::test]

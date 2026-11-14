@@ -130,18 +130,13 @@ impl Harness {
         {}
     }
 
-    /// What the outbox holds once `count` mails arrived, running the queue meanwhile. Tablo queues
-    /// its auth mail after the response, so a test waits for it rather than racing it.
+    /// What the outbox holds once the queue has run, which is `count` mails. `TestClient` returns
+    /// once the auth mail a request queues after its response is in the queue, so nothing races.
     pub async fn mail(&self, count: usize) -> Vec<topcoat::mail::Mail> {
-        for _ in 0..200 {
-            self.drain().await;
-            let sent = self.outbox.sent();
-            if sent.len() >= count {
-                return sent;
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        }
-        panic!("expected {count} mails, got {}", self.outbox.sent().len());
+        self.drain().await;
+        let sent = self.outbox.sent();
+        assert_eq!(sent.len(), count, "the mails sent");
+        sent
     }
 }
 

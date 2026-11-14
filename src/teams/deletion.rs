@@ -5,9 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use tablo::{
-    HeaderAction, HeaderActionDef, Outcome, TenantId, WriteError, auth,
-    auth::{AuthFactor, AuthSession, AuthToken, ColumnPreference, verify_password},
-    notification::StoredNotification,
+    HeaderAction, HeaderActionDef, Outcome, TenantId, WriteError, auth, auth::verify_password,
 };
 use topcoat::context::{Cx, context};
 
@@ -77,10 +75,9 @@ pub async fn delete_team(ex: &mut dyn toasty::Executor, team: TenantId) -> topco
     Ok(())
 }
 
-/// Deletes the rows that sign `user` in beside the account, on the caller's transaction: Tablo's
-/// sessions, pending links and codes, second factors, list column choices and notifications,
-/// which it leaves behind since only the app knows a user went, and the Google identities linked
-/// to it.
+/// Deletes the rows that sign `user` in beside the account, on the caller's transaction: every
+/// row Tablo's tables hold of them, which [`tablo::erase_user`] keeps in step with what Tablo
+/// ships, and the Google identities linked to the account.
 pub async fn forget_sign_in(
     ex: &mut dyn toasty::Executor,
     user: uuid::Uuid,
@@ -89,27 +86,7 @@ pub async fn forget_sign_in(
         .delete()
         .exec(&mut *ex)
         .await?;
-    let id = user.to_string();
-    AuthSession::filter(AuthSession::fields().user_id().eq(&id))
-        .delete()
-        .exec(&mut *ex)
-        .await?;
-    AuthToken::filter(AuthToken::fields().user_id().eq(&id))
-        .delete()
-        .exec(&mut *ex)
-        .await?;
-    AuthFactor::filter(AuthFactor::fields().user_id().eq(&id))
-        .delete()
-        .exec(&mut *ex)
-        .await?;
-    ColumnPreference::filter(ColumnPreference::fields().user_id().eq(&id))
-        .delete()
-        .exec(&mut *ex)
-        .await?;
-    StoredNotification::filter(StoredNotification::fields().user_id().eq(&id))
-        .delete()
-        .exec(ex)
-        .await?;
+    tablo::erase_user(ex, &user.to_string()).await?;
     Ok(())
 }
 

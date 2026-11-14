@@ -98,10 +98,14 @@ async fn an_administrator_retries_a_dead_job_and_the_trail_says_so() {
         .exec(&mut harness.db.clone())
         .await
         .expect("query");
-    assert_eq!(trail.len(), 1);
-    assert_eq!(trail[0].panel, "/admin");
-    assert_eq!(trail[0].event, "action:retry");
-    assert_eq!(trail[0].record, Some(job.id.to_string()));
+    // Enrolling the staff member's second factor is on the trail too, before the retry.
+    let events: Vec<&str> = trail.iter().map(|entry| entry.event.as_str()).collect();
+    assert_eq!(events, ["two_factor_enabled", "action:retry"]);
+    let retry = &trail[1];
+    assert_eq!(retry.panel, "/admin");
+    assert_eq!(retry.record, Some(job.id.to_string()));
+    // The factor's entry names no team, so the log, which reads the team the request acts for,
+    // shows the retry alone.
     assert_eq!(client.resource::<AuditLog>().list().await.rows().len(), 1);
 }
 

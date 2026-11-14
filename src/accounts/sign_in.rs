@@ -19,14 +19,14 @@ pub struct SignedIn {
     pub user: User,
     pub teams: Vec<Membership>,
     pub seats: Vec<Seat>,
-    /// Whether a member of staff holds a second factor on the app panel that was confirmed before
-    /// the `staff` command granted their role, which acting as a customer asks for.
+    /// Whether a member of staff holds a second factor that was confirmed before the `staff`
+    /// command granted their role, which acting as a customer asks for.
     ///
-    /// A factor signs in to the one panel that enrolled it, so the back office's does not count.
-    /// And setting one up asks for the password alone, so one confirmed after the grant may be a
-    /// thief's: only the deploy-level grant vouches for it. Always `false` for a customer, whose
-    /// rows are not read.
-    pub app_factor: bool,
+    /// The app panel and the back office sign in the same accounts, so they share a factor:
+    /// either one's counts. Setting one up asks for the password alone, so one confirmed after
+    /// the grant may be a thief's: only the deploy-level grant vouches for it. Always `false` for
+    /// a customer, whose rows are not read.
+    pub vouched_factor: bool,
 }
 
 /// What a user is on one team. What the team's plan allows is
@@ -76,21 +76,16 @@ impl PanelUser for SignedIn {
     }
 }
 
-/// Whether `user` holds an authenticator or mailed codes on the app panel, confirmed no later
+/// Whether `user` holds an authenticator or mailed codes, on either panel, confirmed no later
 /// than `vouched`. A recovery code alone is what remains of a factor, not one.
-async fn has_app_factor(
+async fn has_vouched_factor(
     ex: &mut dyn toasty::Executor,
     user: uuid::Uuid,
     vouched: Timestamp,
 ) -> topcoat::Result<bool> {
-    let factors = AuthFactor::filter(
-        AuthFactor::fields()
-            .user_id()
-            .eq(user.to_string())
-            .and(AuthFactor::fields().panel().eq(APP_PANEL.to_string())),
-    )
-    .exec(ex)
-    .await?;
+    let factors = AuthFactor::filter(AuthFactor::fields().user_id().eq(user.to_string()))
+        .exec(ex)
+        .await?;
     Ok(factors.iter().any(|factor| {
         factor.kind != FactorKind::RecoveryCode
             && factor
@@ -138,15 +133,15 @@ impl Accounts {
                 role: member.role,
             });
         }
-        let app_factor = match (user.staff_role, user.staff_since) {
-            (Some(_), Some(vouched)) => has_app_factor(&mut *ex, user.id, vouched).await?,
+        let vouched_factor = match (user.staff_role, user.staff_since) {
+            (Some(_), Some(vouched)) => has_vouched_factor(&mut *ex, user.id, vouched).await?,
             _ => false,
         };
         Ok(SignedIn {
             user,
             teams,
             seats,
-            app_factor,
+            vouched_factor,
         })
     }
 

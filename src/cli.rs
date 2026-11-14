@@ -12,6 +12,11 @@ use crate::jobs::MailSeal;
 use crate::platform::{config::Config, database, mail::Postbox, telemetry};
 use crate::router::{App, router};
 
+/// How long a stopping server waits for the auth mail its last responses promised. An
+/// orchestrator kills a replica some time after `SIGTERM`, thirty seconds by default on
+/// Kubernetes, and draining the requests already took part of it.
+const SETTLE: std::time::Duration = std::time::Duration::from_secs(10);
+
 /// A production SaaS on Tablo.
 #[derive(Parser)]
 #[command(version, about)]
@@ -130,12 +135,20 @@ impl Cli {
                 let mut stopping = stopped;
                 topcoat::serve_until(
                     TcpListener::bind(address()?).await?,
-                    built.router,
+                    built.router.clone(),
                     async move {
                         let _ = stopping.changed().await;
                     },
                 )
                 .await?;
+                // The auth mail a response promised is queued after it leaves: queue it before
+                // the process ends, so the worker sends it.
+                if tokio::time::timeout(SETTLE, tablo::settled(&built.router))
+                    .await
+                    .is_err()
+                {
+                    tracing::warn!("stopping with auth mail not yet queued");
+                }
                 if let Some(worker) = worker {
                     worker.await?;
                 }
