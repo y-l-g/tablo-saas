@@ -104,9 +104,13 @@ async fn an_administrator_retries_a_dead_job_and_the_trail_says_so() {
     let retry = &trail[1];
     assert_eq!(retry.panel, "/admin");
     assert_eq!(retry.record, Some(job.id.to_string()));
-    // The factor's entry names no team, so the log, which reads the team the request acts for,
-    // shows the retry alone.
-    assert_eq!(client.resource::<AuditLog>().list().await.rows().len(), 1);
+    // The back office reads every team's rows and acts for none, so neither entry names the
+    // staff member's own team, and its log shows both.
+    assert!(
+        trail.iter().all(|entry| entry.tenant.is_none()),
+        "{trail:?}"
+    );
+    assert_eq!(client.resource::<AuditLog>().list().await.rows().len(), 2);
 }
 
 #[tokio::test]

@@ -243,8 +243,8 @@ async fn entry(harness: &Harness, panel: &str, team: &Team, user: &User, event: 
     .expect("write the entry");
 }
 
-/// An administrator's back-office entries name their personal team, as Tablo files them while
-/// the back office acts for it: deleting the account erases the team's own trail, not those.
+/// Back-office entries that name an administrator's personal team, as Tablo filed them before the
+/// back office acted for no team, outlive the account: deleting it erases the team's own trail.
 #[tokio::test]
 async fn deleting_an_account_keeps_what_its_staff_did_in_the_back_office() {
     let harness = harness().await;

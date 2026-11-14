@@ -49,11 +49,11 @@ const TEAM_PANEL: &str = "/app";
 /// Deletes `team`'s own trail, for a team being erased: its entries on `/app`, but those of staff
 /// acting as someone.
 ///
-/// Entries on other panels stay whatever team they name. Tablo files a write under the team its
-/// request acts for, and some versions act for the staff member's own team in the back office too:
-/// erasing those with it would let an administrator wipe what they did there by deleting their
-/// account. A start of acting as someone is filed under the actor's own team for the same reason,
-/// and stays, as the record of who reached which account.
+/// Entries on other panels stay whatever team they name. The back office acts for no team, so its
+/// entries name none; one that does, as an older Tablo filed them under the staff member's team,
+/// would otherwise let an administrator wipe what they did there by deleting their account. A
+/// start of acting as someone is filed under the actor's own team, and stays for the same reason,
+/// as the record of who reached which account.
 ///
 /// # Errors
 ///
