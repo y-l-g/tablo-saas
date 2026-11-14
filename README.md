@@ -21,11 +21,11 @@ keep the rest.
   it, and account deletion that erases what it should and anonymises the rest, and a JSON download of
   everything an account owns. Their mail leaves through the queue, sealed, so a crash or an SMTP
   outage loses none.
-- **A back office** at `/admin`, separate from the app, with two-factor required for staff: accounts,
-  teams, subscriptions, webhook events and jobs, with the filters support reaches for, and an audit
-  log of what staff did.
+- **A back office** at `/admin`, separate from the app, with two-factor required for staff, and
+  sessions that end after ten hours or half an hour idle: accounts, teams, subscriptions, webhook
+  events and jobs, with the filters support reaches for, and an audit log of what staff did.
 - **Acting as a customer.** Staff open Support in `/app` and see a customer's pages as they do, for
-  30 minutes at most, with a second factor on `/app` too. They never act as staff, and never touch
+  30 minutes at most, through a second factor, which `/app` and `/admin` share. They never act as staff, and never touch
   the customer's credentials, team membership or money. Administrators read who acted as whom in the
   back office, and deleting an account or a team does not erase it.
 - **Audit logs** from Tablo, written in each write's transaction with the fields it changed: a
@@ -61,10 +61,10 @@ To work on the back office, sign up, then give that account a role:
 cargo run -- staff grant you@example.com --role administrator
 ```
 
-To act as a customer, sign in to `/app` with that account: staff must set up a second factor there
-before anything else. Then run the `staff grant` command again: only a factor there at the grant
-counts, so a stolen password cannot enrol one. Sign in to `/app` again, through that factor, and
-open Support.
+To act as a customer, sign in to `/app` or `/admin` with that account: staff must set up a second
+factor before anything else, and the two panels share it. Then run the `staff grant` command again:
+only a factor there at the grant counts, so a stolen password cannot enrol one. Sign in to `/app`,
+through that factor, and open Support.
 
 ## Connect Stripe
 

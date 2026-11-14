@@ -13,7 +13,11 @@
 
 use std::time::Duration;
 
-use tablo::{Impersonation, Widget, WidgetDef, auth, prelude::*};
+use tablo::{
+    Impersonation, Widget, WidgetDef, auth,
+    prelude::*,
+    url::{self, AuthPage},
+};
 use topcoat::{
     context::Cx,
     icon::iconify::iconify_icon,
@@ -21,9 +25,6 @@ use topcoat::{
 };
 
 use crate::accounts::{Accounts, SignedIn, User};
-
-/// Where a member of staff adds the app panel's second factor.
-const TWO_FACTOR_URL: &str = "/app/settings/two-factor";
 
 /// Where acting as a customer lands: their panel's home, as they see it.
 const APP_HOME: &str = "/app";
@@ -43,10 +44,10 @@ pub fn impersonation() -> Impersonation<SignedIn> {
         .across_tenants()
 }
 
-/// Whether `actor` may act as `target`: a member of staff with a second factor on the app panel,
-/// acting as a customer. Acting as staff would hand one role another's back-office reach.
+/// Whether `actor` may act as `target`: a member of staff with a second factor their grant
+/// vouches for, acting as a customer. Acting as staff would hand one role another's back-office reach.
 pub fn may_act_as(actor: &SignedIn, target: &User) -> bool {
-    actor.user.staff_role.is_some() && actor.app_factor && target.staff_role.is_none()
+    actor.user.staff_role.is_some() && actor.vouched_factor && target.staff_role.is_none()
 }
 
 /// Whether the signed-in user is staff. While they act as a customer, the signed-in user is that
@@ -154,9 +155,9 @@ impl Widget for SupportNotice {
                 <p class="text-sm text-muted-foreground">
                     (tablo::t!(cx, "support-description", minutes = minutes))
                 </p>
-                if !signed.app_factor {
+                if !signed.vouched_factor && let Some(two_factor) = url::auth(cx, AuthPage::TwoFactor) {
                     <p data-support-notice="" class="rounded-lg border border-border bg-muted p-3 text-sm">
-                        <a href=(TWO_FACTOR_URL) class="underline">
+                        <a href=(two_factor) class="underline">
                             (tablo::t!(cx, "support-needs-factor"))
                         </a>
                     </p>

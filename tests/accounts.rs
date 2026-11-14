@@ -52,17 +52,10 @@ async fn auth_mail_waits_in_the_queue_sealed_until_the_worker_sends_it() {
     let client = TestClient::new(&harness.app);
     sign_up(&client, "ada@example.com").await;
 
-    let mut queued = Vec::new();
-    for _ in 0..200 {
-        queued = JobRow::filter(JobRow::fields().kind().eq("send-mail"))
-            .exec(&mut harness.db.clone())
-            .await
-            .expect("query");
-        if !queued.is_empty() {
-            break;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-    }
+    let queued = JobRow::filter(JobRow::fields().kind().eq("send-mail"))
+        .exec(&mut harness.db.clone())
+        .await
+        .expect("query");
     assert_eq!(queued.len(), 1, "the verification mail is queued");
     assert!(harness.outbox.sent().is_empty(), "the worker sends it");
     let payload = &queued[0].payload;
