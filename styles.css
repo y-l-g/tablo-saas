@@ -1,6 +1,10 @@
+@import "./ledger.css";
 @source "./src/**/*.rs";
 
 /* The brand's colors come from the theme each panel wears (`src/panels/brand.rs`). A product that
    keeps a theme but repaints it redeclares the tokens it changes here, e.g.
    `:root { --primary: oklch(0.55 0.2 250); }` and the same under `.dark`. The mail button
-   (`src/platform/mail.rs`) and the logos in `assets/brand/` carry the primary as a hex color. */
+   (`src/platform/mail.rs`) and the logos in `assets/brand/` carry the primary as a hex color.
+
+   `ledger.css` styles the public site (`src/site/`): a copy of the identity Tablo's own site
+   keeps in `site/assets/`. A product with its own brand replaces it. */
