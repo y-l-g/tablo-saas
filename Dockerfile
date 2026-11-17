@@ -4,7 +4,7 @@
 # with `--build-context tailwind=<dir>` since GitHub's release downloads can fail.
 FROM scratch AS tailwind
 
-FROM rust:1.99-bookworm AS builder
+FROM rust:1.100-bookworm AS builder
 
 # The CLI bundles the assets the panels load at runtime. It must be the Topcoat release Cargo.lock
 # records, or the bundle it writes is unreadable.

@@ -4167,7 +4167,7 @@ dependencies = [
 [[package]]
 name = "tablo"
 version = "0.10.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=59d62f1be7e0d5b611fe0490d09679d9b3695d28#59d62f1be7e0d5b611fe0490d09679d9b3695d28"
+source = "git+https://github.com/y-l-g/tablo.git?rev=cfdfabaca772128d7d419a4e4b31857bc2b79d4e#cfdfabaca772128d7d419a4e4b31857bc2b79d4e"
 dependencies = [
  "tablo-audit",
  "tablo-core",
@@ -4180,7 +4180,7 @@ dependencies = [
 [[package]]
 name = "tablo-audit"
 version = "0.10.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=59d62f1be7e0d5b611fe0490d09679d9b3695d28#59d62f1be7e0d5b611fe0490d09679d9b3695d28"
+source = "git+https://github.com/y-l-g/tablo.git?rev=cfdfabaca772128d7d419a4e4b31857bc2b79d4e#cfdfabaca772128d7d419a4e4b31857bc2b79d4e"
 dependencies = [
  "jiff",
  "serde",
@@ -4193,7 +4193,7 @@ dependencies = [
 [[package]]
 name = "tablo-build"
 version = "0.10.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=59d62f1be7e0d5b611fe0490d09679d9b3695d28#59d62f1be7e0d5b611fe0490d09679d9b3695d28"
+source = "git+https://github.com/y-l-g/tablo.git?rev=cfdfabaca772128d7d419a4e4b31857bc2b79d4e#cfdfabaca772128d7d419a4e4b31857bc2b79d4e"
 dependencies = [
  "topcoat",
 ]
@@ -4201,7 +4201,7 @@ dependencies = [
 [[package]]
 name = "tablo-core"
 version = "0.10.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=59d62f1be7e0d5b611fe0490d09679d9b3695d28#59d62f1be7e0d5b611fe0490d09679d9b3695d28"
+source = "git+https://github.com/y-l-g/tablo.git?rev=cfdfabaca772128d7d419a4e4b31857bc2b79d4e#cfdfabaca772128d7d419a4e4b31857bc2b79d4e"
 dependencies = [
  "aes-gcm 0.11.1",
  "ammonia",
@@ -4245,7 +4245,7 @@ dependencies = [
 [[package]]
 name = "tablo-macros"
 version = "0.10.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=59d62f1be7e0d5b611fe0490d09679d9b3695d28#59d62f1be7e0d5b611fe0490d09679d9b3695d28"
+source = "git+https://github.com/y-l-g/tablo.git?rev=cfdfabaca772128d7d419a4e4b31857bc2b79d4e#cfdfabaca772128d7d419a4e4b31857bc2b79d4e"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -4285,7 +4285,7 @@ dependencies = [
 [[package]]
 name = "tablo-test"
 version = "0.10.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=59d62f1be7e0d5b611fe0490d09679d9b3695d28#59d62f1be7e0d5b611fe0490d09679d9b3695d28"
+source = "git+https://github.com/y-l-g/tablo.git?rev=cfdfabaca772128d7d419a4e4b31857bc2b79d4e#cfdfabaca772128d7d419a4e4b31857bc2b79d4e"
 dependencies = [
  "data-encoding",
  "form_urlencoded",
@@ -4307,7 +4307,7 @@ dependencies = [
 [[package]]
 name = "tablo-ui"
 version = "0.10.0"
-source = "git+https://github.com/y-l-g/tablo.git?rev=59d62f1be7e0d5b611fe0490d09679d9b3695d28#59d62f1be7e0d5b611fe0490d09679d9b3695d28"
+source = "git+https://github.com/y-l-g/tablo.git?rev=cfdfabaca772128d7d419a4e4b31857bc2b79d4e#cfdfabaca772128d7d419a4e4b31857bc2b79d4e"
 dependencies = [
  "topcoat",
 ]
