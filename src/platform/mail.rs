@@ -82,11 +82,11 @@ pub async fn send_message(cx: &Cx, message: Message<'_>) -> anyhow::Result<()> {
     let from = context::<Settings>(cx).mail_from.clone();
     let to = Mailbox::new(to).map_err(|error| anyhow::anyhow!("{error:#}"))?;
     let html = view! {
-        <div style="font-family: system-ui, sans-serif; max-width: 32rem; margin: 0 auto; color: #1f2430;">
+        <div style="font-family: system-ui, sans-serif; max-width: 32rem; margin: 0 auto; color: #121912;">
             <h1 style="font-size: 1.25rem;">(title)</h1>
             <p style="line-height: 1.5;">(body)</p>
             <p>
-                <a href=(url) style="display: inline-block; background: #594ddc; color: #fff; padding: 0.625rem 1rem; border-radius: 0.5rem; text-decoration: none;">
+                <a href=(url) style="display: inline-block; background: #d33c1c; color: #fff8f2; padding: 0.625rem 1rem; border-radius: 0; text-decoration: none;">
                     (action)
                 </a>
             </p>
