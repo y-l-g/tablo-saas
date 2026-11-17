@@ -1,28 +1,41 @@
 //! The public website, outside every panel. It borrows the `app` panel's document and catalogs, so
-//! it speaks the visitor's language and follows the theme picked in the app.
+//! it speaks the visitor's language and follows the theme picked in the app, and its masthead
+//! switches both.
 //!
 //! It wears Ledger, the identity Tablo's site and demo share (`ledger.css`), and presents the
 //! template as it ships. A product built on the template replaces the copy under `## Website` in
 //! `locales/`, and `ledger.css` with its own brand if it wants one.
 
+use serde::Deserialize;
 use tablo::PanelHandle;
 use topcoat::{
     Result,
     context::{Cx, context},
+    cookie::{Cookie, Cookies, SameSite, cookies},
     font::{Font, fontsource::fontsource_font},
-    router::{HeaderMap, HeaderValue, header::CONTENT_TYPE, page, route},
+    icon::icon,
+    router::{
+        HeaderMap, HeaderValue,
+        content::Form,
+        error::{SeeOther, forbidden, see_other},
+        header::{CONTENT_TYPE, SET_COOKIE},
+        page, route,
+    },
     view::{BoxView, View, ViewExt, component, view},
 };
 
 use crate::billing::{CURRENCY, Feature, Plan, money, plan_name};
-use crate::panels::PRODUCT_NAME;
+use crate::panels::{LOGO_URL, PRODUCT_NAME};
 use crate::platform::config::Settings;
 
-/// The mounted panel whose document and catalogs the site borrows.
+/// The mounted panels: the one whose document and catalogs the site borrows, and the one it only
+/// links to.
 #[derive(Clone)]
 pub struct SitePanel {
     /// The `app` panel, whose document wraps every public page.
     pub panel: PanelHandle,
+    /// The `admin` panel, the back office, which the site links to.
+    pub admin: PanelHandle,
     /// Whether the router serves assets, without which the site links no font.
     pub styled: bool,
 }
@@ -81,37 +94,72 @@ const PARTS: [(&str, &str, &str); 8] = [
 /// The domain a product replaces.
 const PRODUCT_PART: &str = "src/projects/";
 
+/// The panels' locales, each named in its own language.
+const LANGUAGES: [(&str, &str); 2] = [("en", "English"), ("fr", "Français")];
+
+/// The cookies Tablo reads a visitor's language from, and its `theme.js` their theme.
+///
+/// Tablo writes the language one under each panel's prefix, which the site never receives, so the
+/// site keeps its own copy at `/` and writes the panels' along with it.
+const LOCALE_COOKIE: &str = "tablo_locale";
+const THEME_COOKIE: &str = "tablo_theme";
+
+/// Where each panel is mounted, read from the router, for the links that lead into them.
+struct Panels {
+    app: String,
+    admin: String,
+}
+
+impl Panels {
+    fn of(site: &SitePanel) -> Self {
+        Self {
+            app: site.panel.url().unwrap_or_else(|| "/app".to_string()),
+            admin: site.admin.url().unwrap_or_else(|| "/admin".to_string()),
+        }
+    }
+}
+
 /// The masthead and footer every public page shares, around `content`.
 fn frame<'a>(
     cx: &'a Cx,
     entered: &Cx,
-    styled: bool,
+    site: &SitePanel,
     current: &'static str,
     content: BoxView<'a>,
 ) -> BoxView<'a> {
+    let styled = site.styled;
+    let Panels { app, admin } = Panels::of(site);
+    let locale = topcoat::l10n::try_locale(entered).map(ToString::to_string);
+    // The document is the app panel's, which states no language, so the page states its own.
+    let lang = locale.unwrap_or_else(|| "en".to_string());
     // The view renders after this function returns, so it translates through a clone it owns.
     let t = {
         let cx = entered.clone();
         move |id: &'static str| tablo::t!(&cx, id)
     };
     let pricing_current = (current == "/pricing").then_some("page");
+    let app_login = format!("{app}/login");
+    let admin_login = format!("{admin}/login");
+    let sign_up = format!("{app}/register");
+    let switches = switches(cx, entered);
     view! {
         if styled {
             topcoat::font::link(font: SCHIBSTED_GROTESK)
             topcoat::font::link(font: MARTIAN_MONO)
         }
-        <div class="ld">
+        <div lang=(lang) class="ld">
             <div class="ld-sheet">
                 <header class="ld-mast">
                     <a class="ld-brand" href="/">
-                        mark()
+                        <img src=(LOGO_URL) width="32" height="32" alt="">
                         (PRODUCT_NAME)
                     </a>
                     <nav class="ld-nav" aria-label=(t("site-nav"))>
-                        <a href="/pricing" aria-current=(pricing_current)>(t("site-pricing"))</a>
+                        <a class="ld-hide-sm" href="/pricing" aria-current=(pricing_current)>(t("site-pricing"))</a>
                         <a class="ld-hide-sm" href=(SOURCE)>(t("site-source"))</a>
-                        <a href="/app/login">(t("site-sign-in"))</a>
-                        <a class="ld-nav-cta" href="/app/register">(t("site-sign-up"))</a>
+                        (switches)
+                        <a class="ld-hide-sm" href=(app_login.clone())>(t("site-sign-in"))</a>
+                        <a class="ld-nav-cta ld-hide-sm" href=(sign_up)>(t("site-sign-up"))</a>
                     </nav>
                 </header>
                 <main>(content)</main>
@@ -121,7 +169,8 @@ fn frame<'a>(
                             <h4>(PRODUCT_NAME)</h4>
                             <ul>
                                 <li><a href="/pricing">(t("site-pricing"))</a></li>
-                                <li><a href="/app/login">(t("site-sign-in"))</a></li>
+                                <li><a href=(app_login)>(t("site-sign-in"))</a></li>
+                                <li><a href=(admin_login)>(t("site-panel-admin-title"))</a></li>
                                 <li><a href="/terms">(t("site-terms"))</a></li>
                                 <li><a href="/privacy">(t("site-privacy"))</a></li>
                             </ul>
@@ -157,6 +206,60 @@ fn frame<'a>(
                     </div>
                 </footer>
             </div>
+        </div>
+    }
+    .boxed()
+}
+
+/// The masthead's switches: the language, for the site and both panels, and the theme.
+fn switches<'a>(cx: &'a Cx, entered: &Cx) -> BoxView<'a> {
+    let locale = topcoat::l10n::try_locale(entered).map(ToString::to_string);
+    // The language switch posts a form, which checks this token against its cookie.
+    let csrf = tablo::csrf::ensure_token(cx);
+    let languages = LANGUAGES.map(|(tag, name)| (tag, name, locale.as_deref() == Some(tag)));
+    // `theme.js` checks the theme picked on click; the page checks the stored one. The panels
+    // default to light.
+    let stored = cookies(cx).get(THEME_COOKIE);
+    let stored = stored.as_ref().map_or("light", |cookie| cookie.value());
+    let themes = [
+        ("light", tablo::ui::icons::SUN, "tablo-shell-theme-light"),
+        ("dark", tablo::ui::icons::MOON, "tablo-shell-theme-dark"),
+        (
+            "system",
+            tablo::ui::icons::MONITOR,
+            "tablo-shell-theme-system",
+        ),
+    ]
+    .map(|(name, data, label)| (name, data, tablo::t!(entered, label), name == stored));
+    let t = {
+        let cx = entered.clone();
+        move |id: &'static str| tablo::t!(&cx, id)
+    };
+    view! {
+        <div class="ld-seg" role="group" aria-label=(t("tablo-shell-language"))>
+            for (tag, name, current) in languages {
+                <form method="post" action="/locale">
+                    <input type="hidden" name=(tablo::csrf::FIELD_NAME) value=(csrf.clone())>
+                    <input type="hidden" name="locale" value=(tag)>
+                    <button type="submit" title=(name) lang=(tag) aria-current=(current.then_some("true"))>
+                        (tag)
+                    </button>
+                </form>
+            }
+        </div>
+        <div class="ld-seg" role="radiogroup" aria-label=(t("tablo-shell-theme"))>
+            for (name, data, label, checked) in themes {
+                <button
+                    type="button"
+                    role="radio"
+                    data-theme-set=(name)
+                    aria-checked=(if checked { "true" } else { "false" })
+                    aria-label=(label.clone())
+                    title=(label)
+                >
+                    icon(data: data)
+                </button>
+            }
         </div>
     }
     .boxed()
@@ -212,11 +315,12 @@ fn plans(entered: &Cx) -> Vec<PlanRow> {
 /// `GET /`.
 #[page("/")]
 async fn home(cx: &Cx) -> Result<impl View> {
-    let SitePanel { panel, styled } = context::<SitePanel>(cx);
-    let entered = panel.enter(cx);
+    let site = context::<SitePanel>(cx);
+    let entered = site.panel.enter(cx);
     let title = PRODUCT_NAME.to_string();
     let sections = [
         hero(cx, &entered),
+        panels(cx, &entered, Panels::of(site)),
         parts(cx, &entered),
         plans_row(cx, &entered),
         run(cx, &entered),
@@ -227,8 +331,8 @@ async fn home(cx: &Cx) -> Result<impl View> {
         }
     }
     .boxed();
-    panel
-        .document(cx, title, frame(cx, &entered, *styled, "/", content))
+    site.panel
+        .document(cx, title, frame(cx, &entered, site, "/", content))
         .await
 }
 
@@ -277,6 +381,52 @@ fn hero<'a>(cx: &'a Cx, entered: &Cx) -> BoxView<'a> {
     .boxed()
 }
 
+/// The two panels the template mounts, and the way into each.
+fn panels<'a>(cx: &'a Cx, entered: &Cx, panels: Panels) -> BoxView<'a> {
+    let Panels { app, admin } = panels;
+    let app_login = format!("{app}/login");
+    let sign_up = format!("{app}/register");
+    let admin_login = format!("{admin}/login");
+    let t = {
+        let cx = entered.clone();
+        move |id: &'static str| tablo::t!(&cx, id)
+    };
+    view! {
+    <section class="ld-row" aria-labelledby="site-panels">
+        <div class="ld-num">"02"</div>
+        <div class="ld-body">
+            <div class="ld-head">
+                <span id="site-panels">(t("site-panels-title"))</span>
+                <span>(t("site-panels-note"))</span>
+            </div>
+            <div class="ld-cells ld-cells-2">
+                <div class="ld-cell">
+                    <p class="ld-label">(app)</p>
+                    <h2 class="ld-h3">(t("site-panel-app-title"))</h2>
+                    <p class="ld-text">(t("site-panel-app-body"))</p>
+                    <div class="ld-actions">
+                        <a class="ld-btn" href=(app_login)>(t("site-sign-in")) arrow()</a>
+                    </div>
+                    <p><a class="ld-link" href=(sign_up)>(t("site-panel-app-sign-up"))</a></p>
+                </div>
+                <div class="ld-cell">
+                    <p class="ld-label">(admin)</p>
+                    <h2 class="ld-h3">(t("site-panel-admin-title"))</h2>
+                    <p class="ld-text">(t("site-panel-admin-body"))</p>
+                    <div class="ld-actions">
+                        <a class="ld-btn" href=(admin_login)>(t("site-sign-in")) arrow()</a>
+                    </div>
+                    <div class="ld-cmd">
+                        <code>"cargo run -- staff grant you@example.com --role administrator"</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    }
+    .boxed()
+}
+
 /// What the template gives, a row each with the code that holds it.
 fn parts<'a>(cx: &'a Cx, entered: &Cx) -> BoxView<'a> {
     let parts =
@@ -287,7 +437,7 @@ fn parts<'a>(cx: &'a Cx, entered: &Cx) -> BoxView<'a> {
     };
     view! {
     <section class="ld-row" aria-labelledby="site-parts">
-        <div class="ld-num">"02"</div>
+        <div class="ld-num">"03"</div>
         <div class="ld-body">
             <div class="ld-head">
                 <span id="site-parts">(t("site-parts-title"))</span>
@@ -335,7 +485,7 @@ fn plans_row<'a>(cx: &'a Cx, entered: &Cx) -> BoxView<'a> {
     };
     view! {
     <section class="ld-row" aria-labelledby="site-plans">
-        <div class="ld-num">"03"</div>
+        <div class="ld-num">"04"</div>
         <div class="ld-body">
             <div class="ld-head">
                 <span id="site-plans">(t("site-pricing"))</span>
@@ -368,7 +518,7 @@ fn run<'a>(cx: &'a Cx, entered: &Cx) -> BoxView<'a> {
     };
     view! {
     <section class="ld-row" aria-labelledby="site-run">
-        <div class="ld-num">"04"</div>
+        <div class="ld-num">"05"</div>
         <div class="ld-body">
             <div class="ld-head">
                 <span id="site-run">(t("site-run-title"))</span>
@@ -399,8 +549,8 @@ fn run<'a>(cx: &'a Cx, entered: &Cx) -> BoxView<'a> {
 /// `GET /pricing`, read from the plan catalog, so the page cannot disagree with what is sold.
 #[page("/pricing")]
 async fn pricing(cx: &Cx) -> Result<impl View> {
-    let SitePanel { panel, styled } = context::<SitePanel>(cx);
-    let entered = panel.enter(cx);
+    let site = context::<SitePanel>(cx);
+    let entered = site.panel.enter(cx);
     let title = tablo::t!(&entered, "site-pricing");
     let label = title.clone();
     let plans = plans(&entered);
@@ -477,8 +627,8 @@ async fn pricing(cx: &Cx) -> Result<impl View> {
         </section>
     }
     .boxed();
-    panel
-        .document(cx, title, frame(cx, &entered, *styled, "/pricing", content))
+    site.panel
+        .document(cx, title, frame(cx, &entered, site, "/pricing", content))
         .await
 }
 
@@ -489,8 +639,8 @@ async fn legal(
     title_id: &'static str,
     body_id: &'static str,
 ) -> Result<impl View> {
-    let SitePanel { panel, styled } = context::<SitePanel>(cx);
-    let entered = panel.enter(cx);
+    let site = context::<SitePanel>(cx);
+    let entered = site.panel.enter(cx);
     let title = tablo::t!(&entered, title_id);
     let heading = title.clone();
     let body = tablo::t!(&entered, body_id);
@@ -506,8 +656,8 @@ async fn legal(
         </section>
     }
     .boxed();
-    panel
-        .document(cx, title, frame(cx, &entered, *styled, path, content))
+    site.panel
+        .document(cx, title, frame(cx, &entered, site, path, content))
         .await
 }
 
@@ -523,20 +673,6 @@ async fn privacy(cx: &Cx) -> Result<impl View> {
     legal(cx, "/privacy", "site-privacy", "site-privacy-body").await
 }
 
-/// Tablo's mark: a three-by-three grid whose header row is ink and whose middle column is red,
-/// which draws a T.
-#[component]
-async fn mark(cx: &Cx) -> Result<impl View> {
-    Ok(view! {
-        <svg viewBox="0 0 32 32" aria-hidden="true">
-            <rect x="1" y="1" width="30" height="30" fill="var(--ld-sheet)" stroke="var(--ld-ink)" stroke-width="2"></rect>
-            <rect x="1" y="1" width="30" height="10" fill="var(--ld-ink)"></rect>
-            <rect x="11" y="11" width="10" height="20" fill="var(--ld-red)"></rect>
-            <path d="M11 11v20M21 11v20M1 21h10M21 21h10" fill="none" stroke="var(--ld-ink)" stroke-width="1.5"></path>
-        </svg>
-    })
-}
-
 /// The arrow a call to action ends on.
 #[component]
 async fn arrow(cx: &Cx) -> Result<impl View> {
@@ -545,6 +681,41 @@ async fn arrow(cx: &Cx) -> Result<impl View> {
             <path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"></path>
         </svg>
     })
+}
+
+/// The language picked from the masthead's switch.
+#[derive(Deserialize)]
+struct LocaleForm {
+    csrf_token: String,
+    locale: String,
+}
+
+/// `POST /locale`: read the site and both panels in another language, then land back on `/`.
+#[route(POST "/locale")]
+async fn pick_locale(cx: &Cx, Form(form): Form<LocaleForm>) -> Result<(HeaderMap, SeeOther)> {
+    tablo::csrf::verify(cx, Some(&form.csrf_token))?;
+    if !LANGUAGES.iter().any(|(tag, _)| *tag == form.locale) {
+        return Err(forbidden().into());
+    }
+    let site = context::<SitePanel>(cx);
+    // The panels' own copies too, which outrank this one under their prefixes. The cookie jar
+    // keeps one cookie per name, so they go out as headers of their own.
+    let paths = ["/".to_string()]
+        .into_iter()
+        .chain(site.panel.url())
+        .chain(site.admin.url());
+    let mut headers = HeaderMap::new();
+    for path in paths {
+        let cookie = Cookie::build((LOCALE_COOKIE, form.locale.clone()))
+            .path(path)
+            .http_only(true)
+            .secure(true)
+            .same_site(SameSite::Lax)
+            .max_age(topcoat::cookie::time::Duration::days(365))
+            .build();
+        headers.append(SET_COOKIE, HeaderValue::try_from(cookie.to_string())?);
+    }
+    Ok((headers, see_other("/")))
 }
 
 fn typed(kind: &'static str) -> HeaderMap {
