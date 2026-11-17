@@ -6,7 +6,7 @@ mod brand;
 
 pub use admin::admin_panel;
 pub use app::app_panel;
-pub use brand::PRODUCT_NAME;
+pub use brand::{LOGO_URL, PRODUCT_NAME};
 
 use std::time::Duration;
 

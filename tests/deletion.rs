@@ -16,7 +16,10 @@ use tablo_saas::{
     jobs::JobRow,
     teams::{Member, Team, TeamRole, create_team},
 };
-use topcoat::router::{StatusCode, header::CONTENT_TYPE};
+use topcoat::router::{
+    StatusCode,
+    header::{CONTENT_TYPE, SET_COOKIE},
+};
 
 const CSRF: &str = "3f0f6d3a-8f43-4f4d-9c59-2d3b3b1f4a11";
 const PASSWORD: &str = "correct horse battery staple";
@@ -480,6 +483,63 @@ async fn the_public_pages_answer_and_the_price_comes_from_the_catalog() {
     }
     let page = body_string(client.get("/pricing").await).await;
     assert!(page.contains("€19.00"), "{page}");
+}
+
+#[tokio::test]
+async fn the_home_page_leads_into_both_panels_under_tablos_mark() {
+    let harness = harness().await;
+    let client = tablo::testing::TestClient::new(&harness.app);
+    let page = body_string(client.get("/").await).await;
+    for link in [
+        r#"href="/app/login""#,
+        r#"href="/app/register""#,
+        r#"href="/admin/login""#,
+        r#"src="/brand/logo.svg""#,
+        r#"data-theme-set="dark""#,
+    ] {
+        assert!(page.contains(link), "{link}: {page}");
+    }
+    let logo = client.get("/brand/logo.svg").await;
+    assert_eq!(logo.headers()[CONTENT_TYPE], "image/svg+xml");
+}
+
+#[tokio::test]
+async fn the_language_switch_sets_the_site_and_both_panels_in_one_post() {
+    let harness = harness().await;
+    let client = tablo::testing::TestClient::new(&harness.app);
+    let switched = client
+        .csrf(CSRF)
+        .post_form(
+            "/locale",
+            form_body(&[("locale", "fr"), ("csrf_token", CSRF)]),
+        )
+        .await;
+    assert_eq!(switched.status(), StatusCode::SEE_OTHER);
+    let cookies: Vec<_> = switched
+        .headers()
+        .get_all(SET_COOKIE)
+        .iter()
+        .map(|cookie| cookie.to_str().expect("an ASCII cookie").to_string())
+        .collect();
+    for path in ["Path=/;", "Path=/app;", "Path=/admin;"] {
+        assert!(
+            cookies
+                .iter()
+                .any(|cookie| cookie.starts_with("tablo_locale=fr;") && cookie.contains(path)),
+            "{path}: {cookies:?}"
+        );
+    }
+    let page = body_string(client.cookie("tablo_locale", "fr").get("/").await).await;
+    assert!(page.contains("Deux panneaux"), "{page}");
+
+    let refused = client
+        .csrf(CSRF)
+        .post_form(
+            "/locale",
+            form_body(&[("locale", "xx"), ("csrf_token", CSRF)]),
+        )
+        .await;
+    assert_eq!(refused.status(), StatusCode::FORBIDDEN);
 }
 
 #[tokio::test]

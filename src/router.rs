@@ -76,6 +76,7 @@ pub fn router<T: Transport + 'static>(app: App<'_, T>) -> topcoat::Result<Built>
     let admin_panel = builder.panel(shell(admin_panel(config)))?;
     let builder = builder.with(SitePanel {
         panel: app_panel.clone(),
+        admin: admin_panel.clone(),
         styled,
     });
     Ok(Built {

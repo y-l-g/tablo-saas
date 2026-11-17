@@ -1,4 +1,4 @@
 [toolchain]
 # Tablo's `rust-version`: bump together with Tablo.
-channel = "1.99"
+channel = "1.100"
 components = ["clippy", "rustfmt"]

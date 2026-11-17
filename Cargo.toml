@@ -2,7 +2,7 @@
 name = "tablo-saas"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.99"
+rust-version = "1.100"
 publish = false
 license = "MIT"
 description = "A production SaaS template built on Tablo, Topcoat and Toasty, with Stripe billing."
@@ -35,7 +35,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_urlencoded = "0.7"
 sha2 = "0.10"
-tablo = { git = "https://github.com/y-l-g/tablo.git", rev = "59d62f1be7e0d5b611fe0490d09679d9b3695d28", features = ["sqlite", "postgresql", "audit"] }
+tablo = { git = "https://github.com/y-l-g/tablo.git", rev = "cfdfabaca772128d7d419a4e4b31857bc2b79d4e", features = ["sqlite", "postgresql", "audit"] }
 thiserror = "2"
 toasty = { version = "0.11", features = ["jiff", "migration", "postgresql", "serde", "sqlite"] }
 toasty-cli = { version = "0.11", optional = true }
@@ -47,10 +47,10 @@ uuid = { version = "1.23", features = ["serde", "v4", "v7"] }
 
 [dev-dependencies]
 http = "1"
-tablo = { git = "https://github.com/y-l-g/tablo.git", rev = "59d62f1be7e0d5b611fe0490d09679d9b3695d28", features = ["testing"] }
+tablo = { git = "https://github.com/y-l-g/tablo.git", rev = "cfdfabaca772128d7d419a4e4b31857bc2b79d4e", features = ["testing"] }
 
 [build-dependencies]
-tablo-build = { git = "https://github.com/y-l-g/tablo.git", rev = "59d62f1be7e0d5b611fe0490d09679d9b3695d28" }
+tablo-build = { git = "https://github.com/y-l-g/tablo.git", rev = "cfdfabaca772128d7d419a4e4b31857bc2b79d4e" }
 topcoat = { version = "0.12", features = ["icon-iconify"] }
 
 [lints.rust]
@@ -67,6 +67,9 @@ missing_panics_doc = "allow"
 must_use_candidate = "allow"
 unused_async = "allow"
 unused_async_trait_impl = "allow"
+# Toasty's model derive expands to underscore-named items, and clippy since 1.100 blames their use
+# on the model's fields.
+used_underscore_items = "allow"
 
 [profile.release]
 codegen-units = 4
