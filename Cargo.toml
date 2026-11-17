@@ -35,7 +35,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_urlencoded = "0.7"
 sha2 = "0.10"
-tablo = { git = "https://github.com/y-l-g/tablo.git", rev = "cfdfabaca772128d7d419a4e4b31857bc2b79d4e", features = ["sqlite", "postgresql", "audit"] }
+tablo = { git = "https://github.com/y-l-g/tablo.git", rev = "4532bffc67ba3198c0f332545e82cddc8a76ccf5", features = ["sqlite", "postgresql", "audit"] }
 thiserror = "2"
 toasty = { version = "0.11", features = ["jiff", "migration", "postgresql", "serde", "sqlite"] }
 toasty-cli = { version = "0.11", optional = true }
@@ -47,10 +47,10 @@ uuid = { version = "1.23", features = ["serde", "v4", "v7"] }
 
 [dev-dependencies]
 http = "1"
-tablo = { git = "https://github.com/y-l-g/tablo.git", rev = "cfdfabaca772128d7d419a4e4b31857bc2b79d4e", features = ["testing"] }
+tablo = { git = "https://github.com/y-l-g/tablo.git", rev = "4532bffc67ba3198c0f332545e82cddc8a76ccf5", features = ["testing"] }
 
 [build-dependencies]
-tablo-build = { git = "https://github.com/y-l-g/tablo.git", rev = "cfdfabaca772128d7d419a4e4b31857bc2b79d4e" }
+tablo-build = { git = "https://github.com/y-l-g/tablo.git", rev = "4532bffc67ba3198c0f332545e82cddc8a76ccf5" }
 topcoat = { version = "0.12", features = ["icon-iconify"] }
 
 [lints.rust]
