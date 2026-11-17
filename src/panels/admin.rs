@@ -3,7 +3,7 @@
 
 use std::time::Duration;
 
-use tablo::{Auth, AuthMail, Panel, Sessions, Theme, TwoFactor, audit::PanelAuditExt};
+use tablo::{Auth, AuthMail, Panel, Sessions, TwoFactor, audit::PanelAuditExt};
 
 use crate::accounts::{SignedIn, password_auth};
 use crate::audit;
@@ -15,7 +15,7 @@ use crate::platform::config::Config;
 
 /// The panel staff use. It has no sign-up: `staff grant` makes staff of an existing account.
 pub fn admin_panel(config: &Config) -> Panel {
-    super::shared(Panel::new("admin"), Theme::Graphite, config)
+    super::shared(Panel::new("admin"), config)
         .auth(auth(config))
         .audit_log(audit::staff_trail)
         .resource::<CustomerResource>()

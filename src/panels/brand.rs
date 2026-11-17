@@ -17,14 +17,14 @@ pub const PRODUCT_NAME: &str = "Tablo SaaS";
 /// The URL of Tablo's mark: the logo of every panel, its favicon, and the mark on the site.
 pub const LOGO_URL: &str = "/brand/logo.svg";
 
-/// The product's brand in `theme`: Iris where customers work, Graphite where staff do, so neither
-/// is mistaken for the other. The mark keeps its own colours in both, so it reads as the same mark
-/// on the site, in each panel, and on Tablo's own site and demo.
-pub(super) fn brand(theme: Theme) -> Brand {
+/// The product's brand on every panel, in Ledger: the theme of the public site (`ledger.css`), of
+/// Tablo's own site and of its demo, so the product reads as one from the site to the panels. The
+/// mark carries Ledger's ink and red.
+pub(super) fn brand() -> Brand {
     Brand::new(PRODUCT_NAME)
         .logo(LOGO_URL)
         .favicon(LOGO_URL)
-        .theme(theme)
+        .theme(Theme::Ledger)
 }
 
 /// `GET /brand/logo.svg`.
