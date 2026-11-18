@@ -6,9 +6,9 @@
 //! requires a second factor of staff there, finds the customer on [`SupportResource`] and acts as
 //! them for at most [`LIFETIME`].
 //!
-//! What it may reach is narrow: staff act as customers, never as staff, and Tablo keeps them off
-//! the target's profile, factors and team settings. Membership and billing refuse too, see
-//! [`is_impersonated`](crate::accounts::is_impersonated).
+//! What it may reach is narrow: staff act as customers, never as staff, and only read. Tablo's
+//! impersonation is read-only, so every action, header action and form refuses, membership and
+//! billing included, and the target's profile, factors and team settings stay closed.
 //! The start and the stop land in the app panel's audit log, which the back office reads.
 
 use std::time::Duration;

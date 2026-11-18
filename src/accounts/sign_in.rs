@@ -94,14 +94,6 @@ async fn has_vouched_factor(
     }))
 }
 
-/// Whether the request's signed-in user is a customer whom staff act as.
-///
-/// Tablo keeps the actor off the target's credentials and tenant settings. What else stays the
-/// customer's own call refuses here too: who their teams include, and their money.
-pub fn is_impersonated(cx: &Cx) -> bool {
-    tablo::auth::impersonator::<SignedIn>(cx).is_some()
-}
-
 /// The prefix of the panel customers use.
 const APP_PANEL: &str = "/app";
 

@@ -8,7 +8,7 @@ use super::{
     access::{self, current_role, may_manage_members},
     invitations::InviteMember,
 };
-use crate::accounts::{SignedIn, User, is_impersonated};
+use crate::accounts::{SignedIn, User};
 use crate::billing::jobs::sync_seats_later;
 
 /// Who is on the team the request acts for.
@@ -107,7 +107,7 @@ impl Action<MemberResource> for ChangeRole {
     fn declare() -> ActionDef<MemberResource> {
         ActionDef::new()
             .places(Places::ROW)
-            .can_run(|cx, member: &Member| may_change(cx, member) && !is_impersonated(cx))
+            .can_run(|cx, member: &Member| may_change(cx, member))
     }
 
     async fn run(
@@ -144,7 +144,7 @@ impl Action<MemberResource> for RemoveMember {
             .places(Places::ROW)
             .confirm()
             .color(Color::Danger)
-            .can_run(|cx, member: &Member| may_change(cx, member) && !is_impersonated(cx))
+            .can_run(|cx, member: &Member| may_change(cx, member))
     }
 
     async fn run(
@@ -175,9 +175,7 @@ impl Action<MemberResource> for TransferOwnership {
             .confirm()
             .color(Color::Warning)
             .can_run(|cx, member: &Member| {
-                current_role(cx) == Some(TeamRole::Owner)
-                    && own_id(cx) != Some(member.user_id)
-                    && !is_impersonated(cx)
+                current_role(cx) == Some(TeamRole::Owner) && own_id(cx) != Some(member.user_id)
             })
     }
 
@@ -226,10 +224,7 @@ impl Action<MemberResource> for LeaveTeam {
             .can_run(|cx, member: &Member| {
                 let last_team =
                     auth::user::<SignedIn>(cx).is_none_or(|signed| signed.seats.len() < 2);
-                own_id(cx) == Some(member.user_id)
-                    && member.role != TeamRole::Owner
-                    && !last_team
-                    && !is_impersonated(cx)
+                own_id(cx) == Some(member.user_id) && member.role != TeamRole::Owner && !last_team
             })
     }
 

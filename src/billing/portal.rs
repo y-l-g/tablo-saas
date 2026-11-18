@@ -5,7 +5,6 @@ use tablo::{HeaderAction, HeaderActionDef, Outcome, WriteError, tenant_id};
 use topcoat::context::{Cx, context};
 
 use super::{Billing, account_of, page::URL};
-use crate::accounts::is_impersonated;
 use crate::platform::config::Settings;
 use crate::teams::{TeamRole, current_role};
 
@@ -18,11 +17,10 @@ impl HeaderAction for ManageBilling {
 
     fn declare() -> HeaderActionDef {
         HeaderActionDef::new()
-            // The owner alone, and not staff acting as them: the portal cancels and changes cards.
+            // The owner alone: the portal cancels and changes cards. Tablo refuses it to staff
+            // acting as them, as every write.
             .can_run(|cx| {
-                current_role(cx) == Some(TeamRole::Owner)
-                    && !is_impersonated(cx)
-                    && context::<Billing>(cx).is_enabled()
+                current_role(cx) == Some(TeamRole::Owner) && context::<Billing>(cx).is_enabled()
             })
     }
 
