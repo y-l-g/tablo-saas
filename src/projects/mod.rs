@@ -89,10 +89,11 @@ impl Resource for ProjectResource {
         ex: &mut dyn toasty::Executor,
     ) -> Result<Project, WriteError<ProjectForm>> {
         let team = tablo::require_tenant(cx)?;
-        let projects = Project::filter(Project::fields().team_id().eq(team))
-            .exec(&mut *ex)
-            .await?
-            .len();
+        let projects = crate::platform::database::count(
+            Project::filter(Project::fields().team_id().eq(team)).count(),
+            &mut *ex,
+        )
+        .await?;
         if !current_entitlements(cx).may_add_project(projects) {
             return Err(WriteError::declined(tablo::text!("error-project-limit")));
         }

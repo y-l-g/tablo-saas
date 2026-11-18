@@ -85,20 +85,23 @@ impl HeaderAction for InviteMember {
             }
         }
         let now = Timestamp::now();
-        let members = Member::filter(Member::fields().team_id().eq(membership.tenant))
-            .exec(&mut *ex)
-            .await?
-            .len();
-        let waiting = Invitation::filter(
-            Invitation::fields()
-                .team_id()
-                .eq(membership.tenant)
-                .and(Invitation::fields().expires_at().gt(now))
-                .and(Invitation::fields().email().ne(&email)),
+        let members = crate::platform::database::count(
+            Member::filter(Member::fields().team_id().eq(membership.tenant)).count(),
+            &mut *ex,
         )
-        .exec(&mut *ex)
-        .await?
-        .len();
+        .await?;
+        let waiting = crate::platform::database::count(
+            Invitation::filter(
+                Invitation::fields()
+                    .team_id()
+                    .eq(membership.tenant)
+                    .and(Invitation::fields().expires_at().gt(now))
+                    .and(Invitation::fields().email().ne(&email)),
+            )
+            .count(),
+            &mut *ex,
+        )
+        .await?;
         if !current_entitlements(cx).may_add_seat(members + waiting) {
             return refuse(tablo::text!("error-seat-limit"));
         }
@@ -270,10 +273,11 @@ impl Action<IncomingInvitationResource> for AcceptInvitation {
             let account = account_of(&mut *ex, invitation.team_id)
                 .await
                 .map_err(as_error)?;
-            let members = Member::filter(Member::fields().team_id().eq(invitation.team_id))
-                .exec(&mut *ex)
-                .await?
-                .len();
+            let members = crate::platform::database::count(
+                Member::filter(Member::fields().team_id().eq(invitation.team_id)).count(),
+                &mut *ex,
+            )
+            .await?;
             if !Entitlements::of(account.as_ref(), Timestamp::now()).may_add_seat(members) {
                 return Err(WriteError::declined(tablo::text!("error-team-full")));
             }
@@ -333,15 +337,17 @@ impl Widget for IncomingInvitationsWidget {
     }
 
     async fn render(cx: &Cx) -> topcoat::Result<impl View> {
-        let waiting = Invitation::filter(
-            Invitation::fields()
-                .email()
-                .eq(own_email(cx))
-                .and(Invitation::fields().expires_at().gt(Timestamp::now())),
+        let waiting = crate::platform::database::count(
+            Invitation::filter(
+                Invitation::fields()
+                    .email()
+                    .eq(own_email(cx))
+                    .and(Invitation::fields().expires_at().gt(Timestamp::now())),
+            )
+            .count(),
+            &mut db(cx)?,
         )
-        .exec(&mut db(cx)?)
-        .await?
-        .len();
+        .await?;
         let notice = (waiting > 0).then(|| tablo::t!(cx, "invitations-waiting", count = waiting));
         Ok(view! {
             if let Some(notice) = notice {

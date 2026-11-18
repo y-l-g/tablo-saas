@@ -99,10 +99,11 @@ impl Page for BillingPage {
             }
         }
         let entitlements = Entitlements::of(account.as_ref(), Timestamp::now());
-        let seats = Member::filter(Member::fields().team_id().eq(team))
-            .exec(&mut handle)
-            .await?
-            .len();
+        let seats = crate::platform::database::count(
+            Member::filter(Member::fields().team_id().eq(team)).count(),
+            &mut handle,
+        )
+        .await?;
         // The page stands through a Stripe outage: invoices are the part that needs Stripe.
         let invoices: Vec<Invoice> = match &account {
             Some(account) if billing.is_enabled() => billing
