@@ -1,11 +1,10 @@
-//! Mail sent while answering a request, made durable: [`Outbox`] queues it and [`SendMail`] sends
-//! it from the worker.
+//! Auth mail made durable: [`Outbox`] queues each letter Tablo's auth sends, inside the
+//! transaction that records the letter's token, and [`SendMail`] sends it from the worker.
 //!
-//! Tablo sends its auth mail (verification, reset, email change, two-factor codes) while it
-//! answers, most of it from a task spawned after the response. Sent from there, a crash or an SMTP
-//! outage loses the mail; queued, the worker retries it like any job.
+//! Sent straight from the request, a crash or an SMTP outage would lose the mail; queued, the
+//! letter commits with its token or not at all, and the worker retries it like any job.
 //!
-//! An auth mail carries a live link or code, and a job's payload lives in the database and its
+//! A letter carries a live link or code, and a job's payload lives in the database and its
 //! backups, so the payload is sealed: AES-256-GCM under a key derived from `APP_COOKIE_KEY`.
 //! Rotating that key strands the mail still queued, and the person asks for it again. A web
 //! process and a separate worker share the key: in development, where it is generated at start,
@@ -19,11 +18,10 @@ use hmac::{Hmac, Mac};
 use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
-use tablo::db::db;
+use tablo::{AuthLetter, AuthMailDelivery};
 use topcoat::{
     context::{Cx, context},
     cookie::Key,
-    mail::{Mail, Mailbox, Receipt, Transport, TransportFuture},
 };
 
 use super::{Job, enqueue};
@@ -75,52 +73,41 @@ impl MailSeal {
     }
 }
 
-/// The app's transport inside a request: queues each mail it can carry and sends the rest, or any
-/// mail the queue refuses, through `inner` at once.
+/// Queues each auth letter, sealed, through the transaction Tablo hands it.
 #[derive(Clone)]
-pub struct Outbox<T> {
-    inner: T,
+pub struct Outbox {
     seal: MailSeal,
 }
 
-impl<T> Outbox<T> {
-    /// Queues through the request's database, sealed by `seal`; falls back to `inner`.
-    pub fn new(inner: T, seal: MailSeal) -> Self {
-        Self { inner, seal }
-    }
-
-    /// Queues `mail`, answering `false` for a mail a [`Letter`] cannot carry.
-    async fn queue(&self, cx: &Cx, mail: &Mail) -> anyhow::Result<bool> {
-        let Some(letter) = Letter::carry(mail) else {
-            return Ok(false);
-        };
-        let sealed = self.seal.seal(&serde_json::to_vec(&letter)?)?;
-        let mut handle = db(cx).map_err(|error| anyhow::anyhow!("{error:#}"))?;
-        enqueue(&SendMail { sealed }).exec(&mut handle).await?;
-        Ok(true)
+impl Outbox {
+    /// Queues letters sealed by `seal`.
+    pub fn new(seal: MailSeal) -> Self {
+        Self { seal }
     }
 }
 
-impl<T: Transport> Transport for Outbox<T> {
-    fn send<'a>(&'a self, cx: &'a Cx, mail: Mail) -> TransportFuture<'a> {
-        Box::pin(async move {
-            match self.queue(cx, &mail).await {
-                Ok(true) => Ok(Receipt::new("queued")),
-                Ok(false) => self.inner.send(cx, mail).await,
-                // A database that refuses the row may still leave SMTP up: one try beats none.
-                Err(error) => {
-                    tracing::warn!(error = %format!("{error:#}"), "queueing a mail failed: sending it now");
-                    self.inner.send(cx, mail).await
-                }
-            }
+impl AuthMailDelivery for Outbox {
+    async fn deliver(
+        &self,
+        _cx: &Cx,
+        ex: &mut dyn toasty::Executor,
+        letter: AuthLetter,
+    ) -> topcoat::Result<()> {
+        let queued = async {
+            let sealed = self.seal.seal(&serde_json::to_vec(&letter)?)?;
+            enqueue(&SendMail { sealed }).exec(ex).await
+        };
+        // Refused, the token rolls back with the row: no link goes out that no mail carries.
+        queued.await.map_err(|error| {
+            topcoat::Error::msg(format!("queueing an auth mail failed: {error:#}"))
         })
     }
 }
 
-/// Sends a mail the [`Outbox`] queued, through the worker's transport.
+/// Sends a letter the [`Outbox`] queued, through the worker's transport.
 #[derive(Serialize, Deserialize)]
 pub struct SendMail {
-    /// A [`Letter`] as JSON, sealed.
+    /// An [`AuthLetter`] as JSON, sealed.
     sealed: String,
 }
 
@@ -131,145 +118,25 @@ impl Job for SendMail {
     const MAX_ATTEMPTS: u32 = 6;
 
     async fn run(self, cx: &Cx) -> anyhow::Result<()> {
-        let letter: Letter = serde_json::from_slice(&context::<MailSeal>(cx).open(&self.sealed)?)?;
-        topcoat::mail::send(cx, letter.into_mail()?)
+        let letter: AuthLetter =
+            serde_json::from_slice(&context::<MailSeal>(cx).open(&self.sealed)?)?;
+        if letter.expires_at().is_some_and(|at| at <= Timestamp::now()) {
+            tracing::warn!(kind = ?letter.kind(), "an auth mail expired in the queue: dropped");
+            return Ok(());
+        }
+        let mail = letter
+            .mail()
+            .map_err(|error| anyhow::anyhow!("{error:#}"))?;
+        topcoat::mail::send(cx, mail)
             .await
             .map_err(|error| anyhow::anyhow!("{error:#}"))?;
         Ok(())
     }
 }
 
-/// A plain-text mail, which is what Tablo sends. Its date and Message-ID travel with it, so a mail
-/// sent twice after a crash reads as one in a mail client.
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-struct Letter {
-    from: Address,
-    to: Vec<Address>,
-    cc: Vec<Address>,
-    bcc: Vec<Address>,
-    reply_to: Vec<Address>,
-    subject: String,
-    text: String,
-    date: Timestamp,
-    message_id: String,
-}
-
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-struct Address {
-    name: Option<String>,
-    address: String,
-}
-
-impl Letter {
-    /// `mail` as a letter, or `None` when it has a part a letter drops: HTML, an attachment or a
-    /// header of its own.
-    fn carry(mail: &Mail) -> Option<Self> {
-        let plain = mail.html().is_none()
-            && mail.attachments().is_empty()
-            && mail.headers().is_empty()
-            && mail.in_reply_to().is_none()
-            && mail.references().is_none();
-        let addresses = |list: &[Mailbox]| list.iter().map(Address::from).collect();
-        Some(Self {
-            from: Address::from(mail.from()),
-            to: addresses(mail.to()),
-            cc: addresses(mail.cc()),
-            bcc: addresses(mail.bcc()),
-            reply_to: addresses(mail.reply_to()),
-            subject: mail.subject().to_string(),
-            text: mail.text().filter(|_| plain)?.to_string(),
-            date: Timestamp::try_from(mail.date()).ok()?,
-            message_id: mail.message_id().to_string(),
-        })
-    }
-
-    fn into_mail(self) -> anyhow::Result<Mail> {
-        let mailboxes = |list: Vec<Address>| {
-            list.into_iter()
-                .map(Address::into_mailbox)
-                .collect::<anyhow::Result<Vec<_>>>()
-        };
-        Ok(Mail::builder()
-            .from(self.from.into_mailbox()?)
-            .to(mailboxes(self.to)?)
-            .cc(mailboxes(self.cc)?)
-            .bcc(mailboxes(self.bcc)?)
-            .reply_to(mailboxes(self.reply_to)?)
-            .subject(self.subject)
-            .text(self.text)
-            .date(self.date.into())
-            .message_id(self.message_id)
-            .build()?)
-    }
-}
-
-impl From<&Mailbox> for Address {
-    fn from(mailbox: &Mailbox) -> Self {
-        Self {
-            name: mailbox.name().map(str::to_string),
-            address: mailbox.address().to_string(),
-        }
-    }
-}
-
-impl Address {
-    fn into_mailbox(self) -> anyhow::Result<Mailbox> {
-        let mailbox = match self.name {
-            Some(name) => Mailbox::named(name, &self.address),
-            None => Mailbox::new(&self.address),
-        };
-        mailbox.map_err(|error| anyhow::anyhow!("{error}"))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn mail() -> Mail {
-        Mail::builder()
-            .from(Mailbox::named("Tablo", "noreply@example.com").expect("address"))
-            .to([Mailbox::new("ada@example.com").expect("address")])
-            .bcc([Mailbox::new("audit@example.com").expect("address")])
-            .subject("Reset your password")
-            .text("https://example.com/app/reset?token=secret")
-            .build()
-            .expect("a mail")
-    }
-
-    #[test]
-    fn a_letter_rebuilds_the_mail_it_carried() {
-        let original = mail();
-        let letter = Letter::carry(&original).expect("plain text is carried");
-        let json = serde_json::to_vec(&letter).expect("serialize");
-        let rebuilt = serde_json::from_slice::<Letter>(&json)
-            .expect("deserialize")
-            .into_mail()
-            .expect("rebuild");
-        assert_eq!(rebuilt.from(), original.from());
-        assert_eq!(rebuilt.to(), original.to());
-        assert_eq!(rebuilt.bcc(), original.bcc());
-        assert_eq!(rebuilt.subject(), original.subject());
-        assert_eq!(rebuilt.text(), original.text());
-        assert_eq!(rebuilt.message_id(), original.message_id());
-        assert_eq!(
-            Timestamp::try_from(rebuilt.date()).expect("date"),
-            Timestamp::try_from(original.date()).expect("date"),
-        );
-    }
-
-    #[test]
-    fn a_mail_with_a_custom_header_is_not_carried() {
-        let mail = Mail::builder()
-            .from(Mailbox::new("noreply@example.com").expect("address"))
-            .to([Mailbox::new("ada@example.com").expect("address")])
-            .subject("News")
-            .text("Hello")
-            .headers([("List-Unsubscribe", "<https://example.com/unsubscribe>")])
-            .build()
-            .expect("a mail");
-        assert!(Letter::carry(&mail).is_none());
-    }
 
     #[test]
     fn a_sealed_mail_hides_its_link_and_opens_under_its_key_alone() {

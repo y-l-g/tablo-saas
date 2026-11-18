@@ -107,7 +107,6 @@ impl Cli {
             .transpose()?;
         let built = router(App {
             db: db.clone(),
-            mail: mail.clone(),
             billing: billing.clone(),
             assets,
             config: &config,

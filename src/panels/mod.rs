@@ -10,9 +10,10 @@ pub use brand::{LOGO_URL, PRODUCT_NAME};
 
 use std::time::Duration;
 
-use tablo::{Environment, LoginThrottle, Panel};
+use tablo::{AuthMail, Environment, LoginThrottle, Panel};
 use topcoat::l10n::locale;
 
+use crate::jobs::{MailSeal, Outbox};
 use crate::platform::{config::Config, words};
 
 /// Where the billing buttons land. A browser checks `form-action` against a form's redirects too,
@@ -44,4 +45,11 @@ fn shared(panel: Panel, config: &Config) -> Panel {
 /// process would let N replicas allow N times the guesses, and forget them on a restart.
 fn shared_throttle(attempts: u32, window: Duration) -> LoginThrottle {
     LoginThrottle::new(attempts, window).in_database()
+}
+
+/// The sender and host every panel's auth mail carries. Each letter is queued in the transaction
+/// that records its token, and the worker sends it: a crash after the response loses none.
+fn auth_mail(config: &Config) -> AuthMail {
+    AuthMail::new(config.mail.from.clone(), config.base_url.clone())
+        .delivery(Outbox::new(MailSeal::new(&config.cookie_key)))
 }

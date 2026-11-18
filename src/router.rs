@@ -5,13 +5,11 @@ use toasty::Db;
 use topcoat::{
     asset::{AssetBundle, RouterBuilderAssetExt},
     font::{Font, fontsource::fontsource_font},
-    mail::{Mailer, Transport},
     router::{Router, RouterBuilderDiscoverExt, TrustedProxies},
     tailwind,
 };
 
 use crate::billing::Billing;
-use crate::jobs::{MailSeal, Outbox};
 use crate::panels::{admin_panel, app_panel};
 use crate::platform::{config::Config, http::Https};
 use crate::site::SitePanel;
@@ -20,10 +18,9 @@ use crate::site::SitePanel;
 const INTER: Font = fontsource_font!(INTER, host: Asset);
 
 /// What the router is built from: the parts a test swaps.
-pub struct App<'a, T> {
+pub struct App<'a> {
     pub db: Db,
     pub config: &'a Config,
-    pub mail: T,
     pub billing: Billing,
     /// The bundle `topcoat asset bundle` wrote. Without one, pages render unstyled and work.
     pub assets: Option<AssetBundle>,
@@ -37,11 +34,10 @@ pub struct Built {
 }
 
 /// Builds the router the server runs and the tests drive.
-pub fn router<T: Transport + 'static>(app: App<'_, T>) -> topcoat::Result<Built> {
+pub fn router(app: App<'_>) -> topcoat::Result<Built> {
     let App {
         db,
         config,
-        mail,
         billing,
         assets,
     } = app;
@@ -51,12 +47,7 @@ pub fn router<T: Transport + 'static>(app: App<'_, T>) -> topcoat::Result<Built>
         .with(config.cookie_key.clone())
         .with(Https(config.base_url.starts_with("https://")))
         .with(config.settings())
-        .with(billing)
-        // Mail sent inside a request is queued, so a crash after the response loses none.
-        .with(Mailer::new(Outbox::new(
-            mail,
-            MailSeal::new(&config.cookie_key),
-        )));
+        .with(billing);
     if !config.trusted_proxies.is_empty() {
         builder =
             builder.trusted_proxies(TrustedProxies::new().networks(config.trusted_proxies.clone()));
