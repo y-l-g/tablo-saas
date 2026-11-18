@@ -24,6 +24,14 @@ fn is_administrator(cx: &Cx) -> bool {
     role(cx) == Some(StaffRole::Administrator)
 }
 
+/// Lets the staff `allowed` lets in read a resource and download its list as CSV.
+fn read_and_export<M: Send + Sync + 'static>(allowed: fn(&Cx) -> bool) -> Abilities<M> {
+    Abilities::new()
+        .view_any(allowed)
+        .view(move |cx, _| allowed(cx))
+        .export(allowed)
+}
+
 /// Every account.
 pub struct AccountResource;
 
@@ -38,7 +46,7 @@ impl Resource for AccountResource {
             .icon(iconify_icon!("lucide:users"))
             .tenancy(Tenancy::none())
             .record_title(lens!(User.email))
-            .policy(ReadOnly.and(when(is_staff)))
+            .policy(read_and_export(is_staff))
             .without_page(ResourcePage::View)
             .table(
                 Table::new((
@@ -87,7 +95,7 @@ impl Resource for ImpersonationResource {
             .plural_label(tablo::text!("impersonation-log"))
             .icon(iconify_icon!("lucide:shield-check"))
             .tenancy(Tenancy::none())
-            .policy(ReadOnly.and(when(is_administrator)))
+            .policy(read_and_export(is_administrator))
             .without_page(ResourcePage::View)
             .without_global_search()
             .query(
@@ -167,7 +175,7 @@ impl Resource for CustomerResource {
             .icon(iconify_icon!("lucide:building"))
             .tenancy(Tenancy::none())
             .record_title(lens!(Team.name))
-            .policy(ReadOnly.and(when(is_staff)))
+            .policy(read_and_export(is_staff))
             .without_page(ResourcePage::View)
             .table(
                 Table::new((
@@ -194,9 +202,7 @@ impl Resource for SubscriptionResource {
             .tenancy(Tenancy::none())
             .record_title(lens!(BillingAccount.customer_id))
             .policy(
-                Abilities::<BillingAccount>::new()
-                    .view_any(is_staff)
-                    .view(|cx, _| is_staff(cx))
+                read_and_export::<BillingAccount>(is_staff)
                     .run::<Resync, _>(|cx, _| is_administrator(cx)),
             )
             .without_page(ResourcePage::View)
@@ -262,7 +268,7 @@ impl Resource for WebhookResource {
             .slug("webhooks")
             .icon(iconify_icon!("lucide:zap"))
             .tenancy(Tenancy::none())
-            .policy(ReadOnly.and(when(is_staff)))
+            .policy(read_and_export(is_staff))
             .without_page(ResourcePage::View)
             .without_global_search()
             .table(
@@ -298,9 +304,7 @@ impl Resource for JobResource {
             .tenancy(Tenancy::none())
             .navigation_badge(JobRow::fields().state().eq(JobState::Dead))
             .policy(
-                Abilities::<JobRow>::new()
-                    .view_any(is_staff)
-                    .view(|cx, _| is_staff(cx))
+                read_and_export::<JobRow>(is_staff)
                     .run::<RetryJob, _>(|cx, _| is_administrator(cx)),
             )
             .without_page(ResourcePage::View)

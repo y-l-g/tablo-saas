@@ -65,6 +65,7 @@ impl Resource for ProjectResource {
             .policy(
                 Abilities::<Project>::new()
                     .view_any(|cx| current_role(cx).is_some())
+                    .export(|cx| current_role(cx).is_some())
                     .view(|cx, _| current_role(cx).is_some())
                     .create(|cx| current_role(cx).is_some())
                     .update(|cx, _| current_role(cx).is_some())

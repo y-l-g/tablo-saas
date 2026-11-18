@@ -33,6 +33,7 @@ impl Resource for MemberResource {
             .policy(
                 Abilities::new()
                     .view_any(|_cx| true)
+                    .export(|_cx| true)
                     .view(|_cx, _member| true)
                     .run::<ChangeRole, _>(may_change)
                     .run::<RemoveMember, _>(may_change)

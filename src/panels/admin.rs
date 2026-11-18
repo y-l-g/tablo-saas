@@ -3,7 +3,7 @@
 
 use std::time::Duration;
 
-use tablo::{Auth, AuthMail, Panel, Sessions, TwoFactor, audit::PanelAuditExt};
+use tablo::{Auth, Panel, Sessions, TwoFactor, audit::PanelAuditExt};
 
 use crate::accounts::{SignedIn, password_auth};
 use crate::audit;
@@ -36,10 +36,7 @@ fn auth(config: &Config) -> Auth<SignedIn> {
                 .lifetime(Duration::from_hours(10))
                 .idle_timeout(Duration::from_mins(30)),
         )
-        .mail(AuthMail::new(
-            config.mail.from.clone(),
-            config.base_url.clone(),
-        ))
+        .mail(super::auth_mail(config))
         .two_factor(
             TwoFactor::new()
                 .email_codes()

@@ -3,8 +3,8 @@
 use std::time::Duration;
 
 use tablo::{
-    Area, Auth, AuthMail, EmailVerification, Oidc, OidcProvider, Page, PageDef, Panel,
-    PasswordReset, TenantRegistration, TwoFactor, Widget, WidgetDef,
+    Area, Auth, EmailVerification, Oidc, OidcProvider, Page, PageDef, Panel, PasswordReset,
+    TenantRegistration, TwoFactor, Widget, WidgetDef,
     audit::{AuditLog, PanelAuditExt},
     db::db,
     ui,
@@ -86,10 +86,7 @@ fn auth(config: &Config) -> Auth<SignedIn> {
         // high enough that only a distributed guesser locks an owner out.
         .account_throttle(super::shared_throttle(50, Duration::from_hours(1)))
         .profile_throttle(super::shared_throttle(5, Duration::from_mins(1)))
-        .mail(AuthMail::new(
-            config.mail.from.clone(),
-            config.base_url.clone(),
-        ))
+        .mail(super::auth_mail(config))
         .password_reset(PasswordReset::new(password_auth()))
         .email_verification(EmailVerification::new(password_auth()))
         .profile(password_auth())

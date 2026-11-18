@@ -91,7 +91,6 @@ async fn build(billing: Billing, google: Option<&FakeProvider>) -> Harness {
     let built = router(App {
         db: db.clone(),
         config: &config,
-        mail: outbox.clone(),
         billing: billing.clone(),
         assets: None,
     })
