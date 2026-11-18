@@ -172,3 +172,27 @@ async fn a_write_lands_on_the_team_trail_and_the_plan_gates_reading_it() {
     assert_eq!(list.status(), StatusCode::OK);
     assert_eq!(list.rows().len(), 1);
 }
+
+#[tokio::test]
+async fn staff_download_the_lists_they_read_as_csv() {
+    let harness = harness().await;
+    dead_job(&harness.db).await;
+    let support = staff_client(&harness, "help@example.com", StaffRole::Support).await;
+    for url in ["/admin/accounts/-/export", "/admin/jobs/-/export"] {
+        let response = support.get(url).await;
+        assert_eq!(response.status(), StatusCode::OK, "{url}");
+    }
+    let accounts = tablo::testing::body_string(support.get("/admin/accounts/-/export").await).await;
+    assert!(accounts.contains("help@example.com"), "{accounts}");
+    assert_eq!(
+        support.get("/admin/impersonations/-/export").await.status(),
+        StatusCode::FORBIDDEN,
+        "who acted as a customer is for administrators"
+    );
+
+    let root = staff_client(&harness, "root@example.com", StaffRole::Administrator).await;
+    assert_eq!(
+        root.get("/admin/impersonations/-/export").await.status(),
+        StatusCode::OK
+    );
+}
