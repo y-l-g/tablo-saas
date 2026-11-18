@@ -69,10 +69,11 @@ impl HeaderAction for Checkout {
             .await
             .map_err(unavailable)?
             .ok_or_else(|| unavailable(format!("no price `{key}`: run `billing sync-catalog`")))?;
-        let seats = Member::filter(Member::fields().team_id().eq(team))
-            .exec(&mut *ex)
-            .await?
-            .len();
+        let seats = crate::platform::database::count(
+            Member::filter(Member::fields().team_id().eq(team)).count(),
+            &mut *ex,
+        )
+        .await?;
         let settings = context::<Settings>(cx);
         let url = billing
             .gateway()

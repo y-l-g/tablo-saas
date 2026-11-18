@@ -103,10 +103,11 @@ pub async fn erase_unproved(
         .exec(&mut *ex)
         .await?;
     for seat in seats {
-        let members = Member::filter(Member::fields().team_id().eq(seat.team_id))
-            .exec(&mut *ex)
-            .await?
-            .len();
+        let members = crate::platform::database::count(
+            Member::filter(Member::fields().team_id().eq(seat.team_id)).count(),
+            &mut *ex,
+        )
+        .await?;
         if members == 1 {
             delete_team(&mut *ex, seat.team_id).await?;
         }
@@ -202,10 +203,11 @@ impl HeaderAction for DeleteAccount {
         }
         let mut alone_on = Vec::new();
         for seat in &signed.seats {
-            let members = Member::filter(Member::fields().team_id().eq(seat.team))
-                .exec(&mut *ex)
-                .await?
-                .len();
+            let members = crate::platform::database::count(
+                Member::filter(Member::fields().team_id().eq(seat.team)).count(),
+                &mut *ex,
+            )
+            .await?;
             if members == 1 {
                 alone_on.push(seat.team);
             } else if seat.role == TeamRole::Owner {

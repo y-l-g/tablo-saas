@@ -90,10 +90,8 @@ impl Resource for SupportResource {
                 Table::new((
                     col.name.text().searchable().sortable(),
                     col.email.text().searchable().sortable(),
-                    ComputedColumn::new(tablo::text!("support-teams"), |_, user: &User| {
-                        user.memberships.get().len().to_string()
-                    })
-                    .include_unscoped(User::fields().memberships()),
+                    CountColumn::unscoped(relation!(User.memberships))
+                        .label(tablo::text!("support-teams")),
                     col.created_at.date().sortable(),
                 ))
                 .default_sort_desc(lens!(User.created_at)),

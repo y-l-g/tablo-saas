@@ -32,3 +32,15 @@ pub async fn ping(db: &Db) -> bool {
     let mut db = db.clone();
     toasty::sql::query("SELECT 1").exec(&mut db).await.is_ok()
 }
+
+/// What a model query's `count()` answers, run by the database rather than by loading the rows
+/// to count them.
+pub async fn count(
+    count: toasty::stmt::Query<u64>,
+    ex: &mut dyn toasty::Executor,
+) -> toasty::Result<usize> {
+    let rows = count.exec(ex).await?;
+    // No list this process could load holds more than `usize::MAX` rows, so a larger count
+    // compares the same once saturated.
+    Ok(usize::try_from(rows).unwrap_or(usize::MAX))
+}

@@ -180,10 +180,12 @@ impl Job for SyncSeats {
         ) else {
             return Ok(());
         };
-        let members = Member::filter(Member::fields().team_id().eq(team))
-            .exec(&mut handle)
-            .await?;
-        let seats = i64::try_from(members.len().max(1))?;
+        let members = crate::platform::database::count(
+            Member::filter(Member::fields().team_id().eq(team)).count(),
+            &mut handle,
+        )
+        .await?;
+        let seats = i64::try_from(members.max(1))?;
         if account.seats == Some(seats) {
             return Ok(());
         }

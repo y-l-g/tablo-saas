@@ -148,14 +148,16 @@ impl Widget for PlanWidget {
         let team = tablo::require_tenant(cx)?;
         let entitlements = current_entitlements(cx);
         let mut handle = db(cx)?;
-        let projects = Project::filter(Project::fields().team_id().eq(team))
-            .exec(&mut handle)
-            .await?
-            .len();
-        let seats = Member::filter(Member::fields().team_id().eq(team))
-            .exec(&mut handle)
-            .await?
-            .len();
+        let projects = crate::platform::database::count(
+            Project::filter(Project::fields().team_id().eq(team)).count(),
+            &mut handle,
+        )
+        .await?;
+        let seats = crate::platform::database::count(
+            Member::filter(Member::fields().team_id().eq(team)).count(),
+            &mut handle,
+        )
+        .await?;
         // What the banner above the page already says is not said twice.
         let bannered = is_urgent(entitlements.standing) && may_manage_members(cx);
         let notice = (!bannered)
