@@ -9,4 +9,4 @@ mod sign_in;
 
 pub use identity::Identity;
 pub use models::{StaffRole, User, normalize_email};
-pub use sign_in::{Accounts, Seat, SignUp, SignedIn, is_impersonated, password_auth};
+pub use sign_in::{Accounts, Seat, SignUp, SignedIn, password_auth};

@@ -13,7 +13,7 @@ use super::{
     access::{current_entitlements, may_manage_members},
     members::AssignableRole,
 };
-use crate::accounts::{SignedIn, User, is_impersonated, normalize_email};
+use crate::accounts::{SignedIn, User, normalize_email};
 use crate::billing::{Entitlements, account_of, jobs::sync_seats_later};
 use crate::jobs::enqueue;
 
@@ -42,9 +42,9 @@ impl HeaderAction for InviteMember {
 
     fn declare() -> HeaderActionDef {
         HeaderActionDef::new()
-            // Staff acting as a customer invite nobody, themselves least of all: an accepted invitation
-            // would outlast the session.
-            .can_run(|cx| may_manage_members(cx) && !is_impersonated(cx))
+            // Staff acting as a customer invite nobody, themselves least of all: an accepted
+            // invitation would outlast the session. Tablo's impersonation is read-only, so it is.
+            .can_run(may_manage_members)
     }
 
     async fn run(
@@ -173,10 +173,7 @@ impl Action<InvitationResource> for RevokeInvitation {
     const NAME: &'static str = "revoke";
 
     fn declare() -> ActionDef<InvitationResource> {
-        ActionDef::new()
-            .confirm()
-            .color(Color::Danger)
-            .can_run(|cx, _invitation: &Invitation| !is_impersonated(cx))
+        ActionDef::new().confirm().color(Color::Danger)
     }
 
     async fn run(
@@ -254,10 +251,7 @@ impl Action<IncomingInvitationResource> for AcceptInvitation {
     const NAME: &'static str = "accept";
 
     fn declare() -> ActionDef<IncomingInvitationResource> {
-        ActionDef::new()
-            .places(Places::ROW)
-            .color(Color::Success)
-            .can_run(|cx, _invitation: &Invitation| !is_impersonated(cx))
+        ActionDef::new().places(Places::ROW).color(Color::Success)
     }
 
     async fn run(
@@ -307,10 +301,7 @@ impl Action<IncomingInvitationResource> for DeclineInvitation {
     const NAME: &'static str = "decline";
 
     fn declare() -> ActionDef<IncomingInvitationResource> {
-        ActionDef::new()
-            .places(Places::ROW)
-            .confirm()
-            .can_run(|cx, _invitation: &Invitation| !is_impersonated(cx))
+        ActionDef::new().places(Places::ROW).confirm()
     }
 
     async fn run(

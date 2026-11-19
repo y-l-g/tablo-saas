@@ -8,7 +8,7 @@ use super::{
     Billing, BillingInterval, Plan, PlanId, ensure_account, lookup_key, page::URL,
     stripe::NewCheckout,
 };
-use crate::accounts::{SignedIn, is_impersonated};
+use crate::accounts::SignedIn;
 use crate::platform::config::Settings;
 use crate::teams::{Member, TeamRole, current_role};
 
@@ -30,11 +30,10 @@ impl HeaderAction for Checkout {
 
     fn declare() -> HeaderActionDef {
         HeaderActionDef::new()
-            // The owner alone, and not staff acting as them: Checkout charges the customer's card.
+            // The owner alone: Checkout charges the customer's card. Tablo refuses it to staff
+            // acting as them, as every write.
             .can_run(|cx| {
-                current_role(cx) == Some(TeamRole::Owner)
-                    && !is_impersonated(cx)
-                    && context::<Billing>(cx).is_enabled()
+                current_role(cx) == Some(TeamRole::Owner) && context::<Billing>(cx).is_enabled()
             })
     }
 
