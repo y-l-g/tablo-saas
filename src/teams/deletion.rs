@@ -5,7 +5,9 @@
 
 use serde::{Deserialize, Serialize};
 use tablo::{
-    HeaderAction, HeaderActionDef, Outcome, TenantId, WriteError, auth, auth::verify_password,
+    HeaderAction, HeaderActionDef, Outcome, TenantId, WriteError, auth,
+    auth::verify_password,
+    jobs::{Job, enqueue},
 };
 use topcoat::context::{Cx, context};
 
@@ -13,7 +15,6 @@ use super::{Invitation, Member, Team, TeamRole, access};
 use crate::accounts::{Identity, SignedIn, User};
 use crate::audit;
 use crate::billing::{Billing, BillingAccount};
-use crate::jobs::{Job, enqueue};
 use crate::projects::Project;
 
 /// Cancels a subscription whose team is gone. It carries the id because the row went with the team.
@@ -25,17 +26,13 @@ pub struct CancelSubscription {
 impl Job for CancelSubscription {
     const KIND: &'static str = "cancel-subscription";
 
-    async fn run(self, cx: &Cx) -> anyhow::Result<()> {
+    async fn run(self, cx: &Cx) -> topcoat::Result<()> {
         context::<Billing>(cx)
             .gateway()
             .cancel_subscription(self.subscription)
             .await?;
         Ok(())
     }
-}
-
-fn failed(error: impl std::fmt::Display) -> topcoat::Error {
-    topcoat::Error::msg(error.to_string())
 }
 
 /// Deletes `team` and everything it owns, on the caller's transaction. Foreign keys would cascade
@@ -51,8 +48,7 @@ pub async fn delete_team(ex: &mut dyn toasty::Executor, team: TenantId) -> topco
     {
         enqueue(&CancelSubscription { subscription })
             .exec(&mut *ex)
-            .await
-            .map_err(failed)?;
+            .await?;
     }
     BillingAccount::filter(BillingAccount::fields().team_id().eq(team))
         .delete()

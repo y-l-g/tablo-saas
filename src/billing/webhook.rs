@@ -1,6 +1,7 @@
 //! Stripe's webhook: prove it, store it, answer.
 
 use jiff::Timestamp;
+use tablo::jobs::enqueue;
 use topcoat::{
     Result,
     context::{Cx, context},
@@ -16,7 +17,6 @@ use super::{
     jobs::ProcessStripeEvent,
     stripe::{Event, verify_signature},
 };
-use crate::jobs::enqueue;
 
 /// The largest event Stripe sends is far below this.
 const BODY_LIMIT: usize = 1024 * 1024;
@@ -86,8 +86,7 @@ async fn stripe_webhook(cx: &Cx, body: Body) -> Result<StatusCode> {
         })
         .dedupe(event.id.clone())
         .exec(&mut tx)
-        .await
-        .map_err(|error| topcoat::Error::msg(format!("{error:#}")))?;
+        .await?;
     }
     tx.commit().await?;
     Ok(StatusCode::OK)

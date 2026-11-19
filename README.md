@@ -16,8 +16,8 @@ keep the rest.
   limits that apply everywhere through one pure function.
 - **Billing that survives Stripe.** A signed webhook inbox, duplicate and out-of-order events
   handled by refetching state from Stripe, and a reconciliation pass every six hours.
-- **A durable job queue** in Postgres: lanes, dedupe, backoff, a dead state, schedules, and a
-  transactional outbox, so a job exists exactly when its write committed.
+- **A durable job queue** in Postgres, from `tablo::jobs`: lanes, dedupe, backoff, a dead state,
+  schedules, and a transactional outbox, so a job exists exactly when its write committed.
 - **Accounts.** Email verification, password reset, two-factor by authenticator or email,
   "Continue with Google", which signs up a new address or links the account Google proves holds
   it, and account deletion that erases what it should and anonymises the rest, and a JSON download of
@@ -114,7 +114,6 @@ src/
 ├── billing/     plans, entitlements, Stripe
 ├── projects/    the example domain: replace it
 ├── audit/       what happened, per team and for staff
-├── jobs/        the durable queue
 ├── backoffice/  what staff read
 ├── support/     staff acting as a customer
 ├── panels/      /app and /admin
@@ -159,7 +158,8 @@ may only switch to a team they belong to. Code outside a resource goes through `
    with `Tenancy` and a policy, and a limit from `Entitlements`.
 4. Add a language by writing `locales/<code>.ftl` and listing it in `src/panels/mod.rs`. Its
    `-tenant` term names a team in every message of Tablo's.
-5. Add background work with a type that implements `Job`, registered in `src/background.rs`.
+5. Add background work with a type that implements `tablo::jobs::Job`, registered in
+   `src/background.rs`.
 
 ## Deploy
 

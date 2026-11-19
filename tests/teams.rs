@@ -28,7 +28,11 @@ async fn invite(client: &TestClient<'_>, email: &str, role: &str) -> http::Respo
         .csrf(CSRF)
         .post_form(
             "/app/settings/members/-/actions/invite",
-            form_body(&[("email", email), ("role", role), ("csrf_token", CSRF)]),
+            form_body(&[
+                ("email", email),
+                ("role", role),
+                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
+            ]),
         )
         .await
 }

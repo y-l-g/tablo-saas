@@ -22,7 +22,7 @@ pub async fn ensure_account(
     team: TenantId,
     name: &str,
     email: &str,
-) -> anyhow::Result<BillingAccount> {
+) -> topcoat::Result<BillingAccount> {
     if let Some(account) = account_of(ex, team).await? {
         return Ok(account);
     }
@@ -47,14 +47,14 @@ pub async fn ensure_account(
         .await?;
     account_of(ex, team)
         .await?
-        .ok_or_else(|| anyhow::anyhow!("the account was just written"))
+        .ok_or_else(|| topcoat::Error::msg("the account was just written"))
 }
 
 /// The team's account, if it ever had one.
 pub async fn account_of(
     ex: &mut dyn toasty::Executor,
     team: TenantId,
-) -> anyhow::Result<Option<BillingAccount>> {
+) -> topcoat::Result<Option<BillingAccount>> {
     Ok(
         BillingAccount::filter(BillingAccount::fields().team_id().eq(team))
             .first()
@@ -88,22 +88,26 @@ struct Mirror {
     trial_end: Option<Timestamp>,
 }
 
-fn read(subscription: Subscription) -> anyhow::Result<Mirror> {
+fn read(subscription: Subscription) -> topcoat::Result<Mirror> {
     let status = BillingStatus::from_stripe(&subscription.status)
-        .ok_or_else(|| anyhow::anyhow!("unknown status `{}`", subscription.status))?;
+        .ok_or_else(|| topcoat::Error::msg(format!("unknown status `{}`", subscription.status)))?;
     let line = subscription.items.data.first();
     let plan = match line.and_then(|line| line.price.lookup_key.as_deref()) {
         Some(key) => {
             plan_of_lookup_key(key)
-                .ok_or_else(|| anyhow::anyhow!("price `{key}` sells no plan in the catalog"))?
+                .ok_or_else(|| {
+                    topcoat::Error::msg(format!("price `{key}` sells no plan in the catalog"))
+                })?
                 .id
         }
         // A price without a lookup key was not made by `billing sync-catalog`: failing puts the
         // job on the dead list, where a person sees it, rather than guessing a plan.
-        None => anyhow::bail!(
-            "subscription `{}` has no priced line with a lookup key",
-            subscription.id
-        ),
+        None => {
+            return Err(topcoat::Error::msg(format!(
+                "subscription `{}` has no priced line with a lookup key",
+                subscription.id
+            )));
+        }
     };
     Ok(Mirror {
         plan,
@@ -126,7 +130,7 @@ pub async fn refresh_customer(
     billing: &Billing,
     ex: &mut dyn toasty::Executor,
     customer: &str,
-) -> anyhow::Result<Option<BillingAccount>> {
+) -> topcoat::Result<Option<BillingAccount>> {
     let Some(mut account) =
         BillingAccount::filter(BillingAccount::fields().customer_id().eq(customer))
             .first()

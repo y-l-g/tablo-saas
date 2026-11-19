@@ -6,7 +6,10 @@ use jiff::Timestamp;
 use support::{
     Harness, WEBHOOK_SECRET, billed_harness, client_for, harness, person, seat, stripe::FakeStripe,
 };
-use tablo::testing::{TestClient, body_string, form_body};
+use tablo::{
+    jobs::{JobState, QueuedJob, enqueue},
+    testing::{TestClient, body_string, form_body},
+};
 use tablo_saas::{
     accounts::User,
     billing::{
@@ -14,7 +17,6 @@ use tablo_saas::{
         jobs::{ReconcileBilling, SyncSeats},
         stripe::sign,
     },
-    jobs::{JobRow, JobState, enqueue},
     teams::{MemberResource, Team, TeamRole, actions::RemoveMember},
 };
 use topcoat::router::{Body, StatusCode, header::LOCATION};
@@ -77,7 +79,7 @@ async fn signed(harness: &Harness, body: &str) -> StatusCode {
 }
 
 async fn queued(harness: &Harness) -> usize {
-    JobRow::filter(JobRow::fields().state().eq(JobState::Queued))
+    QueuedJob::filter(QueuedJob::fields().state().eq(JobState::Queued))
         .exec(&mut harness.db.clone())
         .await
         .expect("query")
@@ -204,7 +206,7 @@ async fn a_failed_stripe_call_retries_the_event_rather_than_losing_it() {
     signed(&harness, &event("evt_1", "invoice.paid", "cus_1")).await;
     harness.run_jobs().await;
 
-    let jobs = JobRow::all()
+    let jobs = QueuedJob::all()
         .exec(&mut harness.db.clone())
         .await
         .expect("query");
@@ -253,7 +255,11 @@ async fn an_owner_leaves_for_checkout_with_the_team_seat_count() {
         .csrf(CSRF)
         .post_form(
             "/app/settings/billing/-/actions/checkout",
-            form_body(&[("plan", "pro"), ("interval", "month"), ("csrf_token", CSRF)]),
+            form_body(&[
+                ("plan", "pro"),
+                ("interval", "month"),
+                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
+            ]),
         )
         .await;
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
@@ -279,7 +285,10 @@ async fn an_owner_leaves_for_the_billing_portal() {
     let client = client_for(&harness, &ada, &team).await;
     let response = client
         .csrf(CSRF)
-        .post_form(MANAGE_BILLING, form_body(&[("csrf_token", CSRF)]))
+        .post_form(
+            MANAGE_BILLING,
+            form_body(&[("csrf_token", tablo::csrf::mask(CSRF).as_str())]),
+        )
         .await;
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
     assert_eq!(
@@ -300,7 +309,10 @@ async fn the_billing_portal_is_the_owner_s_alone() {
     let client = client_for(&harness, &grace, &team).await;
     let response = client
         .csrf(CSRF)
-        .post_form(MANAGE_BILLING, form_body(&[("csrf_token", CSRF)]))
+        .post_form(
+            MANAGE_BILLING,
+            form_body(&[("csrf_token", tablo::csrf::mask(CSRF).as_str())]),
+        )
         .await;
     assert!(
         response
@@ -321,7 +333,10 @@ async fn a_team_without_an_account_stays_on_the_billing_page() {
     let client = client_for(&harness, &ada, &team).await;
     let response = client
         .csrf(CSRF)
-        .post_form(MANAGE_BILLING, form_body(&[("csrf_token", CSRF)]))
+        .post_form(
+            MANAGE_BILLING,
+            form_body(&[("csrf_token", tablo::csrf::mask(CSRF).as_str())]),
+        )
         .await;
     let location = response
         .headers()
@@ -395,7 +410,11 @@ async fn an_unverified_account_does_not_reach_checkout() {
         .csrf(CSRF)
         .post_form(
             "/app/settings/billing/-/actions/checkout",
-            form_body(&[("plan", "pro"), ("interval", "month"), ("csrf_token", CSRF)]),
+            form_body(&[
+                ("plan", "pro"),
+                ("interval", "month"),
+                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
+            ]),
         )
         .await;
     assert_ne!(
@@ -426,7 +445,7 @@ async fn a_running_subscription_is_not_bought_twice() {
             form_body(&[
                 ("plan", "business"),
                 ("interval", "year"),
-                ("csrf_token", CSRF),
+                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
             ]),
         )
         .await;
@@ -534,7 +553,11 @@ async fn an_invitation_stops_at_the_free_plan_seat_limit() {
             .csrf(CSRF)
             .post_form(
                 "/app/settings/members/-/actions/invite",
-                form_body(&[("email", email), ("role", "member"), ("csrf_token", CSRF)]),
+                form_body(&[
+                    ("email", email),
+                    ("role", "member"),
+                    ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
+                ]),
             )
             .await;
     }

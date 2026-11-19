@@ -4167,10 +4167,11 @@ dependencies = [
 [[package]]
 name = "tablo"
 version = "0.11.1"
-source = "git+https://github.com/y-l-g/tablo.git?rev=4c5a7a7232d7c78e47787b3af4891ce80c32b38d#4c5a7a7232d7c78e47787b3af4891ce80c32b38d"
+source = "git+https://github.com/y-l-g/tablo.git?rev=525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc#525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc"
 dependencies = [
  "tablo-audit",
  "tablo-core",
+ "tablo-jobs",
  "tablo-test",
  "tablo-ui",
  "toasty",
@@ -4180,7 +4181,7 @@ dependencies = [
 [[package]]
 name = "tablo-audit"
 version = "0.11.1"
-source = "git+https://github.com/y-l-g/tablo.git?rev=4c5a7a7232d7c78e47787b3af4891ce80c32b38d#4c5a7a7232d7c78e47787b3af4891ce80c32b38d"
+source = "git+https://github.com/y-l-g/tablo.git?rev=525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc#525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc"
 dependencies = [
  "jiff",
  "serde",
@@ -4193,7 +4194,7 @@ dependencies = [
 [[package]]
 name = "tablo-build"
 version = "0.11.1"
-source = "git+https://github.com/y-l-g/tablo.git?rev=4c5a7a7232d7c78e47787b3af4891ce80c32b38d#4c5a7a7232d7c78e47787b3af4891ce80c32b38d"
+source = "git+https://github.com/y-l-g/tablo.git?rev=525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc#525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc"
 dependencies = [
  "topcoat",
 ]
@@ -4201,7 +4202,7 @@ dependencies = [
 [[package]]
 name = "tablo-core"
 version = "0.11.1"
-source = "git+https://github.com/y-l-g/tablo.git?rev=4c5a7a7232d7c78e47787b3af4891ce80c32b38d#4c5a7a7232d7c78e47787b3af4891ce80c32b38d"
+source = "git+https://github.com/y-l-g/tablo.git?rev=525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc#525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc"
 dependencies = [
  "aes-gcm 0.11.1",
  "ammonia",
@@ -4243,9 +4244,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "tablo-jobs"
+version = "0.11.1"
+source = "git+https://github.com/y-l-g/tablo.git?rev=525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc#525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc"
+dependencies = [
+ "aes-gcm 0.11.1",
+ "data-encoding",
+ "getrandom 0.4.3",
+ "hkdf 0.13.0",
+ "jiff",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tablo-core",
+ "toasty",
+ "tokio",
+ "topcoat",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "tablo-macros"
 version = "0.11.1"
-source = "git+https://github.com/y-l-g/tablo.git?rev=4c5a7a7232d7c78e47787b3af4891ce80c32b38d#4c5a7a7232d7c78e47787b3af4891ce80c32b38d"
+source = "git+https://github.com/y-l-g/tablo.git?rev=525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc#525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -4257,7 +4279,6 @@ dependencies = [
 name = "tablo-saas"
 version = "0.1.0"
 dependencies = [
- "aes-gcm 0.10.3",
  "anyhow",
  "clap",
  "dotenvy",
@@ -4285,7 +4306,7 @@ dependencies = [
 [[package]]
 name = "tablo-test"
 version = "0.11.1"
-source = "git+https://github.com/y-l-g/tablo.git?rev=4c5a7a7232d7c78e47787b3af4891ce80c32b38d#4c5a7a7232d7c78e47787b3af4891ce80c32b38d"
+source = "git+https://github.com/y-l-g/tablo.git?rev=525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc#525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc"
 dependencies = [
  "data-encoding",
  "form_urlencoded",
@@ -4307,7 +4328,7 @@ dependencies = [
 [[package]]
 name = "tablo-ui"
 version = "0.11.1"
-source = "git+https://github.com/y-l-g/tablo.git?rev=4c5a7a7232d7c78e47787b3af4891ce80c32b38d#4c5a7a7232d7c78e47787b3af4891ce80c32b38d"
+source = "git+https://github.com/y-l-g/tablo.git?rev=525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc#525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc"
 dependencies = [
  "topcoat",
 ]

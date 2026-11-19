@@ -5,19 +5,19 @@ mod support;
 use support::{client_for, harness, person, seat, staff_client};
 use tablo::{
     audit::{AuditEntry, AuditLog},
+    jobs::{JobState, QueuedJob},
     testing::TestClient,
 };
 use tablo_saas::{
     accounts::{Accounts, StaffRole},
     backoffice::{JobResource, RetryJob},
     billing::{BillingAccount, BillingStatus, PlanId},
-    jobs::{JobRow, JobState},
     teams::{MemberResource, TeamRole, actions::RemoveMember},
 };
 use topcoat::router::StatusCode;
 
-async fn dead_job(db: &toasty::Db) -> JobRow {
-    toasty::create!(JobRow {
+async fn dead_job(db: &toasty::Db) -> QueuedJob {
+    toasty::create!(QueuedJob {
         id: uuid::Uuid::now_v7(),
         kind: "prune-jobs".to_string(),
         payload: "null".to_string(),
@@ -26,6 +26,7 @@ async fn dead_job(db: &toasty::Db) -> JobRow {
         attempts: 8_u64,
         max_attempts: 8_u64,
         run_at: jiff::Timestamp::now(),
+        created_at: jiff::Timestamp::now(),
     })
     .exec(&mut db.clone())
     .await
@@ -85,7 +86,7 @@ async fn an_administrator_retries_a_dead_job_and_the_trail_says_so() {
 
     let reply = jobs.action::<RetryJob>(&job).submit().await;
     assert!(reply.status().is_redirection(), "{}", reply.status());
-    let row = JobRow::filter_by_id(job.id)
+    let row = QueuedJob::filter_by_id(job.id)
         .first()
         .exec(&mut harness.db.clone())
         .await

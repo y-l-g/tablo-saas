@@ -3,13 +3,17 @@
 //! Support reads; an administrator also acts, and reads who acted as a customer in the app panel.
 
 use jiff::Timestamp;
-use tablo::{audit::AuditEntry, auth, prelude::*};
+use tablo::{
+    audit::AuditEntry,
+    auth,
+    jobs::{JobState, QueuedJob, enqueue},
+    prelude::*,
+};
 use topcoat::{context::Cx, icon::iconify::iconify_icon};
 
 use crate::accounts::{SignedIn, StaffRole, User};
 use crate::audit::IMPERSONATION_EVENTS;
 use crate::billing::{BillingAccount, StripeEvent, jobs::RefreshCustomer};
-use crate::jobs::{JobRow, JobState, enqueue};
 use crate::teams::Team;
 
 fn role(cx: &Cx) -> Option<StaffRole> {
@@ -248,8 +252,7 @@ impl Action<SubscriptionResource> for Resync {
             })
             .dedupe(format!("refresh:{}", account.customer_id))
             .exec(&mut *ex)
-            .await
-            .map_err(|error| topcoat::Error::msg(format!("{error:#}")))?;
+            .await?;
         }
         Ok(Outcome::done())
     }
@@ -293,18 +296,18 @@ impl Resource for WebhookResource {
 pub struct JobResource;
 
 impl Resource for JobResource {
-    type Model = JobRow;
-    type Form = NoForm<JobRow>;
+    type Model = QueuedJob;
+    type Form = NoForm<QueuedJob>;
 
     fn declare() -> ResourceDef<Self> {
-        let col = JobRow::columns();
+        let col = QueuedJob::columns();
         ResourceDef::new()
             .slug("jobs")
             .icon(iconify_icon!("lucide:list-checks"))
             .tenancy(Tenancy::none())
-            .navigation_badge(JobRow::fields().state().eq(JobState::Dead))
+            .navigation_badge(QueuedJob::fields().state().eq(JobState::Dead))
             .policy(
-                read_and_export::<JobRow>(is_staff)
+                read_and_export::<QueuedJob>(is_staff)
                     .run::<RetryJob, _>(|cx, _| is_administrator(cx)),
             )
             .without_page(ResourcePage::View)
@@ -318,9 +321,9 @@ impl Resource for JobResource {
                     col.run_at.date().sortable(),
                     col.last_error.text().limit(80),
                 ))
-                .option_tabs(lens!(JobRow.state))
-                .filters((NumberFilter::new(lens!(JobRow.attempts)).range(),))
-                .default_sort_desc(lens!(JobRow.created_at)),
+                .option_tabs(lens!(QueuedJob.state))
+                .filters((NumberFilter::new(lens!(QueuedJob.attempts)).range(),))
+                .default_sort_desc(lens!(QueuedJob.created_at)),
             )
     }
 }
@@ -335,17 +338,17 @@ impl Action<JobResource> for RetryJob {
     fn declare() -> ActionDef<JobResource> {
         ActionDef::new()
             .tooltip(tablo::text!("hint-retry"))
-            .can_run(|_, job: &JobRow| job.state == JobState::Dead)
+            .can_run(|_, job: &QueuedJob| job.state == JobState::Dead)
     }
 
     async fn run(
         _cx: &Cx,
-        jobs: &[JobRow],
+        jobs: &[QueuedJob],
         (): (),
         ex: &mut dyn toasty::Executor,
     ) -> Result<Outcome, WriteError<()>> {
         for job in jobs.iter().filter(|job| job.state == JobState::Dead) {
-            JobRow::filter_by_id(job.id)
+            QueuedJob::filter_by_id(job.id)
                 .update()
                 .state(JobState::Queued)
                 .attempts(0)

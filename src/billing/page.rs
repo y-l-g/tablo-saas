@@ -84,9 +84,7 @@ impl Page for BillingPage {
         let team = tenant_id(cx).ok_or_else(forbidden)?;
         let billing = context::<Billing>(cx);
         let mut handle = db(cx)?;
-        let mut account = account_of(&mut handle, team)
-            .await
-            .map_err(|error| topcoat::Error::msg(format!("{error:#}")))?;
+        let mut account = account_of(&mut handle, team).await?;
         // Back from Checkout, the webhook may not have landed yet: ask Stripe now, so the buyer
         // sees what they bought. The webhook repeats this harmlessly.
         let returning = request::uri(cx)
