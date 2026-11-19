@@ -19,8 +19,8 @@ use crate::platform::config::Settings;
 use crate::teams::{CancelSubscription, PruneInvitations, SendInvitation};
 
 /// A worker running every job kind against the mounted panel's context, with what the jobs read
-/// beyond it. A worker that lacks a kind fails such a job instead of guessing. `mail` delivers,
-/// and `queue` opens what the panels' auth mail queued.
+/// beyond it. A worker claims only the kinds it registers, so a kind missing here waits in the
+/// queue forever. `mail` delivers, and `queue` opens what the panels' auth mail queued.
 pub fn worker<T: Transport + Clone + Send + Sync + 'static>(
     panel: &PanelHandle,
     settings: Settings,

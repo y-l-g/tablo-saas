@@ -3095,9 +3095,9 @@ dependencies = [
 
 [[package]]
 name = "qrcode"
-version = "0.14.1"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d68782463e408eb1e668cf6152704bd856c78c5b6417adaee3203d8f4c1fc9ec"
+checksum = "ace1a365f55004297f2cf24acfd96d02966246ca423385273b58a7dc873ee14d"
 
 [[package]]
 name = "quinn"
@@ -4167,7 +4167,7 @@ dependencies = [
 [[package]]
 name = "tablo"
 version = "0.11.1"
-source = "git+https://github.com/y-l-g/tablo.git?rev=525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc#525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc"
+source = "git+https://github.com/y-l-g/tablo.git?rev=fac339a696433c0ca3d95f095f9f05feb9e82f9b#fac339a696433c0ca3d95f095f9f05feb9e82f9b"
 dependencies = [
  "tablo-audit",
  "tablo-core",
@@ -4181,7 +4181,7 @@ dependencies = [
 [[package]]
 name = "tablo-audit"
 version = "0.11.1"
-source = "git+https://github.com/y-l-g/tablo.git?rev=525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc#525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc"
+source = "git+https://github.com/y-l-g/tablo.git?rev=fac339a696433c0ca3d95f095f9f05feb9e82f9b#fac339a696433c0ca3d95f095f9f05feb9e82f9b"
 dependencies = [
  "jiff",
  "serde",
@@ -4194,7 +4194,7 @@ dependencies = [
 [[package]]
 name = "tablo-build"
 version = "0.11.1"
-source = "git+https://github.com/y-l-g/tablo.git?rev=525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc#525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc"
+source = "git+https://github.com/y-l-g/tablo.git?rev=fac339a696433c0ca3d95f095f9f05feb9e82f9b#fac339a696433c0ca3d95f095f9f05feb9e82f9b"
 dependencies = [
  "topcoat",
 ]
@@ -4202,7 +4202,7 @@ dependencies = [
 [[package]]
 name = "tablo-core"
 version = "0.11.1"
-source = "git+https://github.com/y-l-g/tablo.git?rev=525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc#525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc"
+source = "git+https://github.com/y-l-g/tablo.git?rev=fac339a696433c0ca3d95f095f9f05feb9e82f9b#fac339a696433c0ca3d95f095f9f05feb9e82f9b"
 dependencies = [
  "aes-gcm 0.11.1",
  "ammonia",
@@ -4246,7 +4246,7 @@ dependencies = [
 [[package]]
 name = "tablo-jobs"
 version = "0.11.1"
-source = "git+https://github.com/y-l-g/tablo.git?rev=525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc#525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc"
+source = "git+https://github.com/y-l-g/tablo.git?rev=fac339a696433c0ca3d95f095f9f05feb9e82f9b#fac339a696433c0ca3d95f095f9f05feb9e82f9b"
 dependencies = [
  "aes-gcm 0.11.1",
  "data-encoding",
@@ -4267,7 +4267,7 @@ dependencies = [
 [[package]]
 name = "tablo-macros"
 version = "0.11.1"
-source = "git+https://github.com/y-l-g/tablo.git?rev=525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc#525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc"
+source = "git+https://github.com/y-l-g/tablo.git?rev=fac339a696433c0ca3d95f095f9f05feb9e82f9b#fac339a696433c0ca3d95f095f9f05feb9e82f9b"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -4306,7 +4306,7 @@ dependencies = [
 [[package]]
 name = "tablo-test"
 version = "0.11.1"
-source = "git+https://github.com/y-l-g/tablo.git?rev=525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc#525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc"
+source = "git+https://github.com/y-l-g/tablo.git?rev=fac339a696433c0ca3d95f095f9f05feb9e82f9b#fac339a696433c0ca3d95f095f9f05feb9e82f9b"
 dependencies = [
  "data-encoding",
  "form_urlencoded",
@@ -4328,7 +4328,7 @@ dependencies = [
 [[package]]
 name = "tablo-ui"
 version = "0.11.1"
-source = "git+https://github.com/y-l-g/tablo.git?rev=525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc#525b4e604fa0cfebfefdf8d3ce8ca9c899b200dc"
+source = "git+https://github.com/y-l-g/tablo.git?rev=fac339a696433c0ca3d95f095f9f05feb9e82f9b#fac339a696433c0ca3d95f095f9f05feb9e82f9b"
 dependencies = [
  "topcoat",
 ]
