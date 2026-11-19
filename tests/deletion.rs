@@ -231,11 +231,11 @@ async fn other_teams_keep_the_trail_without_the_name_of_who_left() {
     assert_eq!(trail[0].actor_id, None);
 }
 
-/// An entry on `panel` for `team`, by `user`.
-async fn entry(harness: &Harness, panel: &str, team: &Team, user: &User, event: &str) {
+/// An entry on `panel` for `team`, or for none, by `user`.
+async fn entry(harness: &Harness, panel: &str, team: Option<&Team>, user: &User, event: &str) {
     toasty::create!(AuditEntry {
         panel: panel.to_string(),
-        tenant: Some(team.tenant()),
+        tenant: team.map(Team::tenant),
         actor_id: Some(user.id.to_string()),
         actor: user.name.clone(),
         event: event.to_string(),
@@ -250,14 +250,15 @@ async fn entry(harness: &Harness, panel: &str, team: &Team, user: &User, event: 
     .expect("write the entry");
 }
 
-/// Back-office entries that name an administrator's personal team, as Tablo filed them before the
-/// back office acted for no team, outlive the account: deleting it erases the team's own trail.
+/// What staff did in the back office, which acts for no team, outlives their account: deleting it
+/// erases their personal team's trail alone. Migration 0015 moves the entries an older Tablo filed
+/// under the staff member's team to none.
 #[tokio::test]
 async fn deleting_an_account_keeps_what_its_staff_did_in_the_back_office() {
     let harness = harness().await;
     let (ada, personal) = person(&harness.db, "Ada", "ada@example.com").await;
-    entry(&harness, "/app", &personal, &ada, "action:remove").await;
-    entry(&harness, "/admin", &personal, &ada, "action:retry").await;
+    entry(&harness, "/app", Some(&personal), &ada, "action:remove").await;
+    entry(&harness, "/admin", None, &ada, "action:retry").await;
     let ada = with_password(&harness, &ada).await;
 
     let client = client_for(&harness, &ada, &personal).await;

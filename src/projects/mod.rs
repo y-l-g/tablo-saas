@@ -64,9 +64,8 @@ impl Resource for ProjectResource {
             .record_title(lens!(Project.name))
             .policy(
                 Abilities::<Project>::new()
-                    .view_any(|cx| current_role(cx).is_some())
+                    .read(|cx| current_role(cx).is_some())
                     .export(|cx| current_role(cx).is_some())
-                    .view(|cx, _| current_role(cx).is_some())
                     .create(|cx| current_role(cx).is_some())
                     .update(|cx, _| current_role(cx).is_some())
                     .delete(|cx, _| may_manage_members(cx)),
@@ -89,9 +88,9 @@ impl Resource for ProjectResource {
         ex: &mut dyn toasty::Executor,
     ) -> Result<Project, WriteError<ProjectForm>> {
         let team = tablo::require_tenant(cx)?;
-        let projects = crate::platform::database::count(
-            Project::filter(Project::fields().team_id().eq(team)).count(),
+        let projects = tablo::db::count_in(
             &mut *ex,
+            Project::filter(Project::fields().team_id().eq(team)),
         )
         .await?;
         if !current_entitlements(cx).may_add_project(projects) {

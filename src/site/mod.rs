@@ -10,7 +10,7 @@ use serde::Deserialize;
 use tablo::PanelHandle;
 use topcoat::{
     Result,
-    context::{Cx, context},
+    context::{Cx, base_url, context},
     cookie::{Cookie, Cookies, SameSite, cookies},
     font::{Font, fontsource::fontsource_font},
     icon::icon,
@@ -26,7 +26,6 @@ use topcoat::{
 
 use crate::billing::{CURRENCY, Feature, Plan, money, plan_name};
 use crate::panels::{LOGO_URL, PRODUCT_NAME};
-use crate::platform::config::Settings;
 
 /// The mounted panels: the one whose document and catalogs the site borrows, and the one it only
 /// links to.
@@ -727,18 +726,18 @@ fn typed(kind: &'static str) -> HeaderMap {
 /// `GET /robots.txt`: the site is public and the panels are not.
 #[route(GET "/robots.txt")]
 async fn robots(cx: &Cx) -> Result<(HeaderMap, String)> {
-    let base = &context::<Settings>(cx).base_url;
+    let map = base_url(cx).join("/sitemap.xml");
     Ok((
         typed("text/plain; charset=utf-8"),
-        format!("User-agent: *\nDisallow: /app\nDisallow: /admin\nSitemap: {base}/sitemap.xml\n"),
+        format!("User-agent: *\nDisallow: /app\nDisallow: /admin\nSitemap: {map}\n"),
     ))
 }
 
 /// `GET /sitemap.xml`.
 #[route(GET "/sitemap.xml")]
 async fn sitemap(cx: &Cx) -> Result<(HeaderMap, String)> {
-    let base = &context::<Settings>(cx).base_url;
-    let urls = PUBLIC_PATHS.map(|path| format!("<url><loc>{base}{path}</loc></url>"));
+    let base = base_url(cx);
+    let urls = PUBLIC_PATHS.map(|path| format!("<url><loc>{}</loc></url>", base.join(path)));
     let urls = urls.concat();
     Ok((
         typed("application/xml"),

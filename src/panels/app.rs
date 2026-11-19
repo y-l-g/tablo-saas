@@ -3,11 +3,10 @@
 use std::time::Duration;
 
 use tablo::{
-    Area, Auth, EmailVerification, Oidc, OidcProvider, Page, PageDef, Panel, PasswordReset,
-    TenantRegistration, TwoFactor, Widget, WidgetDef,
+    Area, Auth, EmailVerification, LoginThrottle, Oidc, OidcProvider, Page, PageDef, Panel,
+    PasswordReset, TenantRegistration, TwoFactor, Widget, WidgetDef,
     audit::{AuditLog, PanelAuditExt},
-    db::db,
-    ui,
+    db, ui,
 };
 use topcoat::{
     Result,
@@ -18,9 +17,7 @@ use topcoat::{
 
 use crate::accounts::{Accounts, SignedIn, password_auth};
 use crate::audit;
-use crate::billing::{
-    BILLING_URL, BillingPage, StandingBanner, is_urgent, plan_name, standing_notice,
-};
+use crate::billing::{BillingPage, StandingBanner, is_urgent, plan_name, standing_notice};
 use crate::platform::config::{Config, GOOGLE_ISSUER, GoogleSettings};
 use crate::projects::{Project, ProjectResource};
 use crate::support::{self, SupportResource};
@@ -81,11 +78,11 @@ fn settings() -> Area {
 fn auth(config: &Config) -> Auth<SignedIn> {
     let auth = Auth::custom(password_auth())
         .registration(Accounts)
-        .throttle(super::shared_throttle(5, Duration::from_mins(1)))
+        // Every replica counts against one limit, which a restart does not forget.
+        .throttles_in_database()
         // Past the per-address limit, a guesser rotating addresses still meets this one. It is
         // high enough that only a distributed guesser locks an owner out.
-        .account_throttle(super::shared_throttle(50, Duration::from_hours(1)))
-        .profile_throttle(super::shared_throttle(5, Duration::from_mins(1)))
+        .account_throttle(LoginThrottle::new(50, Duration::from_hours(1)))
         .mail(super::auth_mail(config))
         .password_reset(PasswordReset::new(password_auth()))
         .email_verification(EmailVerification::new(password_auth()))
@@ -95,7 +92,6 @@ fn auth(config: &Config) -> Auth<SignedIn> {
         .two_factor(
             TwoFactor::new()
                 .email_codes()
-                .throttle(super::shared_throttle(5, Duration::from_mins(1)))
                 .required_for(|_cx, signed: &SignedIn| signed.user.staff_role.is_some()),
         )
         .tenant_registration(TenantRegistration::new(Teams).required())
@@ -103,7 +99,7 @@ fn auth(config: &Config) -> Auth<SignedIn> {
         .impersonation(support::impersonation());
     match &config.google {
         Some(google) => {
-            auth.oidc(Oidc::new(config.base_url.clone(), Accounts).provider(provider(google)))
+            auth.oidc(Oidc::new(config.base_url.as_str(), Accounts).provider(provider(google)))
         }
         None => auth,
     }
@@ -147,23 +143,15 @@ impl Widget for PlanWidget {
     async fn render(cx: &Cx) -> Result<impl View> {
         let team = tablo::require_tenant(cx)?;
         let entitlements = current_entitlements(cx);
-        let mut handle = db(cx)?;
-        let projects = crate::platform::database::count(
-            Project::filter(Project::fields().team_id().eq(team)).count(),
-            &mut handle,
-        )
-        .await?;
-        let seats = crate::platform::database::count(
-            Member::filter(Member::fields().team_id().eq(team)).count(),
-            &mut handle,
-        )
-        .await?;
+        let projects = db::count(cx, Project::filter(Project::fields().team_id().eq(team))).await?;
+        let seats = db::count(cx, Member::filter(Member::fields().team_id().eq(team))).await?;
         // What the banner above the page already says is not said twice.
         let bannered = is_urgent(entitlements.standing) && may_manage_members(cx);
         let notice = (!bannered)
             .then(|| standing_notice(cx, entitlements.standing))
-            .flatten();
-        let usage = |used: usize, limit: Option<u32>| match limit {
+            .flatten()
+            .zip(tablo::url::page::<BillingPage>(cx));
+        let usage = |used: u64, limit: Option<u32>| match limit {
             Some(limit) => format!("{used} / {limit}"),
             None => used.to_string(),
         };
@@ -183,9 +171,9 @@ impl Widget for PlanWidget {
         ];
         Ok(view! {
             <div class="flex flex-col gap-4">
-                if let Some(notice) = notice {
+                if let Some((notice, billing)) = notice {
                     <p data-billing-notice="" class="rounded-lg border border-border bg-muted p-3 text-sm">
-                        <a href=(BILLING_URL) class="underline">(notice)</a>
+                        <a href=(billing) class="underline">(notice)</a>
                     </p>
                 }
                 <div class="grid gap-4 md:grid-cols-3">

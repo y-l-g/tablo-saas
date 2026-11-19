@@ -3,16 +3,13 @@
 //! a plan with [`Feature::AuditLog`]; the trail is written on every plan, so upgrading shows
 //! history. Staff read the back office's.
 //!
-//! What this module adds is erasure: an entry outlives the team or the account it names unless
-//! [`forget_team`] or [`forget_actor`] removes it. The actions that erase both are page header
-//! actions, which run no commit hook, so the log keeps no entry of its own for them.
+//! An entry outlives the team or the account it names unless [`tablo::audit::forget_tenant`] or
+//! [`tablo::audit::forget_actor`] removes it, as erasing either does. The actions that erase both
+//! are page header actions, which run no commit hook, so the log keeps no entry of its own for
+//! them.
 
-use tablo::{
-    ResourceDef, TenantId,
-    audit::{AuditEntry, AuditLog},
-    auth, when,
-};
-use topcoat::{Result, context::Cx, icon::iconify::iconify_icon};
+use tablo::{ResourceDef, audit::AuditLog, auth, when};
+use topcoat::{context::Cx, icon::iconify::iconify_icon};
 
 use crate::accounts::{SignedIn, StaffRole};
 use crate::billing::Feature;
@@ -38,57 +35,4 @@ pub fn staff_trail(def: ResourceDef<AuditLog>) -> ResourceDef<AuditLog> {
                 .is_some_and(|signed| signed.user.staff_role == Some(StaffRole::Administrator))
         }))
         .without_global_search()
-}
-
-/// The events Tablo records when staff start and stop acting as a customer.
-pub const IMPERSONATION_EVENTS: [&str; 2] = ["impersonate", "stop_impersonating"];
-
-/// The panel whose entries make up a team's own trail.
-const TEAM_PANEL: &str = "/app";
-
-/// Deletes `team`'s own trail, for a team being erased: its entries on `/app`, but those of staff
-/// acting as someone.
-///
-/// Entries on other panels stay whatever team they name. The back office acts for no team, so its
-/// entries name none; one that does, as an older Tablo filed them under the staff member's team,
-/// would otherwise let an administrator wipe what they did there by deleting their account. A
-/// start of acting as someone is filed under the actor's own team, and stays for the same reason,
-/// as the record of who reached which account.
-///
-/// # Errors
-///
-/// When the delete fails.
-pub async fn forget_team(ex: &mut dyn toasty::Executor, team: TenantId) -> Result<()> {
-    let fields = AuditEntry::fields();
-    AuditEntry::filter(
-        fields
-            .tenant()
-            .eq(Some(team))
-            .and(fields.panel().eq(TEAM_PANEL))
-            .and(
-                fields
-                    .event()
-                    .in_list(IMPERSONATION_EVENTS.map(String::from))
-                    .not(),
-            ),
-    )
-    .delete()
-    .exec(ex)
-    .await?;
-    Ok(())
-}
-
-/// Keeps what `user` did on other teams, but no longer who did it.
-///
-/// # Errors
-///
-/// When the update fails.
-pub async fn forget_actor(cx: &Cx, ex: &mut dyn toasty::Executor, user: uuid::Uuid) -> Result<()> {
-    AuditEntry::filter(AuditEntry::fields().actor_id().eq(Some(user.to_string())))
-        .update()
-        .actor_id(None::<String>)
-        .actor(tablo::t!(cx, "audit-deleted-actor"))
-        .exec(ex)
-        .await?;
-    Ok(())
 }

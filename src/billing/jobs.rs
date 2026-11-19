@@ -15,7 +15,7 @@ use super::{
 };
 use crate::accounts::User;
 use crate::platform::{
-    config::Settings,
+    http::public_url,
     mail::{Message, send_message},
     words::for_reader,
 };
@@ -118,7 +118,7 @@ impl Job for SendBillingNotice {
         };
         let user = User::get_by_id(&mut handle, owner.user_id).await?;
         let cx = &for_reader(cx, user.language());
-        let url = format!("{}{}", context::<Settings>(cx).base_url, super::page::URL);
+        let url = public_url(cx, tablo::url::page::<super::BillingPage>(cx))?;
         let (subject, body) = match self.notice {
             Notice::PaymentFailed => (
                 tablo::t!(cx, "mail-payment-failed-subject"),
@@ -182,9 +182,9 @@ impl Job for SyncSeats {
         ) else {
             return Ok(());
         };
-        let members = crate::platform::database::count(
-            Member::filter(Member::fields().team_id().eq(team)).count(),
+        let members = tablo::db::count_in(
             &mut handle,
+            Member::filter(Member::fields().team_id().eq(team)),
         )
         .await?;
         let seats = i64::try_from(members.max(1))?;

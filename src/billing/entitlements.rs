@@ -80,12 +80,12 @@ impl Entitlements {
     }
 
     /// Whether a team of `seats` may take one more person.
-    pub fn may_add_seat(&self, seats: usize) -> bool {
+    pub fn may_add_seat(&self, seats: u64) -> bool {
         within(self.plan.seat_limit, seats)
     }
 
     /// Whether a team with `projects` may start one more.
-    pub fn may_add_project(&self, projects: usize) -> bool {
+    pub fn may_add_project(&self, projects: u64) -> bool {
         within(self.plan.project_limit, projects)
     }
 
@@ -94,8 +94,8 @@ impl Entitlements {
     }
 }
 
-fn within(limit: Option<u32>, used: usize) -> bool {
-    limit.is_none_or(|limit| used < limit as usize)
+fn within(limit: Option<u32>, used: u64) -> bool {
+    limit.is_none_or(|limit| used < u64::from(limit))
 }
 
 #[cfg(test)]

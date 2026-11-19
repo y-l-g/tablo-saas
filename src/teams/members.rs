@@ -32,9 +32,8 @@ impl Resource for MemberResource {
             .without_global_search()
             .policy(
                 Abilities::new()
-                    .view_any(|_cx| true)
+                    .read(|_cx| true)
                     .export(|_cx| true)
-                    .view(|_cx, _member| true)
                     .run::<ChangeRole, _>(may_change)
                     .run::<RemoveMember, _>(may_change)
                     .run::<TransferOwnership, _>(|cx, _| current_role(cx) == Some(TeamRole::Owner))

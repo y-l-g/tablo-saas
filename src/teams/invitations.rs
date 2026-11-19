@@ -1,7 +1,7 @@
 //! Inviting people: the team's outgoing invitations, and the ones addressed to the signed-in user.
 
 use jiff::{SignedDuration, Timestamp};
-use tablo::{Notification, Widget, WidgetDef, auth, db::db, jobs::enqueue, prelude::*};
+use tablo::{Notification, Widget, WidgetDef, auth, jobs::enqueue, prelude::*};
 use topcoat::{
     context::Cx,
     icon::iconify::iconify_icon,
@@ -15,10 +15,6 @@ use super::{
 };
 use crate::accounts::{SignedIn, User, normalize_email};
 use crate::billing::{Entitlements, account_of, jobs::sync_seats_later};
-
-/// Where the signed-in user answers the invitations addressed to them: the account group of the
-/// settings area. A mail names it outside any request, so it is spelled out rather than resolved.
-pub const INCOMING_URL: &str = "/app/settings/invitations";
 
 /// How long an invitation stands.
 const LIFETIME: SignedDuration = SignedDuration::from_hours(14 * 24);
@@ -84,21 +80,20 @@ impl HeaderAction for InviteMember {
             }
         }
         let now = Timestamp::now();
-        let members = crate::platform::database::count(
-            Member::filter(Member::fields().team_id().eq(membership.tenant)).count(),
+        let members = tablo::db::count_in(
             &mut *ex,
+            Member::filter(Member::fields().team_id().eq(membership.tenant)),
         )
         .await?;
-        let waiting = crate::platform::database::count(
+        let waiting = tablo::db::count_in(
+            &mut *ex,
             Invitation::filter(
                 Invitation::fields()
                     .team_id()
                     .eq(membership.tenant)
                     .and(Invitation::fields().expires_at().gt(now))
                     .and(Invitation::fields().email().ne(&email)),
-            )
-            .count(),
-            &mut *ex,
+            ),
         )
         .await?;
         if !current_entitlements(cx).may_add_seat(members + waiting) {
@@ -146,8 +141,7 @@ impl Resource for InvitationResource {
             .without_global_search()
             .policy(
                 Abilities::new()
-                    .view_any(may_manage_members)
-                    .view(|cx, _invitation| may_manage_members(cx))
+                    .read(may_manage_members)
                     .run::<RevokeInvitation, _>(|cx, _| may_manage_members(cx)),
             )
             .action::<RevokeInvitation>()
@@ -262,9 +256,9 @@ impl Action<IncomingInvitationResource> for AcceptInvitation {
         for invitation in invitations {
             // The plan may have shrunk since the invitation went out.
             let account = account_of(&mut *ex, invitation.team_id).await?;
-            let members = crate::platform::database::count(
-                Member::filter(Member::fields().team_id().eq(invitation.team_id)).count(),
+            let members = tablo::db::count_in(
                 &mut *ex,
+                Member::filter(Member::fields().team_id().eq(invitation.team_id)),
             )
             .await?;
             if !Entitlements::of(account.as_ref(), Timestamp::now()).may_add_seat(members) {
@@ -321,22 +315,23 @@ impl Widget for IncomingInvitationsWidget {
     }
 
     async fn render(cx: &Cx) -> topcoat::Result<impl View> {
-        let waiting = crate::platform::database::count(
+        let waiting = tablo::db::count(
+            cx,
             Invitation::filter(
                 Invitation::fields()
                     .email()
                     .eq(own_email(cx))
                     .and(Invitation::fields().expires_at().gt(Timestamp::now())),
-            )
-            .count(),
-            &mut db(cx)?,
+            ),
         )
         .await?;
-        let notice = (waiting > 0).then(|| tablo::t!(cx, "invitations-waiting", count = waiting));
+        let notice = (waiting > 0)
+            .then(|| tablo::t!(cx, "invitations-waiting", count = waiting))
+            .zip(tablo::url::resource::<IncomingInvitationResource>(cx));
         Ok(view! {
-            if let Some(notice) = notice {
+            if let Some((notice, incoming)) = notice {
                 <p data-invitations-notice="" class="rounded-lg border border-border bg-muted p-3 text-sm">
-                    <a href=(INCOMING_URL) class="underline">(notice)</a>
+                    <a href=(incoming) class="underline">(notice)</a>
                 </p>
             }
         })

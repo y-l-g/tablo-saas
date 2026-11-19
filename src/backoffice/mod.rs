@@ -4,7 +4,7 @@
 
 use jiff::Timestamp;
 use tablo::{
-    audit::AuditEntry,
+    audit::{AuditEntry, ImpersonationEvent, impersonations},
     auth,
     jobs::{JobState, QueuedJob, enqueue},
     prelude::*,
@@ -12,7 +12,6 @@ use tablo::{
 use topcoat::{context::Cx, icon::iconify::iconify_icon};
 
 use crate::accounts::{SignedIn, StaffRole, User};
-use crate::audit::IMPERSONATION_EVENTS;
 use crate::billing::{BillingAccount, StripeEvent, jobs::RefreshCustomer};
 use crate::teams::Team;
 
@@ -30,10 +29,7 @@ fn is_administrator(cx: &Cx) -> bool {
 
 /// Lets the staff `allowed` lets in read a resource and download its list as CSV.
 fn read_and_export<M: Send + Sync + 'static>(allowed: fn(&Cx) -> bool) -> Abilities<M> {
-    Abilities::new()
-        .view_any(allowed)
-        .view(move |cx, _| allowed(cx))
-        .export(allowed)
+    Abilities::new().read(allowed).export(allowed)
 }
 
 /// Every account.
@@ -103,11 +99,10 @@ impl Resource for ImpersonationResource {
             .without_page(ResourcePage::View)
             .without_global_search()
             .query(
-                AuditEntry::fields().panel().eq(APP_PANEL.to_string()).and(
-                    AuditEntry::fields()
-                        .event()
-                        .in_list(IMPERSONATION_EVENTS.map(String::from)),
-                ),
+                AuditEntry::fields()
+                    .panel()
+                    .eq(APP_PANEL.to_string())
+                    .and(impersonations()),
             )
             .table(
                 Table::new((
@@ -136,33 +131,28 @@ impl Resource for ImpersonationResource {
     }
 }
 
-/// The customer an entry names, as they were called then: Tablo records them as the `user`
-/// change's new value. A session that ran out is stopped without the name, and Tablo writes the
-/// id in its place, which the next column already shows.
+/// The customer an entry names, as they were called then. A session that ran out is stopped
+/// without the name; the next column shows the id.
 fn customer_named(_cx: &Cx, entry: &AuditEntry) -> String {
-    entry
-        .changes
-        .0
-        .iter()
-        .find(|change| change.field == "user")
-        .and_then(|change| change.after.clone())
-        .filter(|name| entry.record.as_deref() != Some(name.as_str()))
-        .unwrap_or_else(|| "—".to_string())
+    let name = match entry.impersonation() {
+        Some(
+            ImpersonationEvent::Started { user_name, .. }
+            | ImpersonationEvent::Stopped { user_name, .. },
+        ) => user_name,
+        _ => None,
+    };
+    name.unwrap_or_else(|| "—".to_string())
 }
 
-/// When a start was due to end at the latest, as Tablo records it in the `until` change: a start
-/// with no stop after it, whose session simply expired, ended then. A stop has none.
+/// When a start was due to end at the latest: a start with no stop after it, whose session simply
+/// expired, ended then. A stop has none.
 fn ends_by(_cx: &Cx, entry: &AuditEntry) -> String {
-    entry
-        .changes
-        .0
-        .iter()
-        .find(|change| change.field == "until")
-        .and_then(|change| change.after.as_deref()?.parse::<Timestamp>().ok())
-        .map_or_else(
-            || "—".to_string(),
-            |until| until.strftime("%Y-%m-%d %H:%M UTC").to_string(),
-        )
+    match entry.impersonation() {
+        Some(ImpersonationEvent::Started {
+            until: Some(until), ..
+        }) => until.strftime("%Y-%m-%d %H:%M UTC").to_string(),
+        _ => "—".to_string(),
+    }
 }
 
 /// Every team.

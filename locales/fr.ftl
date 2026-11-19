@@ -194,7 +194,6 @@ site-guide = Guide de Tablo
 site-demo = Démo de Tablo
 site-examples = Galerie d'exemples
 site-built-with = Construit avec Tablo, Topcoat et Toasty.
-audit-deleted-actor = Un compte supprimé
 
 ## Libellés que Tablo cherche par convention
 

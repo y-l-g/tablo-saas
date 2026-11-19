@@ -15,7 +15,6 @@ use tablo::{
 };
 use tablo_saas::{
     accounts::{Accounts, StaffRole, User},
-    audit,
     backoffice::ImpersonationResource,
     billing::{BillingAccount, BillingStatus, PlanId},
     support::{ActAs, SupportResource},
@@ -590,7 +589,7 @@ async fn deleting_the_staff_members_team_keeps_the_log() {
         .await
         .expect("query");
     for seat in own {
-        audit::forget_team(&mut db, seat.team_id)
+        tablo::audit::forget_tenant(&mut db, seat.team_id)
             .await
             .expect("forget the team");
     }

@@ -10,8 +10,8 @@ use tablo::testing::{
 use tablo_saas::{
     accounts::{Accounts, User},
     teams::{
-        INCOMING_URL, IncomingInvitationResource, Invitation, InvitationResource, Member,
-        MemberResource, TeamRole,
+        IncomingInvitationResource, Invitation, InvitationResource, Member, MemberResource,
+        TeamRole,
         actions::{
             AcceptInvitation, ChangeRole, LeaveTeam, RemoveMember, RevokeInvitation,
             TransferOwnership,
@@ -21,6 +21,9 @@ use tablo_saas::{
 use topcoat::router::{Body, StatusCode};
 
 const CSRF: &str = "3f0f6d3a-8f43-4f4d-9c59-2d3b3b1f4a11";
+
+/// Where the signed-in user answers the invitations addressed to them.
+const INCOMING_URL: &str = "/app/settings/invitations";
 
 /// Posts the invite form the members page opens.
 async fn invite(client: &TestClient<'_>, email: &str, role: &str) -> http::Response<Body> {

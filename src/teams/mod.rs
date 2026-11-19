@@ -28,9 +28,7 @@ pub mod actions {
 pub use access::{TeamPlan, current_entitlements, current_role, may_manage_members, role_in};
 pub use deletion::{CancelSubscription, delete_team, erase_unproved};
 pub use export::{AccountExport, EXPORT_URL, export_account};
-pub use invitations::{
-    INCOMING_URL, IncomingInvitationResource, IncomingInvitationsWidget, InvitationResource,
-};
+pub use invitations::{IncomingInvitationResource, IncomingInvitationsWidget, InvitationResource};
 pub use mail::{PruneInvitations, SendInvitation};
 pub use members::MemberResource;
 pub use models::{Invitation, Member, Team, TeamRole};

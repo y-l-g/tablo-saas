@@ -5,11 +5,11 @@ use tablo::{FormInput, HeaderAction, HeaderActionDef, Outcome, WriteError, auth,
 use topcoat::context::{Cx, context};
 
 use super::{
-    Billing, BillingInterval, Plan, PlanId, ensure_account, lookup_key, page::URL,
+    Billing, BillingInterval, BillingPage, Plan, PlanId, ensure_account, lookup_key,
     stripe::NewCheckout,
 };
 use crate::accounts::SignedIn;
-use crate::platform::config::Settings;
+use crate::platform::{config::Settings, http::public_url};
 use crate::teams::{Member, TeamRole, current_role};
 
 /// What a plan card's button carries: which plan, billed how often.
@@ -68,12 +68,13 @@ impl HeaderAction for Checkout {
             .await
             .map_err(unavailable)?
             .ok_or_else(|| unavailable(format!("no price `{key}`: run `billing sync-catalog`")))?;
-        let seats = crate::platform::database::count(
-            Member::filter(Member::fields().team_id().eq(team)).count(),
+        let seats = tablo::db::count_in(
             &mut *ex,
+            Member::filter(Member::fields().team_id().eq(team)),
         )
         .await?;
         let settings = context::<Settings>(cx);
+        let page = public_url(cx, tablo::url::page::<BillingPage>(cx)).map_err(unavailable)?;
         let url = billing
             .gateway()
             .create_checkout(NewCheckout {
@@ -88,8 +89,8 @@ impl HeaderAction for Checkout {
                     .then_some(settings.trial_days)
                     .flatten(),
                 automatic_tax: settings.automatic_tax,
-                success_url: format!("{}{URL}?checkout=success", settings.base_url),
-                cancel_url: format!("{}{URL}", settings.base_url),
+                success_url: format!("{page}?checkout=success"),
+                cancel_url: page,
             })
             .await
             .map_err(unavailable)?;
