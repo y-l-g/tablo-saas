@@ -19,6 +19,10 @@ pub struct Job {
     /// Runs in one lane run one at a time, so two syncs of one customer never interleave.
     #[index]
     pub lane: Option<String>,
+    /// The lane while the job runs, and `None` otherwise. Unique, so the database refuses a
+    /// second running job in one lane, whichever worker claims it.
+    #[unique]
+    pub running_lane: Option<String>,
     /// While queued, a second enqueue of the same key changes nothing. A claim frees it, so work
     /// arriving during a run queues behind that run instead of being lost.
     #[unique]

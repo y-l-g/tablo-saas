@@ -132,6 +132,8 @@ impl Worker {
         if due.is_empty() {
             return Ok(Vec::new());
         }
+        // Saves a doomed update per held-back job. Exclusion itself is `running_lane`'s unique
+        // index: this read is stale as soon as another worker claims.
         let mut busy: HashSet<String> =
             JobRow::filter(JobRow::fields().state().eq(JobState::Running))
                 .exec(&mut db)
@@ -147,9 +149,13 @@ impl Worker {
             }
             let free_key = job.id.to_string();
             let attempts = job.attempts + 1;
+            let running_lane = job.lane.clone();
+            // Lost to the version check when another worker claimed this job, and to the unique
+            // `running_lane` when another worker claimed a job of its lane.
             let won = job
                 .update()
                 .state(JobState::Running)
+                .running_lane(running_lane)
                 .attempts(attempts)
                 .locked_until(Some(locked_until))
                 .dedupe_key(free_key)
@@ -194,6 +200,7 @@ impl Worker {
             Ok(()) => {
                 job.update()
                     .state(JobState::Succeeded)
+                    .running_lane(None)
                     .locked_until(None)
                     .finished_at(Some(now))
                     .exec(&mut db)
@@ -205,6 +212,7 @@ impl Worker {
                     tracing::error!(error = %message, "a job is dead");
                     job.update()
                         .state(JobState::Dead)
+                        .running_lane(None)
                         .locked_until(None)
                         .finished_at(Some(now))
                         .last_error(Some(message))
@@ -215,6 +223,7 @@ impl Worker {
                     let run_at = now.checked_add(backoff(job.attempts, job.id))?;
                     job.update()
                         .state(JobState::Queued)
+                        .running_lane(None)
                         .locked_until(None)
                         .run_at(run_at)
                         .last_error(Some(message))
@@ -250,6 +259,7 @@ impl Worker {
             let _ = job
                 .update()
                 .state(state)
+                .running_lane(None)
                 .locked_until(None)
                 .last_error(Some("the worker running it stopped".to_string()))
                 .exec(&mut db)

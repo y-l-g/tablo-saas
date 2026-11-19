@@ -303,3 +303,58 @@ async fn racing_workers_run_a_job_once() {
     }
     assert_eq!(runs.load(Ordering::SeqCst), 8);
 }
+
+/// Holds its lane for a moment, counting how many runs of the lane overlap.
+#[derive(Clone, Serialize, Deserialize)]
+struct Hold;
+
+#[derive(Default)]
+struct Overlap {
+    running: AtomicUsize,
+    most: AtomicUsize,
+}
+
+impl Job for Hold {
+    const KIND: &'static str = "hold";
+
+    fn lane(&self) -> Option<String> {
+        Some("customer".to_string())
+    }
+
+    async fn run(self, cx: &Cx) -> anyhow::Result<()> {
+        let overlap = context::<Arc<Overlap>>(cx);
+        let running = overlap.running.fetch_add(1, Ordering::SeqCst) + 1;
+        overlap.most.fetch_max(running, Ordering::SeqCst);
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        overlap.running.fetch_sub(1, Ordering::SeqCst);
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn racing_workers_never_overlap_a_lane() {
+    let harness = harness().await;
+    let overlap = Arc::new(Overlap::default());
+    let mut db = harness.db.clone();
+    for _ in 0..4 {
+        enqueue(&Hold).exec(&mut db).await.expect("enqueue");
+    }
+    let racers: Vec<_> = (0..4)
+        .map(|_| {
+            let overlap = Arc::clone(&overlap);
+            Arc::new(Worker::new(
+                harness.db.clone(),
+                Registry::default().register::<Hold>(),
+                vec![],
+                move || Cx::new().with(Arc::clone(&overlap)),
+            ))
+        })
+        .map(|worker| tokio::spawn(async move { worker.drain_once().await }))
+        .collect();
+    let mut claimed = 0;
+    for racer in racers {
+        claimed += racer.await.expect("join").expect("drain");
+    }
+    assert_eq!(overlap.most.load(Ordering::SeqCst), 1);
+    assert_eq!(claimed, 1, "the lane held the other three back");
+}
