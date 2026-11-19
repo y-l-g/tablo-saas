@@ -2,13 +2,13 @@
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
+use tablo::jobs::AuthMailQueue;
 use tokio::{net::TcpListener, sync::watch};
 use topcoat::asset::AssetBundle;
 
 use crate::accounts::{StaffRole, User, normalize_email};
 use crate::background;
 use crate::billing::{Billing, sync_catalog};
-use crate::jobs::MailSeal;
 use crate::platform::{config::Config, database, mail::Postbox, telemetry};
 use crate::router::{App, router};
 
@@ -113,13 +113,13 @@ impl Cli {
         })
         .map_err(|error| anyhow::anyhow!("{error:#}"))?;
         let worker = background::worker(
-            db,
             &built.app_panel,
             config.settings(),
             billing,
             mail,
-            MailSeal::new(&config.cookie_key),
-        );
+            &AuthMailQueue::new(&config.cookie_key),
+        )
+        .map_err(|error| anyhow::anyhow!("{error:#}"))?;
 
         match command {
             Command::Migrate | Command::Billing { .. } | Command::Staff { .. } => {

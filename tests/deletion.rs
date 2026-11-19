@@ -7,13 +7,13 @@ use tablo::{
     Notification,
     audit::AuditEntry,
     auth::{AuthFactor, AuthSession, AuthToken, ColumnPreference, FactorKind, TokenPurpose},
+    jobs::QueuedJob,
     notification::StoredNotification,
     testing::{body_string, form_body},
 };
 use tablo_saas::{
     accounts::{Identity, User},
     billing::{BillingAccount, BillingStatus, PlanId},
-    jobs::JobRow,
     teams::{Member, Team, TeamRole, create_team},
 };
 use topcoat::router::{
@@ -74,7 +74,11 @@ async fn deleting_a_team_cancels_its_subscription_through_a_job() {
         .csrf(CSRF)
         .post_form(
             "/app/settings/team/-/actions/delete-team",
-            form_body(&[("name", "nope"), ("confirm", "1"), ("csrf_token", CSRF)]),
+            form_body(&[
+                ("name", "nope"),
+                ("confirm", "1"),
+                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
+            ]),
         )
         .await;
     assert_eq!(wrong.status(), StatusCode::OK, "the form says why");
@@ -87,7 +91,7 @@ async fn deleting_a_team_cancels_its_subscription_through_a_job() {
             form_body(&[
                 ("name", "Analytical"),
                 ("confirm", "1"),
-                ("csrf_token", CSRF),
+                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
             ]),
         )
         .await;
@@ -127,7 +131,7 @@ async fn a_member_cannot_delete_a_team_nor_an_owner_their_last() {
     let body = form_body(&[
         ("name", "Ada's team"),
         ("confirm", "1"),
-        ("csrf_token", CSRF),
+        ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
     ]);
 
     for client in [
@@ -159,7 +163,7 @@ async fn deleting_an_account_erases_it_with_the_teams_only_it_used() {
             form_body(&[
                 ("password", PASSWORD),
                 ("confirm", "1"),
-                ("csrf_token", CSRF),
+                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
             ]),
         )
         .await;
@@ -213,7 +217,7 @@ async fn other_teams_keep_the_trail_without_the_name_of_who_left() {
             form_body(&[
                 ("password", PASSWORD),
                 ("confirm", "1"),
-                ("csrf_token", CSRF),
+                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
             ]),
         )
         .await;
@@ -264,7 +268,7 @@ async fn deleting_an_account_keeps_what_its_staff_did_in_the_back_office() {
             form_body(&[
                 ("password", PASSWORD),
                 ("confirm", "1"),
-                ("csrf_token", CSRF),
+                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
             ]),
         )
         .await;
@@ -300,7 +304,7 @@ async fn an_owner_of_a_shared_team_transfers_before_leaving() {
             form_body(&[
                 ("password", PASSWORD),
                 ("confirm", "1"),
-                ("csrf_token", CSRF),
+                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
             ]),
         )
         .await;
@@ -436,7 +440,7 @@ async fn deleting_an_account_leaves_no_session_factor_or_notification_behind() {
             form_body(&[
                 ("password", PASSWORD),
                 ("confirm", "1"),
-                ("csrf_token", CSRF),
+                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
             ]),
         )
         .await;
@@ -462,12 +466,12 @@ async fn a_wrong_password_deletes_nothing() {
             form_body(&[
                 ("password", "wrong"),
                 ("confirm", "1"),
-                ("csrf_token", CSRF),
+                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
             ]),
         )
         .await;
     assert_eq!(teams(&harness).await, 1);
-    let queued = JobRow::all()
+    let queued = QueuedJob::all()
         .exec(&mut harness.db.clone())
         .await
         .expect("query");
@@ -511,7 +515,10 @@ async fn the_language_switch_sets_the_site_and_both_panels_in_one_post() {
         .csrf(CSRF)
         .post_form(
             "/locale",
-            form_body(&[("locale", "fr"), ("csrf_token", CSRF)]),
+            form_body(&[
+                ("locale", "fr"),
+                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
+            ]),
         )
         .await;
     assert_eq!(switched.status(), StatusCode::SEE_OTHER);
@@ -536,7 +543,10 @@ async fn the_language_switch_sets_the_site_and_both_panels_in_one_post() {
         .csrf(CSRF)
         .post_form(
             "/locale",
-            form_body(&[("locale", "xx"), ("csrf_token", CSRF)]),
+            form_body(&[
+                ("locale", "xx"),
+                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
+            ]),
         )
         .await;
     assert_eq!(refused.status(), StatusCode::FORBIDDEN);

@@ -5,7 +5,6 @@
 | Confirm a Google-only account by signing in with Google again, where a page asks for its password | Tablo |
 | SSO per team (SAML, OIDC) and SCIM | Tablo |
 | Passkeys and magic links | Tablo |
-| Move `src/jobs` into a crate of its own | |
 | Claim jobs with `SELECT … FOR UPDATE SKIP LOCKED` | Toasty |
 | Declare foreign keys, checks and partial unique indexes on the models | Toasty |
 | Build indexes concurrently from generated migrations | Toasty |

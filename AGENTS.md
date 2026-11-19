@@ -12,8 +12,8 @@ cli → router → panels → domains → platform
 ```
 
 - `platform/` knows no business rule and imports no domain.
-- `jobs/` is a domain with no business rule: other domains define jobs, and `background.rs` lists
-  them all.
+- The job queue is `tablo::jobs`: each domain defines its jobs, and `background.rs` lists them
+  all.
 - A domain owns its models, resources, pages and jobs; `mod.rs` re-exports what others name.
 - `Config` is the only reader of the environment.
 

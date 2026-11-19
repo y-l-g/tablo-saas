@@ -5,9 +5,10 @@ mod support;
 use support::harness;
 use tablo::{
     auth::AuthThrottle,
+    jobs::QueuedJob,
     testing::{TestClient, form_body},
 };
-use tablo_saas::{accounts::User, jobs::JobRow};
+use tablo_saas::accounts::User;
 use topcoat::router::Body;
 use topcoat::router::header::LOCATION;
 
@@ -52,7 +53,7 @@ async fn auth_mail_waits_in_the_queue_sealed_until_the_worker_sends_it() {
     let client = TestClient::new(&harness.app);
     sign_up(&client, "ada@example.com").await;
 
-    let queued = JobRow::filter(JobRow::fields().kind().eq("send-mail"))
+    let queued = QueuedJob::all()
         .exec(&mut harness.db.clone())
         .await
         .expect("query");

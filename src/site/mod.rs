@@ -239,7 +239,7 @@ fn switches<'a>(cx: &'a Cx, entered: &Cx) -> BoxView<'a> {
         <div class="ld-seg" role="group" aria-label=(t("tablo-shell-language"))>
             for (tag, name, current) in languages {
                 <form method="post" action="/locale">
-                    <input type="hidden" name=(tablo::csrf::FIELD_NAME) value=(csrf.clone())>
+                    (tablo::csrf::field(cx, &csrf))
                     <input type="hidden" name="locale" value=(tag)>
                     <button type="submit" title=(name) lang=(tag) aria-current=(current.then_some("true"))>
                         (tag)

@@ -70,7 +70,7 @@ pub struct Message<'a> {
 ///
 /// Inline styles alone: a mail client reads no stylesheet. The caller is a job, and the error
 /// sends it round again.
-pub async fn send_message(cx: &Cx, message: Message<'_>) -> anyhow::Result<()> {
+pub async fn send_message(cx: &Cx, message: Message<'_>) -> topcoat::Result<()> {
     let Message {
         to,
         subject,
@@ -80,7 +80,7 @@ pub async fn send_message(cx: &Cx, message: Message<'_>) -> anyhow::Result<()> {
         url,
     } = message;
     let from = context::<Settings>(cx).mail_from.clone();
-    let to = Mailbox::new(to).map_err(|error| anyhow::anyhow!("{error:#}"))?;
+    let to = Mailbox::new(to)?;
     let html = view! {
         <div style="font-family: system-ui, sans-serif; max-width: 32rem; margin: 0 auto; color: #121912;">
             <h1 style="font-size: 1.25rem;">(title)</h1>
@@ -97,12 +97,9 @@ pub async fn send_message(cx: &Cx, message: Message<'_>) -> anyhow::Result<()> {
         .to([to])
         .subject(subject)
         .html(cx, html)
-        .await
-        .map_err(|error| anyhow::anyhow!("{error:#}"))?
+        .await?
         .build()?;
-    send(cx, mail)
-        .await
-        .map_err(|error| anyhow::anyhow!("{error:#}"))?;
+    send(cx, mail).await?;
     Ok(())
 }
 

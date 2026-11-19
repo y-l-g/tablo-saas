@@ -90,9 +90,7 @@ async fn seats_changed(
     ex: &mut dyn toasty::Executor,
 ) -> Result<(), WriteError<()>> {
     for member in members {
-        sync_seats_later(&mut *ex, member.team_id)
-            .await
-            .map_err(|error| topcoat::Error::msg(format!("{error:#}")))?;
+        sync_seats_later(&mut *ex, member.team_id).await?;
     }
     Ok(())
 }

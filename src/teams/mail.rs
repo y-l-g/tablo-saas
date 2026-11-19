@@ -2,12 +2,11 @@
 
 use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
-use tablo::db::db;
+use tablo::{db::db, jobs::Job};
 use topcoat::context::{Cx, context};
 
 use super::{Invitation, invitations::INCOMING_URL};
 use crate::accounts::User;
-use crate::jobs::Job;
 use crate::platform::{
     config::Settings,
     mail::{Message, send_message},
@@ -24,8 +23,8 @@ pub struct SendInvitation {
 impl Job for SendInvitation {
     const KIND: &'static str = "send-invitation";
 
-    async fn run(self, cx: &Cx) -> anyhow::Result<()> {
-        let mut handle = db(cx).map_err(|error| anyhow::anyhow!("{error:#}"))?;
+    async fn run(self, cx: &Cx) -> topcoat::Result<()> {
+        let mut handle = db(cx)?;
         let Some(invitation) = Invitation::filter_by_id(self.invitation)
             .first()
             .exec(&mut handle)
@@ -65,8 +64,8 @@ pub struct PruneInvitations;
 impl Job for PruneInvitations {
     const KIND: &'static str = "prune-invitations";
 
-    async fn run(self, cx: &Cx) -> anyhow::Result<()> {
-        let mut handle = db(cx).map_err(|error| anyhow::anyhow!("{error:#}"))?;
+    async fn run(self, cx: &Cx) -> topcoat::Result<()> {
+        let mut handle = db(cx)?;
         Invitation::filter(Invitation::fields().expires_at().le(Timestamp::now()))
             .delete()
             .exec(&mut handle)

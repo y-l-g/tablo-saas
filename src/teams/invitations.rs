@@ -1,7 +1,7 @@
 //! Inviting people: the team's outgoing invitations, and the ones addressed to the signed-in user.
 
 use jiff::{SignedDuration, Timestamp};
-use tablo::{Notification, Widget, WidgetDef, auth, db::db, prelude::*};
+use tablo::{Notification, Widget, WidgetDef, auth, db::db, jobs::enqueue, prelude::*};
 use topcoat::{
     context::Cx,
     icon::iconify::iconify_icon,
@@ -15,7 +15,6 @@ use super::{
 };
 use crate::accounts::{SignedIn, User, normalize_email};
 use crate::billing::{Entitlements, account_of, jobs::sync_seats_later};
-use crate::jobs::enqueue;
 
 /// Where the signed-in user answers the invitations addressed to them: the account group of the
 /// settings area. A mail names it outside any request, so it is spelled out rather than resolved.
@@ -120,8 +119,7 @@ impl HeaderAction for InviteMember {
             invitation: invitation.id,
         })
         .exec(ex)
-        .await
-        .map_err(|error| topcoat::Error::msg(format!("{error:#}")))?;
+        .await?;
         Ok(Outcome::done().notify(Notification::success(tablo::t!(
             cx,
             "flash-invitation-sent",
@@ -261,12 +259,9 @@ impl Action<IncomingInvitationResource> for AcceptInvitation {
         ex: &mut dyn toasty::Executor,
     ) -> Result<Outcome, WriteError<()>> {
         let signed = auth::require_user::<SignedIn>(cx)?;
-        let as_error = |error: anyhow::Error| topcoat::Error::msg(format!("{error:#}"));
         for invitation in invitations {
             // The plan may have shrunk since the invitation went out.
-            let account = account_of(&mut *ex, invitation.team_id)
-                .await
-                .map_err(as_error)?;
+            let account = account_of(&mut *ex, invitation.team_id).await?;
             let members = crate::platform::database::count(
                 Member::filter(Member::fields().team_id().eq(invitation.team_id)).count(),
                 &mut *ex,
@@ -281,9 +276,7 @@ impl Action<IncomingInvitationResource> for AcceptInvitation {
                 .or_ignore()
                 .exec(&mut *ex)
                 .await?;
-            sync_seats_later(&mut *ex, invitation.team_id)
-                .await
-                .map_err(as_error)?;
+            sync_seats_later(&mut *ex, invitation.team_id).await?;
         }
         Invitation::filter(filter_keys(invitations))
             .delete()

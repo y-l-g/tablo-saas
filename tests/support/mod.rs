@@ -8,6 +8,7 @@ use std::sync::Arc;
 use stripe::FakeStripe;
 use tablo::{
     PanelHandle,
+    jobs::{AuthMailQueue, Worker},
     testing::{
         FakeProvider, TEST_DATABASE_URL, TestClient, authenticator_code, body_string, form_body,
         migrated_db, response_cookies, test_db, two_factor_secret,
@@ -17,7 +18,6 @@ use tablo_saas::{
     accounts::{Accounts, StaffRole, User},
     background,
     billing::Billing,
-    jobs::{MailSeal, Worker},
     platform::{config::Config, database},
     router::{App, router},
     teams::{Member, Team, TeamRole, create_team},
@@ -32,7 +32,7 @@ pub struct Harness {
     pub admin_panel: PanelHandle,
     pub db: Db,
     pub outbox: MemoryTransport,
-    worker: Arc<Worker>,
+    worker: Worker,
 }
 
 /// The development configuration, signing in with Google through `google` when given.
@@ -97,20 +97,20 @@ async fn build(billing: Billing, google: Option<&FakeProvider>) -> Harness {
     .expect("the panels mount");
     let panel = built.app_panel.clone();
     let worker = background::worker(
-        db.clone(),
         &built.app_panel,
         config.settings(),
         billing,
         outbox.clone(),
-        MailSeal::new(&config.cookie_key),
-    );
+        &AuthMailQueue::new(&config.cookie_key),
+    )
+    .expect("the panel's handle holds its database");
     Harness {
         app: built.router,
         panel,
         admin_panel: built.admin_panel,
         db,
         outbox,
-        worker: Arc::new(worker),
+        worker,
     }
 }
 
@@ -121,12 +121,7 @@ impl Harness {
     }
 
     async fn drain(&self) {
-        while Arc::clone(&self.worker)
-            .drain_once()
-            .await
-            .expect("the queue runs")
-            > 0
-        {}
+        while self.worker.drain_once().await.expect("the queue runs") > 0 {}
     }
 
     /// What the outbox holds once the queue has run, which is `count` mails. `TestClient` returns
@@ -215,7 +210,7 @@ pub async fn staff_client<'a>(
             form_body(&[
                 ("intent", "start"),
                 ("current_password", PASSWORD),
-                ("csrf_token", CSRF),
+                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
             ]),
         )
         .await;
@@ -228,7 +223,7 @@ pub async fn staff_client<'a>(
             form_body(&[
                 ("intent", "confirm"),
                 ("code", &authenticator_code(&secret)),
-                ("csrf_token", CSRF),
+                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
             ]),
         )
         .await;

@@ -2,8 +2,10 @@
 
 use std::time::Duration;
 
-use tablo::PanelHandle;
-use toasty::Db;
+use tablo::{
+    PanelHandle,
+    jobs::{AuthMailQueue, Worker},
+};
 use topcoat::mail::{Mailer, Transport};
 
 use crate::billing::{
@@ -13,66 +15,33 @@ use crate::billing::{
         SendBillingNotice, SyncSeats,
     },
 };
-use crate::jobs::{MailSeal, Recurring, Registry, SendMail, Worker, housekeeping::PruneJobs};
 use crate::platform::config::Settings;
 use crate::teams::{CancelSubscription, PruneInvitations, SendInvitation};
 
-/// Every job kind: a worker that lacks one fails such a job instead of guessing.
-fn registry() -> Registry {
-    Registry::default()
-        .register::<PruneJobs>()
-        .register::<SendMail>()
-        .register::<SendInvitation>()
-        .register::<CancelSubscription>()
-        .register::<PruneInvitations>()
-        .register::<ProcessStripeEvent>()
-        .register::<SendBillingNotice>()
-        .register::<SyncSeats>()
-        .register::<ReconcileBilling>()
-        .register::<RefreshCustomer>()
-        .register::<PruneStripeEvents>()
-}
-
-/// What runs on a clock.
-fn schedules() -> Vec<Recurring> {
-    vec![
-        Recurring::every("prune-jobs", Duration::from_hours(24), PruneJobs),
-        Recurring::every(
-            "prune-invitations",
-            Duration::from_hours(24),
-            PruneInvitations,
-        ),
-        Recurring::every(
-            "reconcile-billing",
-            Duration::from_hours(6),
-            ReconcileBilling,
-        ),
-        Recurring::every(
-            "prune-stripe-events",
-            Duration::from_hours(24),
-            PruneStripeEvents,
-        ),
-    ]
-}
-
-/// A worker reading what the app reads, through the mounted panel: its database and its resources.
-/// Each run gets a context of its own, because one context is one unit of work. `mail` delivers,
-/// and `seal` opens what the router's outbox queued.
+/// A worker running every job kind against the mounted panel's context, with what the jobs read
+/// beyond it. A worker claims only the kinds it registers, so a kind missing here waits in the
+/// queue forever. `mail` delivers, and `queue` opens what the panels' auth mail queued.
 pub fn worker<T: Transport + Clone + Send + Sync + 'static>(
-    db: Db,
     panel: &PanelHandle,
     settings: Settings,
     billing: Billing,
     mail: T,
-    seal: MailSeal,
-) -> Worker {
-    let panel = panel.clone();
-    Worker::new(db, registry(), schedules(), move || {
-        panel
-            .context()
-            .with(settings.clone())
-            .with(billing.clone())
-            .with(Mailer::new(mail.clone()))
-            .with(seal.clone())
-    })
+    queue: &AuthMailQueue,
+) -> topcoat::Result<Worker> {
+    Ok(Worker::new(panel)?
+        .auth_mail(queue)
+        .register::<SendInvitation>()
+        .register::<CancelSubscription>()
+        .register::<ProcessStripeEvent>()
+        .register::<SendBillingNotice>()
+        .register::<SyncSeats>()
+        .register::<RefreshCustomer>()
+        .every(Duration::from_hours(24), PruneInvitations)
+        .every(Duration::from_hours(6), ReconcileBilling)
+        .every(Duration::from_hours(24), PruneStripeEvents)
+        .context(move |cx| {
+            cx.with(settings.clone())
+                .with(billing.clone())
+                .with(Mailer::new(mail.clone()))
+        }))
 }

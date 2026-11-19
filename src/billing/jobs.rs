@@ -2,7 +2,11 @@
 
 use jiff::{SignedDuration, Timestamp};
 use serde::{Deserialize, Serialize};
-use tablo::{TenantId, db::db};
+use tablo::{
+    TenantId,
+    db::db,
+    jobs::{Job, enqueue},
+};
 use topcoat::context::{Cx, context};
 
 use super::{
@@ -10,7 +14,6 @@ use super::{
     stripe::{SeatChange, StripeError},
 };
 use crate::accounts::User;
-use crate::jobs::{Job, enqueue};
 use crate::platform::{
     config::Settings,
     mail::{Message, send_message},
@@ -19,14 +22,10 @@ use crate::platform::{
 use crate::teams::{Member, TeamRole};
 
 /// How long a seat change waits, so a burst of them makes one Stripe call.
-const SEAT_DEBOUNCE: SignedDuration = SignedDuration::from_secs(30);
+const SEAT_DEBOUNCE: std::time::Duration = std::time::Duration::from_secs(30);
 
 /// How long the event inbox remembers. Stripe redelivers for three days.
 const EVENT_MEMORY: SignedDuration = SignedDuration::from_hours(30 * 24);
-
-fn handle(cx: &Cx) -> anyhow::Result<toasty::Db> {
-    db(cx).map_err(|error| anyhow::anyhow!("{error:#}"))
-}
 
 /// Acts on a stored Stripe event: rewrites the mirror from the API, then tells the owner what they
 /// need to hear. The lane keeps one customer's events in order and the sync one at a time.
@@ -43,8 +42,8 @@ impl Job for ProcessStripeEvent {
         Some(format!("customer:{}", self.customer))
     }
 
-    async fn run(self, cx: &Cx) -> anyhow::Result<()> {
-        let mut handle = handle(cx)?;
+    async fn run(self, cx: &Cx) -> topcoat::Result<()> {
+        let mut handle = db(cx)?;
         let Some(event) = StripeEvent::filter_by_id(&self.event)
             .first()
             .exec(&mut handle)
@@ -103,8 +102,8 @@ pub struct SendBillingNotice {
 impl Job for SendBillingNotice {
     const KIND: &'static str = "send-billing-notice";
 
-    async fn run(self, cx: &Cx) -> anyhow::Result<()> {
-        let mut handle = handle(cx)?;
+    async fn run(self, cx: &Cx) -> topcoat::Result<()> {
+        let mut handle = db(cx)?;
         let owner = Member::filter(
             Member::fields()
                 .team_id()
@@ -146,7 +145,10 @@ impl Job for SendBillingNotice {
 }
 
 /// Queues a seat sync for `team`, on the caller's transaction.
-pub async fn sync_seats_later(ex: &mut dyn toasty::Executor, team: TenantId) -> anyhow::Result<()> {
+pub async fn sync_seats_later(
+    ex: &mut dyn toasty::Executor,
+    team: TenantId,
+) -> topcoat::Result<()> {
     enqueue(&SyncSeats { team: team.get() })
         .delay(SEAT_DEBOUNCE)
         .dedupe(format!("seats:{}", team.get()))
@@ -167,8 +169,8 @@ impl Job for SyncSeats {
         Some(format!("seats:{}", self.team))
     }
 
-    async fn run(self, cx: &Cx) -> anyhow::Result<()> {
-        let mut handle = handle(cx)?;
+    async fn run(self, cx: &Cx) -> topcoat::Result<()> {
+        let mut handle = db(cx)?;
         let team = TenantId::from(self.team);
         let Some(account) = super::account_of(&mut handle, team).await? else {
             return Ok(());
@@ -211,11 +213,11 @@ pub struct ReconcileBilling;
 impl Job for ReconcileBilling {
     const KIND: &'static str = "reconcile-billing";
 
-    async fn run(self, cx: &Cx) -> anyhow::Result<()> {
+    async fn run(self, cx: &Cx) -> topcoat::Result<()> {
         if !context::<Billing>(cx).is_enabled() {
             return Ok(());
         }
-        let mut handle = handle(cx)?;
+        let mut handle = db(cx)?;
         let accounts = BillingAccount::all().exec(&mut handle).await?;
         for account in accounts
             .into_iter()
@@ -245,8 +247,8 @@ impl Job for RefreshCustomer {
         Some(format!("customer:{}", self.customer))
     }
 
-    async fn run(self, cx: &Cx) -> anyhow::Result<()> {
-        let mut handle = handle(cx)?;
+    async fn run(self, cx: &Cx) -> topcoat::Result<()> {
+        let mut handle = db(cx)?;
         match refresh_customer(context::<Billing>(cx), &mut handle, &self.customer).await {
             Err(error) if is_not_configured(&error) => Ok(()),
             result => result.map(|_| ()),
@@ -254,7 +256,7 @@ impl Job for RefreshCustomer {
     }
 }
 
-fn is_not_configured(error: &anyhow::Error) -> bool {
+fn is_not_configured(error: &topcoat::Error) -> bool {
     matches!(
         error.downcast_ref::<StripeError>(),
         Some(StripeError::NotConfigured)
@@ -268,11 +270,11 @@ pub struct PruneStripeEvents;
 impl Job for PruneStripeEvents {
     const KIND: &'static str = "prune-stripe-events";
 
-    async fn run(self, cx: &Cx) -> anyhow::Result<()> {
+    async fn run(self, cx: &Cx) -> topcoat::Result<()> {
         let cutoff = Timestamp::now().checked_sub(EVENT_MEMORY)?;
         StripeEvent::filter(StripeEvent::fields().received_at().le(cutoff))
             .delete()
-            .exec(&mut handle(cx)?)
+            .exec(&mut db(cx)?)
             .await?;
         Ok(())
     }

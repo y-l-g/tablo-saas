@@ -185,7 +185,7 @@ async fn the_profile_button_lands_on_the_download_and_a_stranger_gets_nothing() 
         .csrf(CSRF)
         .post_form(
             "/app/settings/profile/-/actions/export-account",
-            form_body(&[("csrf_token", CSRF)]),
+            form_body(&[("csrf_token", tablo::csrf::mask(CSRF).as_str())]),
         )
         .await;
     assert!(response.status().is_redirection(), "{}", response.status());

@@ -483,7 +483,7 @@ async fn who_a_team_includes_stays_the_customers_call() {
             form_body(&[
                 ("email", "sam@example.com"),
                 ("role", "admin"),
-                ("csrf_token", CSRF),
+                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
             ]),
         )
         .await;
@@ -557,7 +557,7 @@ async fn the_billing_portal_stays_the_customers() {
         .csrf(CSRF)
         .post_form(
             "/app/settings/billing/-/actions/manage-billing",
-            form_body(&[("csrf_token", CSRF)]),
+            form_body(&[("csrf_token", tablo::csrf::mask(CSRF).as_str())]),
         )
         .await;
     assert!(
