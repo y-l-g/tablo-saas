@@ -37,9 +37,6 @@ impl HeaderAction for InviteMember {
 
     fn declare() -> HeaderActionDef {
         HeaderActionDef::new()
-            // Staff acting as a customer invite nobody, themselves least of all: an accepted
-            // invitation would outlast the session. Tablo's impersonation is read-only, so it is.
-            .can_run(may_manage_members)
     }
 
     async fn run(
