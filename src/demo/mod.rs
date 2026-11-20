@@ -4,7 +4,7 @@
 //! `APP_DEMO=true` turns it on. Without it, every hook below changes nothing. To drop the demo
 //! from your app, delete this folder and `tests/demo.rs`, then what `grep -rni demo src tests
 //! .env.example README.md` still finds: a config field, the `demo-reset` command, one line in
-//! each panel's auth and the test harness's demo flag.
+//! each panel's auth and the test harness's demo flag, past the links to Tablo's own demo.
 
 mod reset;
 
