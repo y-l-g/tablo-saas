@@ -5,7 +5,7 @@ use tablo::{Notification, Widget, WidgetDef, auth, jobs::enqueue, prelude::*};
 use topcoat::{
     context::Cx,
     icon::iconify::iconify_icon,
-    view::{View, view},
+    view::{View, attributes, view},
 };
 
 use super::{
@@ -330,9 +330,10 @@ impl Widget for IncomingInvitationsWidget {
             .zip(tablo::url::resource::<IncomingInvitationResource>(cx));
         Ok(view! {
             if let Some((notice, incoming)) = notice {
-                <p data-invitations-notice="" class="rounded-lg border border-border bg-muted p-3 text-sm">
-                    <a href=(incoming) class="underline">(notice)</a>
-                </p>
+                tablo::ui::alert(
+                    attrs: attributes! { data-invitations-notice="" },
+                    tablo::ui::alert_title(<a href=(incoming) class="underline">(notice)</a>)
+                )
             }
         })
     }

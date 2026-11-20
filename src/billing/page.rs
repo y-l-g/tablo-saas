@@ -10,7 +10,7 @@ use topcoat::{
     context::{Cx, context},
     icon::iconify::iconify_icon,
     router::{error::forbidden, request},
-    view::{BoxView, View, ViewExt, view},
+    view::{BoxView, View, ViewExt, attributes, view},
 };
 
 use super::{
@@ -136,9 +136,10 @@ impl Page for BillingPage {
                 ui::page_content(
                     <div class="flex flex-col gap-6">
                         if let Some(notice) = notice {
-                            <p data-billing-notice="" class="rounded-lg border border-border bg-muted p-3 text-sm">
-                                (notice)
-                            </p>
+                            ui::alert(
+                                attrs: attributes! { data-billing-notice="" },
+                                ui::alert_title((notice))
+                            )
                         }
                         ui::card(
                             ui::card_header(

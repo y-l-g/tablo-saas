@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use tablo::{
     Area, Auth, EmailVerification, LoginThrottle, Oidc, OidcProvider, Page, PageDef, Panel,
-    PasswordReset, TenantRegistration, TwoFactor, Widget, WidgetDef,
+    PasswordReset, Stat, TenantRegistration, TwoFactor, Widget, WidgetDef,
     audit::{AuditLog, PanelAuditExt},
     db, ui,
 };
@@ -12,7 +12,7 @@ use topcoat::{
     Result,
     context::Cx,
     icon::iconify::iconify_icon,
-    view::{View, view},
+    view::{View, attributes, view},
 };
 
 use crate::accounts::{Accounts, SignedIn, password_auth};
@@ -155,37 +155,32 @@ impl Widget for PlanWidget {
             Some(limit) => format!("{used} / {limit}"),
             None => used.to_string(),
         };
-        let tiles = [
-            (
-                tablo::t!(cx, "billing-current"),
-                plan_name(cx, entitlements.plan.id),
-            ),
-            (
-                tablo::t!(cx, "dashboard-seats"),
-                usage(seats, entitlements.plan.seat_limit),
-            ),
-            (
-                tablo::t!(cx, "dashboard-projects"),
-                usage(projects, entitlements.plan.project_limit),
-            ),
-        ];
+        let tiles = tablo::stats(
+            cx,
+            [
+                Stat::new(
+                    tablo::text!("billing-current"),
+                    plan_name(cx, entitlements.plan.id),
+                ),
+                Stat::new(
+                    tablo::text!("dashboard-seats"),
+                    usage(seats, entitlements.plan.seat_limit),
+                ),
+                Stat::new(
+                    tablo::text!("dashboard-projects"),
+                    usage(projects, entitlements.plan.project_limit),
+                ),
+            ],
+        );
         Ok(view! {
             <div class="flex flex-col gap-4">
                 if let Some((notice, billing)) = notice {
-                    <p data-billing-notice="" class="rounded-lg border border-border bg-muted p-3 text-sm">
-                        <a href=(billing) class="underline">(notice)</a>
-                    </p>
+                    ui::alert(
+                        attrs: attributes! { data-billing-notice="" },
+                        ui::alert_title(<a href=(billing) class="underline">(notice)</a>)
+                    )
                 }
-                <div class="grid gap-4 md:grid-cols-3">
-                    for (label, value) in tiles {
-                        ui::card(
-                            ui::card_header(
-                                ui::card_description((label))
-                                ui::card_title((value))
-                            )
-                        )
-                    }
-                </div>
+                (tiles)
             </div>
         })
     }
