@@ -35,6 +35,8 @@ pub struct Config {
     pub stripe: Option<StripeSettings>,
     /// `None` offers no "Continue with Google".
     pub google: Option<GoogleSettings>,
+    /// `None` but on a public demo, which keeps its settings to itself.
+    pub demo: Option<crate::demo::Demo>,
 }
 
 /// The Google OAuth client customers sign in through.
@@ -145,6 +147,8 @@ impl Config {
             _ => bail!("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set together or not at all"),
         };
 
+        let demo = crate::demo::Demo::load(var, stripe.as_ref())?;
+
         let environment_name = var("APP_ENVIRONMENT_NAME")
             .or_else(|| (!production).then(|| "Development".to_string()));
 
@@ -165,6 +169,7 @@ impl Config {
             mail,
             stripe,
             google,
+            demo,
         })
     }
 

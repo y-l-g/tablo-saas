@@ -185,6 +185,9 @@ Before going live:
 - [ ] Alert on jobs in the `dead` state, visible at `/admin/jobs`.
 - [ ] Run a real test-mode purchase, renewal, failed payment and cancellation. See below.
 
+A public demo, with its back office open to all and an hourly `demo-reset`, lives in
+[`src/demo`](src/demo/mod.rs), which says how to remove it.
+
 ## Test it
 
 `AGENTS.md` lists the checks CI runs. In short:

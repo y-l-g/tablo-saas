@@ -15,6 +15,7 @@ pub struct State {
     pub checkouts: Vec<NewCheckout>,
     pub seat_changes: Vec<SeatChange>,
     pub canceled: Vec<String>,
+    pub deleted_customers: Vec<String>,
     pub refreshes: usize,
     pub down: bool,
 }
@@ -156,6 +157,15 @@ impl Gateway for FakeStripe {
     fn cancel_subscription(&self, id: String) -> Call<'_, ()> {
         Box::pin(async move {
             self.with(|state| state.canceled.push(id));
+            Ok(())
+        })
+    }
+    fn delete_customer(&self, id: String) -> Call<'_, ()> {
+        Box::pin(async move {
+            if self.with(|state| state.down) {
+                return Err(StripeError::Transport("down".to_string()));
+            }
+            self.with(|state| state.deleted_customers.push(id));
             Ok(())
         })
     }

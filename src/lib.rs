@@ -14,6 +14,7 @@ pub mod background;
 pub mod backoffice;
 pub mod billing;
 pub mod cli;
+pub mod demo;
 pub mod panels;
 pub mod platform;
 pub mod projects;

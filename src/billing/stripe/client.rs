@@ -120,6 +120,16 @@ impl StripeClient {
             .await?;
         decode(response).await
     }
+
+    /// Deletes what `path` names, which may be gone already.
+    async fn delete(&self, path: &str) -> Result<(), StripeError> {
+        match self.send(|| self.request(Method::DELETE, path)).await {
+            Ok(_) => Ok(()),
+            // Already gone is what the caller wanted.
+            Err(StripeError::Api { status, .. }) if status == StatusCode::NOT_FOUND => Ok(()),
+            Err(error) => Err(error),
+        }
+    }
 }
 
 async fn failure(response: Response) -> StripeError {
@@ -367,16 +377,11 @@ impl Gateway for StripeClient {
     }
 
     fn cancel_subscription(&self, id: String) -> Call<'_, ()> {
-        Box::pin(async move {
-            let path = format!("/v1/subscriptions/{id}");
-            let response = self.send(|| self.request(Method::DELETE, &path)).await;
-            match response {
-                Ok(_) => Ok(()),
-                // Already gone is what the caller wanted.
-                Err(StripeError::Api { status, .. }) if status == StatusCode::NOT_FOUND => Ok(()),
-                Err(error) => Err(error),
-            }
-        })
+        Box::pin(async move { self.delete(&format!("/v1/subscriptions/{id}")).await })
+    }
+
+    fn delete_customer(&self, id: String) -> Call<'_, ()> {
+        Box::pin(async move { self.delete(&format!("/v1/customers/{id}")).await })
     }
 
     fn invoices(&self, customer: String) -> Call<'_, Vec<Invoice>> {

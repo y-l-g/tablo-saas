@@ -9,6 +9,7 @@ use topcoat::asset::AssetBundle;
 use crate::accounts::{StaffRole, User, normalize_email};
 use crate::background;
 use crate::billing::{Billing, sync_catalog};
+use crate::demo;
 use crate::platform::{config::Config, database, mail::Postbox, telemetry};
 use crate::router::{App, router};
 
@@ -42,6 +43,9 @@ enum Command {
         #[command(subcommand)]
         command: StaffCommand,
     },
+    /// Erases every customer, their Stripe customers included, then seeds the demo's
+    /// administrator. Refused unless `APP_DEMO=true`.
+    DemoReset,
     /// Stripe housekeeping.
     Billing {
         #[command(subcommand)]
@@ -89,6 +93,16 @@ impl Cli {
             return staff(&db, command).await;
         }
         let billing = Billing::new(config.stripe.as_ref())?;
+        if let Command::DemoReset = command {
+            let Some(demo) = &config.demo else {
+                anyhow::bail!("demo-reset erases every customer: only APP_DEMO=true allows it");
+            };
+            let wiped = demo::reset(&db, &billing, demo.admin.as_ref())
+                .await
+                .map_err(|error| anyhow::anyhow!("{error:#}"))?;
+            tracing::info!(?wiped, "the demo is empty again");
+            return Ok(());
+        }
         if let Command::Billing {
             command: BillingCommand::SyncCatalog,
         } = command
@@ -122,7 +136,10 @@ impl Cli {
         .map_err(|error| anyhow::anyhow!("{error:#}"))?;
 
         match command {
-            Command::Migrate | Command::Billing { .. } | Command::Staff { .. } => {
+            Command::Migrate
+            | Command::DemoReset
+            | Command::Billing { .. }
+            | Command::Staff { .. } => {
                 unreachable!("handled above")
             }
             Command::Worker => {
