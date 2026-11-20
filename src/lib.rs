@@ -2,7 +2,7 @@
 //!
 //! [`platform`] holds what any app needs and no business rule: configuration, the database,
 //! telemetry, mail and HTTP middleware. [`background`] lists the jobs `tablo::jobs` runs. [`accounts`] holds who signs in, [`teams`] the tenants they act for, [`support`]
-//! lets staff act as a customer, [`panels`] mounts the
+//! lets staff act as a customer, [`reset`] wipes a public demo, [`panels`] mounts the
 //! domains, [`site`] is the public website, [`router`] puts it all on one router, and [`cli`] is
 //! the binary's entry point.
 //!
@@ -17,6 +17,7 @@ pub mod cli;
 pub mod panels;
 pub mod platform;
 pub mod projects;
+pub mod reset;
 pub mod router;
 pub mod site;
 pub mod support;

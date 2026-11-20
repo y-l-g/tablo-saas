@@ -15,7 +15,13 @@ use crate::platform::config::Config;
 
 /// The panel staff use. It has no sign-up: `staff grant` makes staff of an existing account.
 pub fn admin_panel(config: &Config) -> Panel {
-    super::shared(Panel::new("admin"), config)
+    let panel = super::shared(Panel::new("admin"), config);
+    // A demo's administrator is public, so the sign-in page names them.
+    let panel = match config.demo.as_ref().and_then(|demo| demo.admin.as_ref()) {
+        Some(admin) => panel.login_hint(format!("{} / {}", admin.email, admin.password)),
+        None => panel,
+    };
+    panel
         .auth(auth(config))
         .audit_log(audit::staff_trail)
         .resource::<CustomerResource>()
@@ -38,5 +44,9 @@ fn auth(config: &Config) -> Auth<SignedIn> {
                 .idle_timeout(Duration::from_mins(30)),
         )
         .mail(super::auth_mail(config))
-        .two_factor(TwoFactor::new().email_codes().required())
+        .two_factor(
+            TwoFactor::new()
+                .email_codes()
+                .required_for(super::second_factor_rule(config, |_| true)),
+        )
 }

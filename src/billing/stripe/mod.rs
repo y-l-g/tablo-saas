@@ -37,6 +37,8 @@ pub trait Gateway: Send + Sync {
     fn customer_subscriptions(&self, customer: String) -> Call<'_, Vec<Subscription>>;
     fn set_seats(&self, change: SeatChange) -> Call<'_, ()>;
     fn cancel_subscription(&self, id: String) -> Call<'_, ()>;
+    /// Deletes a customer, which cancels its subscriptions at once. One already gone is no error.
+    fn delete_customer(&self, id: String) -> Call<'_, ()>;
     fn invoices(&self, customer: String) -> Call<'_, Vec<Invoice>>;
 }
 

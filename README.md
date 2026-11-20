@@ -185,6 +185,21 @@ Before going live:
 - [ ] Alert on jobs in the `dead` state, visible at `/admin/jobs`.
 - [ ] Run a real test-mode purchase, renewal, failed payment and cancellation. See below.
 
+### A public demo
+
+`APP_DEMO=true` turns a deployment into a demo anyone may try, back office included, and allows
+the `reset` command, which wipes it:
+
+- `reset` deletes every team's Stripe customer, which cancels its test subscriptions, then empties
+  every table but the migration history and the job schedules, in one transaction. Run it on a
+  schedule, hourly say. A live Stripe key refuses `APP_DEMO`.
+- `DEMO_ADMIN_EMAIL` and `DEMO_ADMIN_PASSWORD` name an administrator that each `reset` makes
+  again. They are public: the back office's sign-in page shows them, and that account needs no
+  second factor, since nobody reads its mail.
+
+Whatever a visitor enters, an address signed in with Google included, the next visitor reads from
+the back office until the next reset. Say so on the demo, with `APP_ENVIRONMENT_NAME`.
+
 ## Test it
 
 `AGENTS.md` lists the checks CI runs. In short:

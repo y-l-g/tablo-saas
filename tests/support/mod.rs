@@ -35,10 +35,14 @@ pub struct Harness {
     worker: Worker,
 }
 
-/// The development configuration, signing in with Google through `google` when given.
-fn config(google: Option<&FakeProvider>) -> Config {
+/// The development configuration, signing in with Google through `google` when given, and a
+/// public demo with [`DEMO_ADMIN`] when `demo` says so.
+fn config(google: Option<&FakeProvider>, demo: bool) -> Config {
     Config::load(&|name| match name {
         "DATABASE_URL" => Some("sqlite::memory:".to_string()),
+        "APP_DEMO" => demo.then(|| "true".to_string()),
+        "DEMO_ADMIN_EMAIL" => demo.then(|| DEMO_ADMIN.0.to_string()),
+        "DEMO_ADMIN_PASSWORD" => demo.then(|| DEMO_ADMIN.1.to_string()),
         "GOOGLE_CLIENT_ID" => google.map(|_| GOOGLE_CLIENT.0.to_string()),
         "GOOGLE_CLIENT_SECRET" => google.map(|_| GOOGLE_CLIENT.1.to_string()),
         "GOOGLE_ISSUER" => google.map(|fake| fake.issuer().to_string()),
@@ -50,18 +54,26 @@ fn config(google: Option<&FakeProvider>) -> Config {
 /// The OAuth client a [`google_harness`]'s stand-in for Google knows: its id and secret.
 pub const GOOGLE_CLIENT: (&str, &str) = ("google-client", "google-secret");
 
+/// The public administrator of a [`demo_harness`]: their address and password.
+pub const DEMO_ADMIN: (&str, &str) = ("admin@example.com", "password");
+
 /// The webhook secret a test signs with.
 pub const WEBHOOK_SECRET: &str = "whsec_test";
 
 /// The app over empty tables, with billing off.
 pub async fn harness() -> Harness {
-    build(Billing::new(None).expect("billing off"), None).await
+    build(Billing::new(None).expect("billing off"), None, false).await
 }
 
 /// The app over empty tables, with billing off, signing in with Google through `google`, a
 /// stand-in started with [`GOOGLE_CLIENT`].
 pub async fn google_harness(google: &FakeProvider) -> Harness {
-    build(Billing::new(None).expect("billing off"), Some(google)).await
+    build(
+        Billing::new(None).expect("billing off"),
+        Some(google),
+        false,
+    )
+    .await
 }
 
 /// The app over empty tables, billing through `stripe`.
@@ -69,8 +81,21 @@ pub async fn billed_harness(stripe: &FakeStripe) -> Harness {
     build(
         Billing::with_gateway(Arc::new(stripe.clone()), WEBHOOK_SECRET),
         None,
+        false,
     )
     .await
+}
+
+/// A public demo over empty tables, billing through `stripe`, whose administrator is
+/// [`DEMO_ADMIN`].
+pub async fn demo_harness(stripe: &FakeStripe) -> (Harness, Config) {
+    let harness = build(
+        Billing::with_gateway(Arc::new(stripe.clone()), WEBHOOK_SECRET),
+        None,
+        true,
+    )
+    .await;
+    (harness, config(None, true))
 }
 
 /// The tables the migrations made, foreign keys and checks included, on the PostgreSQL database
@@ -84,10 +109,10 @@ async fn database() -> Db {
     }
 }
 
-async fn build(billing: Billing, google: Option<&FakeProvider>) -> Harness {
+async fn build(billing: Billing, google: Option<&FakeProvider>, demo: bool) -> Harness {
     let db = database().await;
     let outbox = MemoryTransport::new();
-    let config = config(google);
+    let config = config(google, demo);
     let built = router(App {
         db: db.clone(),
         config: &config,

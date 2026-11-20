@@ -101,5 +101,12 @@ async fn the_subscription_calls_are_ones_stripe_accepts() {
         .cancel_subscription("sub_x".to_string())
         .await
         .expect("cancel");
-    stripe.invoices(customer).await.expect("list invoices");
+    stripe
+        .invoices(customer.clone())
+        .await
+        .expect("list invoices");
+    stripe
+        .delete_customer(customer)
+        .await
+        .expect("delete the customer");
 }
