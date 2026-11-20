@@ -74,7 +74,8 @@ pub struct RoleChange {
     pub role: TeamRole,
 }
 
-/// The roles a person can be given: the owner's seat moves only by a transfer.
+/// The roles a person can be given: the owner's seat moves only by a transfer. Tablo refuses a
+/// posted role outside them, so a hand-built post cannot name the owner either.
 pub struct AssignableRole;
 
 impl tablo::Options for AssignableRole {
@@ -114,13 +115,6 @@ impl Action<MemberResource> for ChangeRole {
         change: RoleChange,
         ex: &mut dyn toasty::Executor,
     ) -> Result<Outcome, WriteError<RoleChange>> {
-        // The form offers no owner, and a hand-built post is refused here.
-        if change.role == TeamRole::Owner {
-            return Err(WriteError::<RoleChange>::field(
-                |f| f.role,
-                tablo::text!("error-owner-by-transfer"),
-            ));
-        }
         Member::filter(filter_keys(members))
             .update()
             .role(change.role)

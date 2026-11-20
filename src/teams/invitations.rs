@@ -49,15 +49,6 @@ impl HeaderAction for InviteMember {
             .ok_or_else(|| WriteError::declined(tablo::text!("error-no-team")))?;
         let signed = auth::require_user::<SignedIn>(cx)?;
         let email = normalize_email(&input.email);
-        if !email.contains('@') {
-            return refuse(tablo::text!("error-email-invalid"));
-        }
-        if input.role == TeamRole::Owner {
-            return Err(WriteError::<InviteInput>::field(
-                |f| f.role,
-                tablo::text!("error-owner-by-transfer"),
-            ));
-        }
         let invitee = User::filter(User::fields().email().eq(&email))
             .first()
             .exec(&mut *ex)

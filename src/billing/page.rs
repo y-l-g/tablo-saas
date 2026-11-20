@@ -197,8 +197,8 @@ fn plan_cards(cx: &Cx) -> BoxView<'_> {
                                                             })
                                                         </span>
                                                         (header_action_button::<BillingPage, Checkout>(cx, &Choice {
-                                                            plan: plan.slug().to_string(),
-                                                            interval: interval.as_str().to_string(),
+                                                            plan: plan.id,
+                                                            interval,
                                                         }))
                                                     </div>
                                                 }

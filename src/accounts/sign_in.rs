@@ -222,9 +222,6 @@ impl Registrar for Accounts {
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<FieldErrors> {
         let mut errors = new_password_errors(&sign_up.password, &sign_up.password_confirmation);
-        if sign_up.name.trim().is_empty() {
-            errors.add_field("name", tablo::text!("error-name-required"));
-        }
         if Self::by_email(ex, &sign_up.email).await?.is_some() {
             errors.add_field("email", tablo::text!("error-email-taken"));
         }
@@ -238,7 +235,7 @@ impl Registrar for Accounts {
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<SignedIn> {
         let user = toasty::create!(User {
-            name: sign_up.name.trim().to_string(),
+            name: sign_up.name,
             email: normalize_email(&sign_up.email),
             password: hash_password(&sign_up.password).await?,
         })

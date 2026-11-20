@@ -15,10 +15,24 @@ use crate::teams::{Member, TeamRole, current_role};
 /// What a plan card's button carries: which plan, billed how often.
 #[derive(FormInput)]
 pub struct Choice {
-    /// The plan's slug.
-    pub plan: String,
-    /// The billing interval, as Stripe spells it.
-    pub interval: String,
+    /// A plan Stripe sells.
+    #[form(options = PaidPlan)]
+    pub plan: PlanId,
+    /// How often it renews.
+    #[form(options)]
+    pub interval: BillingInterval,
+}
+
+/// The plans a card's button may carry: the free plan is no purchase.
+pub struct PaidPlan;
+
+impl tablo::Options for PaidPlan {
+    fn options() -> Vec<(String, tablo::Text)> {
+        <PlanId as tablo::Options>::options()
+            .into_iter()
+            .filter(|(value, _)| value != "free")
+            .collect()
+    }
 }
 
 /// Opens a Checkout session for the team the session acts for, and lands on it.
@@ -42,11 +56,7 @@ impl HeaderAction for Checkout {
         choice: Choice,
         ex: &mut dyn toasty::Executor,
     ) -> Result<Outcome, WriteError<Choice>> {
-        let invalid = || WriteError::declined(tablo::text!("error-plan-invalid"));
-        let plan = Plan::by_slug(&choice.plan)
-            .filter(|plan| plan.id != PlanId::Free)
-            .ok_or_else(invalid)?;
-        let interval = BillingInterval::from_stripe(&choice.interval).ok_or_else(invalid)?;
+        let plan = Plan::of(choice.plan);
         let signed = auth::require_user::<SignedIn>(cx)?;
         let team =
             tenant_id(cx).ok_or_else(|| WriteError::declined(tablo::text!("error-no-team")))?;
@@ -61,7 +71,7 @@ impl HeaderAction for Checkout {
         }
 
         let billing = context::<Billing>(cx);
-        let key = lookup_key(&plan, interval);
+        let key = lookup_key(&plan, choice.interval);
         let price = billing
             .gateway()
             .price_by_lookup_key(key.clone())
@@ -81,7 +91,7 @@ impl HeaderAction for Checkout {
                 customer: account.customer_id,
                 team: team.get().to_string(),
                 price: price.id,
-                seats: i64::try_from(seats.max(1)).map_err(|_| invalid())?,
+                seats: i64::try_from(seats.max(1)).map_err(unavailable)?,
                 // A team that subscribed before has had its trial.
                 trial_days: account
                     .subscription_id

@@ -146,10 +146,6 @@ impl Plan {
             PlanId::Business => "business",
         }
     }
-
-    pub fn by_slug(slug: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|plan| plan.slug() == slug)
-    }
 }
 
 /// The lookup key a plan's price goes by.

@@ -225,7 +225,7 @@ async fn inviting_an_address_twice_renews_the_invitation() {
 }
 
 #[tokio::test]
-async fn an_invitation_refuses_a_current_member_and_an_owner_role() {
+async fn an_invitation_refuses_a_current_member_an_owner_role_and_a_malformed_address() {
     let harness = harness().await;
     let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
     let (grace, _) = person(&harness.db, "Grace", "grace@example.com").await;
@@ -233,6 +233,7 @@ async fn an_invitation_refuses_a_current_member_and_an_owner_role() {
     let client = client_for(&harness, &ada, &team).await;
     invite(&client, "grace@example.com", "member").await;
     invite(&client, "hopper@example.com", "owner").await;
+    invite(&client, "hopper.example.com", "member").await;
     assert!(invitations(&harness).await.is_empty());
 }
 

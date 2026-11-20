@@ -348,6 +348,30 @@ async fn a_team_without_an_account_stays_on_the_billing_page() {
     );
 }
 
+/// A plan card posts a plan Stripe sells and an interval it bills: Tablo refuses anything else
+/// before Checkout runs.
+#[tokio::test]
+async fn checkout_refuses_the_free_plan_and_an_unknown_interval() {
+    let stripe = FakeStripe::default();
+    let harness = billed_harness(&stripe).await;
+    let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
+    let client = client_for(&harness, &ada, &team).await;
+    for (plan, interval) in [("free", "month"), ("pro", "week")] {
+        let response = client
+            .submit(
+                "/app/settings/billing/-/actions/checkout",
+                &form_body(&[("plan", plan), ("interval", interval)]),
+            )
+            .await;
+        assert_ne!(
+            response.status(),
+            StatusCode::SEE_OTHER,
+            "{plan} {interval}"
+        );
+    }
+    assert_eq!(stripe.with(|state| state.checkouts.len()), 0);
+}
+
 #[tokio::test]
 async fn only_the_owner_reaches_checkout_and_never_without_the_token() {
     let stripe = FakeStripe::default();

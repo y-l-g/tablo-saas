@@ -6,7 +6,7 @@ use support::harness;
 use tablo::{
     auth::AuthThrottle,
     jobs::QueuedJob,
-    testing::{TestClient, form_body},
+    testing::{TestClient, body_string, form_body},
 };
 use tablo_saas::accounts::User;
 use topcoat::router::Body;
@@ -45,6 +45,34 @@ async fn a_sign_up_stores_a_lowercase_address_and_mails_a_verification_link() {
 
     let sent = harness.mail(1).await;
     assert_eq!(sent[0].to()[0].address(), "ada@example.com");
+}
+
+/// The sign-up page runs the input's own rules before the app's: a blank name and a malformed
+/// address never reach `Registrar::validate`.
+#[tokio::test]
+async fn a_sign_up_with_a_blank_name_or_a_malformed_address_is_refused() {
+    let harness = harness().await;
+    let client = TestClient::new(&harness.app);
+    let response = client
+        .submit(
+            "/app/register",
+            &form_body(&[
+                ("name", "   "),
+                ("email", "ada.example.com"),
+                ("password", "correct horse battery staple"),
+                ("password_confirmation", "correct horse battery staple"),
+            ]),
+        )
+        .await;
+    assert!(!response.status().is_redirection(), "{}", response.status());
+    let html = body_string(response).await;
+    assert!(html.contains("is required"), "{html}");
+    assert!(html.contains("must be a valid email"), "{html}");
+    let users = User::all()
+        .exec(&mut harness.db.clone())
+        .await
+        .expect("query");
+    assert!(users.is_empty());
 }
 
 #[tokio::test]
