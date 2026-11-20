@@ -1,4 +1,4 @@
-//! Wiping a public demo back to empty, which a scheduled `reset` command does.
+//! Wiping the demo back to empty, which the `demo reset` command does on a schedule.
 //!
 //! Every customer and what they made goes: accounts, teams, sessions, projects, the audit trail,
 //! queued jobs and the billing mirror. Their Stripe customers go first, so no test subscription
@@ -11,8 +11,9 @@ use toasty::Db;
 
 use crate::accounts::{StaffRole, User, normalize_email};
 use crate::billing::{Billing, BillingAccount};
-use crate::platform::config::SeedAdmin;
 use crate::teams::create_team;
+
+use super::SeedAdmin;
 
 /// The tables a wipe keeps, in the schema the connection uses.
 const KEPT: &[&str] = &["__toasty_migrations", "tablo_job_schedules"];

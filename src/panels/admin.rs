@@ -11,17 +11,12 @@ use crate::backoffice::{
     AccountResource, CustomerResource, ImpersonationResource, JobResource, SubscriptionResource,
     WebhookResource,
 };
+use crate::demo;
 use crate::platform::config::Config;
 
 /// The panel staff use. It has no sign-up: `staff grant` makes staff of an existing account.
 pub fn admin_panel(config: &Config) -> Panel {
-    let panel = super::shared(Panel::new("admin"), config);
-    // A demo's administrator is public, so the sign-in page names them.
-    let panel = match config.demo.as_ref().and_then(|demo| demo.admin.as_ref()) {
-        Some(admin) => panel.login_hint(format!("{} / {}", admin.email, admin.password)),
-        None => panel,
-    };
-    panel
+    demo::login_hint(super::shared(Panel::new("admin"), config), config)
         .auth(auth(config))
         .audit_log(audit::staff_trail)
         .resource::<CustomerResource>()
@@ -47,6 +42,6 @@ fn auth(config: &Config) -> Auth<SignedIn> {
         .two_factor(
             TwoFactor::new()
                 .email_codes()
-                .required_for(super::second_factor_rule(config, |_| true)),
+                .required_for(demo::second_factor(config, |_| true)),
         )
 }

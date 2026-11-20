@@ -87,7 +87,7 @@ pub async fn billed_harness(stripe: &FakeStripe) -> Harness {
 }
 
 /// A public demo over empty tables, billing through `stripe`, whose administrator is
-/// [`DEMO_ADMIN`].
+/// [`DEMO_ADMIN`], and its configuration.
 pub async fn demo_harness(stripe: &FakeStripe) -> (Harness, Config) {
     let harness = build(
         Billing::with_gateway(Arc::new(stripe.clone()), WEBHOOK_SECRET),

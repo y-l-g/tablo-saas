@@ -18,6 +18,7 @@ use topcoat::{
 use crate::accounts::{Accounts, SignedIn, password_auth};
 use crate::audit;
 use crate::billing::{BillingPage, StandingBanner, is_urgent, plan_name, standing_notice};
+use crate::demo;
 use crate::platform::config::{Config, GOOGLE_ISSUER, GoogleSettings};
 use crate::projects::{Project, ProjectResource};
 use crate::support::{self, SupportResource};
@@ -92,7 +93,7 @@ fn auth(config: &Config) -> Auth<SignedIn> {
         .two_factor(
             TwoFactor::new()
                 .email_codes()
-                .required_for(super::second_factor_rule(config, |signed| {
+                .required_for(demo::second_factor(config, |signed| {
                     signed.user.staff_role.is_some()
                 })),
         )

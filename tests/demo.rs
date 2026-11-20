@@ -1,4 +1,4 @@
-//! Wiping the demo. `reset` truncates through PostgreSQL's catalog, so these run on the PostgreSQL
+//! The public demo. `reset` truncates through PostgreSQL's catalog, so these run on the PostgreSQL
 //! test database alone, as in CI.
 
 mod support;
@@ -14,9 +14,9 @@ use tablo::{
 use tablo_saas::{
     accounts::{StaffRole, User},
     billing::{Billing, BillingAccount, BillingStatus, PlanId},
+    demo::{Wiped, reset},
     platform::database,
     projects::{Project, ProjectStatus},
-    reset::{Wiped, reset},
     teams::Team,
 };
 use topcoat::router::header::LOCATION;

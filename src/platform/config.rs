@@ -35,32 +35,8 @@ pub struct Config {
     pub stripe: Option<StripeSettings>,
     /// `None` offers no "Continue with Google".
     pub google: Option<GoogleSettings>,
-    /// `None` everywhere but a public demo: see [`Demo`].
-    pub demo: Option<Demo>,
-}
-
-/// A public demo, wiped on a schedule by the `reset` command, which every other deployment
-/// refuses. Its administrator's address and password are public: the back office shows them on
-/// its sign-in page and asks no second factor of that account, whose mail nobody reads.
-pub struct Demo {
-    /// The administrator `reset` seeds after each wipe, `None` for nobody.
-    pub admin: Option<SeedAdmin>,
-}
-
-/// An administrator's address, as [`normalize_email`](crate::accounts::normalize_email) spells
-/// it, and password.
-pub struct SeedAdmin {
-    pub email: String,
-    pub password: String,
-}
-
-impl Demo {
-    /// Whether `email` is the demo administrator's public account.
-    pub fn is_admin(&self, email: &str) -> bool {
-        self.admin
-            .as_ref()
-            .is_some_and(|admin| admin.email == email)
-    }
+    /// `None` but on a public demo, which keeps its settings to itself.
+    pub demo: Option<crate::demo::Demo>,
 }
 
 /// The Google OAuth client customers sign in through.
@@ -171,7 +147,7 @@ impl Config {
             _ => bail!("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set together or not at all"),
         };
 
-        let demo = demo_settings(var, stripe.as_ref())?;
+        let demo = crate::demo::Demo::load(var, stripe.as_ref())?;
 
         let environment_name = var("APP_ENVIRONMENT_NAME")
             .or_else(|| (!production).then(|| "Development".to_string()));
@@ -281,36 +257,6 @@ fn stripe_settings(var: &dyn Fn(&str) -> Option<String>) -> anyhow::Result<Optio
     }))
 }
 
-/// `APP_DEMO=true` makes a public demo, and `DEMO_ADMIN_EMAIL` with `DEMO_ADMIN_PASSWORD` name its
-/// administrator. A wipe deletes Stripe customers too, so a live key refuses it.
-fn demo_settings(
-    var: &dyn Fn(&str) -> Option<String>,
-    stripe: Option<&StripeSettings>,
-) -> anyhow::Result<Option<Demo>> {
-    let admin = match (var("DEMO_ADMIN_EMAIL"), var("DEMO_ADMIN_PASSWORD")) {
-        (Some(email), Some(password)) => Some(SeedAdmin {
-            email: tablo::auth::normalize_email(&email),
-            password,
-        }),
-        (None, None) => None,
-        _ => bail!("DEMO_ADMIN_EMAIL and DEMO_ADMIN_PASSWORD are set together or not at all"),
-    };
-    if var("APP_DEMO").as_deref() != Some("true") {
-        ensure!(
-            admin.is_none(),
-            "DEMO_ADMIN_EMAIL makes a public administrator: set APP_DEMO=true to mean it"
-        );
-        return Ok(None);
-    }
-    if let Some(stripe) = stripe {
-        ensure!(
-            !stripe.secret_key.contains("_live_"),
-            "APP_DEMO wipes Stripe customers, which a live key must never do"
-        );
-    }
-    Ok(Some(Demo { admin }))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -409,42 +355,6 @@ mod tests {
         let pairs = [("DATABASE_URL", "sqlite::memory:".to_string())];
         let config = Config::load(&environment(&pairs)).expect("loads");
         assert!(!config.is_production());
-    }
-
-    #[test]
-    fn production_is_no_demo() {
-        let config = Config::load(&environment(&production())).expect("loads");
-        assert!(config.demo.is_none(), "a demo is opted into");
-    }
-
-    #[test]
-    fn a_demo_names_its_public_administrator() {
-        let mut pairs = production();
-        pairs.push(("APP_DEMO", "true".to_string()));
-        pairs.push(("DEMO_ADMIN_EMAIL", "Admin@Example.com".to_string()));
-        pairs.push(("DEMO_ADMIN_PASSWORD", "password".to_string()));
-        let demo = Config::load(&environment(&pairs)).expect("loads").demo;
-        let demo = demo.expect("a demo");
-        assert!(demo.is_admin("admin@example.com"));
-        assert!(!demo.is_admin("ada@example.com"));
-    }
-
-    #[test]
-    fn a_public_administrator_outside_a_demo_is_refused() {
-        let mut pairs = production();
-        pairs.push(("DEMO_ADMIN_EMAIL", "admin@example.com".to_string()));
-        pairs.push(("DEMO_ADMIN_PASSWORD", "password".to_string()));
-        assert!(Config::load(&environment(&pairs)).is_err());
-    }
-
-    #[test]
-    fn a_demo_refuses_a_live_stripe_key() {
-        let mut pairs = production();
-        pairs.retain(|(key, _)| *key != "STRIPE_SECRET_KEY");
-        pairs.push(("STRIPE_SECRET_KEY", "sk_live_123".to_string()));
-        assert!(Config::load(&environment(&pairs)).is_ok(), "live, no demo");
-        pairs.push(("APP_DEMO", "true".to_string()));
-        assert!(Config::load(&environment(&pairs)).is_err());
     }
 
     #[test]

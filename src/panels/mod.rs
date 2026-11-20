@@ -11,7 +11,6 @@ pub use brand::{LOGO_URL, PRODUCT_NAME};
 use tablo::{AuthMail, Environment, Panel, jobs::AuthMailQueue};
 use topcoat::l10n::locale;
 
-use crate::accounts::SignedIn;
 use crate::platform::{config::Config, words};
 
 /// Where the billing buttons land. A browser checks `form-action` against a form's redirects too,
@@ -44,18 +43,4 @@ fn shared(panel: Panel, config: &Config) -> Panel {
 fn auth_mail(config: &Config) -> AuthMail {
     AuthMail::new(config.mail.from.clone(), config.base_url.as_str())
         .delivery(AuthMailQueue::new(&config.cookie_key))
-}
-
-/// Who must hold a second factor: whom `rule` names, but a demo's public administrator, whose
-/// mailed codes nobody would read.
-fn second_factor_rule(
-    config: &Config,
-    rule: impl Fn(&SignedIn) -> bool + Send + Sync + 'static,
-) -> impl Fn(&topcoat::context::Cx, &SignedIn) -> bool + Send + Sync + 'static {
-    let public = config
-        .demo
-        .as_ref()
-        .and_then(|demo| demo.admin.as_ref())
-        .map(|admin| admin.email.clone());
-    move |_cx, signed| rule(signed) && public.as_deref() != Some(signed.user.email.as_str())
 }
