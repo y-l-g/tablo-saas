@@ -3,12 +3,12 @@
 use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use tablo::{db::db, jobs::Job};
-use topcoat::context::{Cx, context};
+use topcoat::context::Cx;
 
-use super::{Invitation, invitations::INCOMING_URL};
+use super::{IncomingInvitationResource, Invitation};
 use crate::accounts::User;
 use crate::platform::{
-    config::Settings,
+    http::public_url,
     mail::{Message, send_message},
     words::for_reader,
 };
@@ -40,7 +40,7 @@ impl Job for SendInvitation {
         let cx = &for_reader(cx, account.as_ref().and_then(User::language));
         let team = invitation.team_name.as_str();
         let inviter = invitation.invited_by.as_str();
-        let url = format!("{}{INCOMING_URL}", context::<Settings>(cx).base_url);
+        let url = public_url(cx, tablo::url::resource::<IncomingInvitationResource>(cx))?;
         send_message(
             cx,
             Message {

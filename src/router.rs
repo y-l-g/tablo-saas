@@ -45,7 +45,9 @@ pub fn router(app: App<'_>) -> topcoat::Result<Built> {
         .discover()
         .with(db)
         .with(config.cookie_key.clone())
-        .with(Https(config.base_url.starts_with("https://")))
+        // Before the panels mount, so a panel's handle carries it into the jobs it runs.
+        .with(config.base_url.clone())
+        .with(Https(config.base_url.as_str().starts_with("https://")))
         .with(config.settings())
         .with(billing);
     if !config.trusted_proxies.is_empty() {

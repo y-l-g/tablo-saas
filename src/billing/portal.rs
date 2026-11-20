@@ -4,8 +4,8 @@
 use tablo::{HeaderAction, HeaderActionDef, Outcome, WriteError, tenant_id};
 use topcoat::context::{Cx, context};
 
-use super::{Billing, account_of, page::URL};
-use crate::platform::config::Settings;
+use super::{Billing, BillingPage, account_of};
+use crate::platform::http::public_url;
 use crate::teams::{TeamRole, current_role};
 
 /// Opens a portal session for the team the session acts for, and lands on it.
@@ -37,10 +37,10 @@ impl HeaderAction for ManageBilling {
                 "error-no-billing-account"
             )));
         };
-        let settings = context::<Settings>(cx);
+        let page = public_url(cx, tablo::url::page::<BillingPage>(cx)).map_err(unavailable)?;
         let url = context::<Billing>(cx)
             .gateway()
-            .create_portal_session(account.customer_id, format!("{}{URL}", settings.base_url))
+            .create_portal_session(account.customer_id, page)
             .await
             .map_err(unavailable)?;
         Ok(Outcome::done().redirect_off_site(url))

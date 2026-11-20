@@ -191,7 +191,6 @@ site-guide = Tablo guide
 site-demo = Tablo demo
 site-examples = Examples gallery
 site-built-with = Built with Tablo, Topcoat and Toasty.
-audit-deleted-actor = A deleted account
 
 ## Labels Tablo looks up by convention
 

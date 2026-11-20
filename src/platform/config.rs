@@ -4,7 +4,7 @@
 use std::net::IpAddr;
 
 use anyhow::{Context, bail, ensure};
-use topcoat::{cookie::Key, mail::Mailbox};
+use topcoat::{context::BaseUrl, cookie::Key, mail::Mailbox};
 
 /// Where the app runs, which decides how strict its configuration is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,9 +19,10 @@ pub struct Config {
     /// The deployment's name, such as `Staging`, which every panel page shows on a ribbon; `None`
     /// shows none. Production shows none unless `APP_ENVIRONMENT_NAME` names one.
     pub environment_name: Option<String>,
-    /// The URL the app answers on, without a trailing slash, which every mailed link and Stripe
-    /// return URL starts with: never derived from a request's `Host` header.
-    pub base_url: String,
+    /// The URL the app answers on, which every mailed link and Stripe return URL starts with:
+    /// never derived from a request's `Host` header. The router carries it, so a page or a job
+    /// reads it with `topcoat::context::base_url`.
+    pub base_url: BaseUrl,
     pub database_url: String,
     pub database_pool_size: usize,
     /// Signs upload links and seals two-factor secrets, so it outlives restarts and is shared by
@@ -64,7 +65,6 @@ pub struct StripeSettings {
 /// What a job or a page needs of the configuration, without the secrets.
 #[derive(Clone)]
 pub struct Settings {
-    pub base_url: String,
     pub mail_from: Mailbox,
     pub trial_days: Option<u32>,
     pub automatic_tax: bool,
@@ -101,12 +101,12 @@ impl Config {
         };
         let production = environment == Environment::Production;
 
-        let base_url = var("APP_BASE_URL")
-            .unwrap_or_else(|| "http://127.0.0.1:3000".to_string())
-            .trim_end_matches('/')
-            .to_string();
+        let base_url = BaseUrl::new(
+            var("APP_BASE_URL").unwrap_or_else(|| "http://127.0.0.1:3000".to_string()),
+        )
+        .context("APP_BASE_URL")?;
         ensure!(
-            !production || base_url.starts_with("https://"),
+            !production || base_url.as_str().starts_with("https://"),
             "APP_BASE_URL must be https in production: the panels' cookies are `Secure`"
         );
 
@@ -170,7 +170,6 @@ impl Config {
 
     pub fn settings(&self) -> Settings {
         Settings {
-            base_url: self.base_url.clone(),
             mail_from: self.mail.from.clone(),
             trial_days: self.stripe.as_ref().and_then(|stripe| stripe.trial_days),
             automatic_tax: self
@@ -303,7 +302,7 @@ mod tests {
     fn a_complete_production_environment_loads() {
         let config = Config::load(&environment(&production())).expect("loads");
         assert!(config.is_production());
-        assert_eq!(config.base_url, "https://app.example.com");
+        assert_eq!(config.base_url.as_str(), "https://app.example.com");
         assert_eq!(
             config.environment_name, None,
             "production wears no ribbon unless named"

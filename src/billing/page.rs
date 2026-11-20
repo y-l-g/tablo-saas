@@ -1,7 +1,10 @@
 //! The team's billing page.
 
 use jiff::Timestamp;
-use tablo::{Currency, Page, PageDef, db::db, header_action_button, tenant_id, ui};
+use tablo::{
+    Currency, DateValue, Page, PageDef, db::db, header_action_button, header_action_buttons,
+    tenant_id, ui,
+};
 use topcoat::{
     Result,
     context::{Cx, context},
@@ -18,9 +21,6 @@ use super::{
     stripe::Invoice,
 };
 use crate::teams::{Member, may_manage_members};
-
-/// Where the page lives: in the team's settings.
-pub const URL: &str = "/app/settings/billing";
 
 /// A minor-unit amount of the ISO `currency`, as the reader's locale spells it: `€19.00`, or
 /// `19,00 €` in French. A currency Tablo has no symbol for keeps its code.
@@ -56,7 +56,7 @@ pub fn plan_name(cx: &Cx, plan: PlanId) -> String {
 
 /// How a team stands, in a sentence, when there is something to say.
 pub fn standing_notice(cx: &Cx, standing: Standing) -> Option<String> {
-    let date = |at: Timestamp| at.strftime("%Y-%m-%d").to_string();
+    let date = |at: Timestamp| at.format_in(cx);
     match standing {
         Standing::Good => None,
         Standing::Trialing(until) => Some(tablo::t!(cx, "billing-trialing", date = date(until))),
@@ -77,7 +77,8 @@ impl Page for BillingPage {
             .icon(iconify_icon!("lucide:credit-card"))
             .access(may_manage_members)
             .header_action::<ManageBilling>()
-            .header_action::<Checkout>()
+            // Each plan's card offers its own Subscribe, so Checkout stays out of the header.
+            .action::<Checkout>()
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
@@ -97,9 +98,9 @@ impl Page for BillingPage {
             }
         }
         let entitlements = Entitlements::of(account.as_ref(), Timestamp::now());
-        let seats = crate::platform::database::count(
-            Member::filter(Member::fields().team_id().eq(team)).count(),
+        let seats = tablo::db::count_in(
             &mut handle,
+            Member::filter(Member::fields().team_id().eq(team)),
         )
         .await?;
         // The page stands through a Stripe outage: invoices are the part that needs Stripe.
@@ -130,7 +131,7 @@ impl Page for BillingPage {
                 ui::page_header(
                     ui::page_title((tablo::t!(cx, "page-billing")))
                     ui::page_description((tablo::t!(cx, "billing-description")))
-                    ui::page_actions((header_action_button::<Self, ManageBilling>(cx, &())))
+                    ui::page_actions((header_action_buttons::<Self>(cx)))
                 )
                 ui::page_content(
                     <div class="flex flex-col gap-6">

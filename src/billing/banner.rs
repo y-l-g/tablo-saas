@@ -8,7 +8,7 @@ use topcoat::{
     view::{View, view},
 };
 
-use super::{Standing, page::URL, standing_notice};
+use super::{BillingPage, Standing, standing_notice};
 use crate::teams::{current_entitlements, may_manage_members};
 
 /// Whether `standing` must reach the team wherever it works, not only on the billing page: a
@@ -24,14 +24,17 @@ pub struct StandingBanner;
 impl Banner for StandingBanner {
     async fn render(cx: &Cx) -> Result<Option<impl View>> {
         let standing = current_entitlements(cx).standing;
-        let on_billing = request::uri(cx).path().trim_end_matches('/') == URL;
+        let Some(billing) = tablo::url::page::<BillingPage>(cx) else {
+            return Ok(None);
+        };
+        let on_billing = request::uri(cx).path().trim_end_matches('/') == billing;
         if !is_urgent(standing) || !may_manage_members(cx) || on_billing {
             return Ok(None);
         }
         Ok(standing_notice(cx, standing).map(|notice| {
             view! {
                 <div data-billing-banner="" role="alert" class="border-b border-border bg-muted px-4 py-2 text-sm">
-                    <a href=(URL) class="underline">(notice)</a>
+                    <a href=(billing) class="underline">(notice)</a>
                 </div>
             }
         }))

@@ -13,7 +13,6 @@ use topcoat::context::{Cx, context};
 
 use super::{Invitation, Member, Team, TeamRole, access};
 use crate::accounts::{Identity, SignedIn, User};
-use crate::audit;
 use crate::billing::{Billing, BillingAccount};
 use crate::projects::Project;
 
@@ -58,7 +57,7 @@ pub async fn delete_team(ex: &mut dyn toasty::Executor, team: TenantId) -> topco
         .delete()
         .exec(&mut *ex)
         .await?;
-    audit::forget_team(&mut *ex, team).await?;
+    tablo::audit::forget_tenant(&mut *ex, team).await?;
     Invitation::filter(Invitation::fields().team_id().eq(team))
         .delete()
         .exec(&mut *ex)
@@ -99,9 +98,9 @@ pub async fn erase_unproved(
         .exec(&mut *ex)
         .await?;
     for seat in seats {
-        let members = crate::platform::database::count(
-            Member::filter(Member::fields().team_id().eq(seat.team_id)).count(),
+        let members = tablo::db::count_in(
             &mut *ex,
+            Member::filter(Member::fields().team_id().eq(seat.team_id)),
         )
         .await?;
         if members == 1 {
@@ -119,7 +118,7 @@ async fn erase(cx: &Cx, ex: &mut dyn toasty::Executor, user: uuid::Uuid) -> topc
         .exec(&mut *ex)
         .await?;
     // Other teams keep what happened, but no longer who did it.
-    audit::forget_actor(cx, &mut *ex, user).await?;
+    tablo::audit::forget_actor(cx, &mut *ex, &user.to_string()).await?;
     forget_sign_in(&mut *ex, user).await?;
     User::filter_by_id(user).delete().exec(ex).await?;
     Ok(())
@@ -199,9 +198,9 @@ impl HeaderAction for DeleteAccount {
         }
         let mut alone_on = Vec::new();
         for seat in &signed.seats {
-            let members = crate::platform::database::count(
-                Member::filter(Member::fields().team_id().eq(seat.team)).count(),
+            let members = tablo::db::count_in(
                 &mut *ex,
+                Member::filter(Member::fields().team_id().eq(seat.team)),
             )
             .await?;
             if members == 1 {

@@ -8,9 +8,7 @@ pub use admin::admin_panel;
 pub use app::app_panel;
 pub use brand::{LOGO_URL, PRODUCT_NAME};
 
-use std::time::Duration;
-
-use tablo::{AuthMail, Environment, LoginThrottle, Panel, jobs::AuthMailQueue};
+use tablo::{AuthMail, Environment, Panel, jobs::AuthMailQueue};
 use topcoat::l10n::locale;
 
 use crate::platform::{config::Config, words};
@@ -40,15 +38,9 @@ fn shared(panel: Panel, config: &Config) -> Panel {
         .translations(locale!("fr"), words::FRENCH)
 }
 
-/// A throttle every replica counts against together, kept in the database: one counted in each
-/// process would let N replicas allow N times the guesses, and forget them on a restart.
-fn shared_throttle(attempts: u32, window: Duration) -> LoginThrottle {
-    LoginThrottle::new(attempts, window).in_database()
-}
-
 /// The sender and host every panel's auth mail carries. Each letter is queued in the transaction
 /// that records its token, and the worker sends it: a crash after the response loses none.
 fn auth_mail(config: &Config) -> AuthMail {
-    AuthMail::new(config.mail.from.clone(), config.base_url.clone())
+    AuthMail::new(config.mail.from.clone(), config.base_url.as_str())
         .delivery(AuthMailQueue::new(&config.cookie_key))
 }

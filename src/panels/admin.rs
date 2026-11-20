@@ -28,7 +28,8 @@ pub fn admin_panel(config: &Config) -> Panel {
 
 fn auth(config: &Config) -> Auth<SignedIn> {
     Auth::custom(password_auth())
-        .throttle(super::shared_throttle(5, Duration::from_mins(1)))
+        // Every replica counts against one limit, which a restart does not forget.
+        .throttles_in_database()
         // A staff session reaches every customer: one left open on a shared or stolen laptop
         // should not outlive the day, nor a coffee break.
         .sessions(
@@ -37,10 +38,5 @@ fn auth(config: &Config) -> Auth<SignedIn> {
                 .idle_timeout(Duration::from_mins(30)),
         )
         .mail(super::auth_mail(config))
-        .two_factor(
-            TwoFactor::new()
-                .email_codes()
-                .throttle(super::shared_throttle(5, Duration::from_mins(1)))
-                .required(),
-        )
+        .two_factor(TwoFactor::new().email_codes().required())
 }

@@ -74,3 +74,8 @@ snapshot_name = "0013_snapshot.toml"
 id = 1637348964557613673
 name = "0014_tablo_jobs.sql"
 snapshot_name = "0014_snapshot.toml"
+
+[[migrations]]
+id = 8092642207077179374
+name = "0015_back_office_audit_tenant.sql"
+snapshot_name = "0015_snapshot.toml"

@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use topcoat::{
     Result,
-    context::{Cx, try_context},
+    context::{Cx, base_url, try_context},
     router::{
         Body, HeaderName, HeaderValue, Next,
         error::RewriteError,
@@ -69,4 +69,16 @@ async fn observe(cx: &Cx, body: Body, next: Next<'_>) -> Result<Response> {
             ));
     }
     Ok(response)
+}
+
+/// A panel page's path, as a `tablo::url` helper answers it, on the app's public base URL: a
+/// link that leaves the request, in a mail or a payment provider's return. A job's context
+/// answers both, from the panel handle it runs on.
+///
+/// # Errors
+///
+/// When the panel serving `cx` has no such page.
+pub fn public_url(cx: &Cx, path: Option<String>) -> Result<String> {
+    let path = path.ok_or_else(|| topcoat::Error::msg("the panel serves no such page"))?;
+    Ok(base_url(cx).join(&path))
 }
