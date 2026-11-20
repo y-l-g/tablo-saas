@@ -104,9 +104,8 @@ impl Page for BillingPage {
         )
         .await?;
         // The page stands through a Stripe outage: invoices are the part that needs Stripe.
-        let invoices: Vec<Invoice> = match &account {
-            Some(account) if billing.is_enabled() => billing
-                .gateway()
+        let invoices: Vec<Invoice> = match (&account, billing.gateway()) {
+            (Some(account), Ok(gateway)) => gateway
                 .invoices(account.customer_id.clone())
                 .await
                 .unwrap_or_else(|error| {

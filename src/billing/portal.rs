@@ -40,6 +40,7 @@ impl HeaderAction for ManageBilling {
         let page = public_url(cx, tablo::url::page::<BillingPage>(cx)).map_err(unavailable)?;
         let url = context::<Billing>(cx)
             .gateway()
+            .map_err(unavailable)?
             .create_portal_session(account.customer_id, page)
             .await
             .map_err(unavailable)?;

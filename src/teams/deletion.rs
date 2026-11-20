@@ -27,7 +27,7 @@ impl Job for CancelSubscription {
 
     async fn run(self, cx: &Cx) -> topcoat::Result<()> {
         context::<Billing>(cx)
-            .gateway()
+            .gateway()?
             .cancel_subscription(self.subscription)
             .await?;
         Ok(())

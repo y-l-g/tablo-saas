@@ -70,10 +70,9 @@ impl HeaderAction for Checkout {
             return Ok(Outcome::done());
         }
 
-        let billing = context::<Billing>(cx);
+        let gateway = context::<Billing>(cx).gateway().map_err(unavailable)?;
         let key = lookup_key(&plan, choice.interval);
-        let price = billing
-            .gateway()
+        let price = gateway
             .price_by_lookup_key(key.clone())
             .await
             .map_err(unavailable)?
@@ -85,8 +84,7 @@ impl HeaderAction for Checkout {
         .await?;
         let settings = context::<Settings>(cx);
         let page = public_url(cx, tablo::url::page::<BillingPage>(cx)).map_err(unavailable)?;
-        let url = billing
-            .gateway()
+        let url = gateway
             .create_checkout(NewCheckout {
                 customer: account.customer_id,
                 team: team.get().to_string(),
