@@ -21,7 +21,7 @@ use tablo::{
 use topcoat::{
     context::Cx,
     icon::iconify::iconify_icon,
-    view::{View, view},
+    view::{View, attributes, view},
 };
 
 use crate::accounts::{Accounts, SignedIn, User};
@@ -154,11 +154,14 @@ impl Widget for SupportNotice {
                     (tablo::t!(cx, "support-description", minutes = minutes))
                 </p>
                 if !signed.vouched_factor && let Some(two_factor) = url::auth(cx, AuthPage::TwoFactor) {
-                    <p data-support-notice="" class="rounded-lg border border-border bg-muted p-3 text-sm">
-                        <a href=(two_factor) class="underline">
-                            (tablo::t!(cx, "support-needs-factor"))
-                        </a>
-                    </p>
+                    tablo::ui::alert(
+                        attrs: attributes! { data-support-notice="" },
+                        tablo::ui::alert_title(
+                            <a href=(two_factor) class="underline">
+                                (tablo::t!(cx, "support-needs-factor"))
+                            </a>
+                        )
+                    )
                 }
             </div>
         })

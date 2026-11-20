@@ -5,7 +5,7 @@ use tablo::{Notification, Widget, WidgetDef, auth, jobs::enqueue, prelude::*};
 use topcoat::{
     context::Cx,
     icon::iconify::iconify_icon,
-    view::{View, view},
+    view::{View, attributes, view},
 };
 
 use super::{
@@ -37,9 +37,6 @@ impl HeaderAction for InviteMember {
 
     fn declare() -> HeaderActionDef {
         HeaderActionDef::new()
-            // Staff acting as a customer invite nobody, themselves least of all: an accepted
-            // invitation would outlast the session. Tablo's impersonation is read-only, so it is.
-            .can_run(may_manage_members)
     }
 
     async fn run(
@@ -52,15 +49,6 @@ impl HeaderAction for InviteMember {
             .ok_or_else(|| WriteError::declined(tablo::text!("error-no-team")))?;
         let signed = auth::require_user::<SignedIn>(cx)?;
         let email = normalize_email(&input.email);
-        if !email.contains('@') {
-            return refuse(tablo::text!("error-email-invalid"));
-        }
-        if input.role == TeamRole::Owner {
-            return Err(WriteError::<InviteInput>::field(
-                |f| f.role,
-                tablo::text!("error-owner-by-transfer"),
-            ));
-        }
         let invitee = User::filter(User::fields().email().eq(&email))
             .first()
             .exec(&mut *ex)
@@ -330,9 +318,10 @@ impl Widget for IncomingInvitationsWidget {
             .zip(tablo::url::resource::<IncomingInvitationResource>(cx));
         Ok(view! {
             if let Some((notice, incoming)) = notice {
-                <p data-invitations-notice="" class="rounded-lg border border-border bg-muted p-3 text-sm">
-                    <a href=(incoming) class="underline">(notice)</a>
-                </p>
+                tablo::ui::alert(
+                    attrs: attributes! { data-invitations-notice="" },
+                    tablo::ui::alert_title(<a href=(incoming) class="underline">(notice)</a>)
+                )
             }
         })
     }

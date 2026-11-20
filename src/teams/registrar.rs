@@ -1,25 +1,15 @@
 //! Creating a team, and renaming the one the session acts for.
 
-use tablo::{FieldErrors, Membership, TenantEditor, TenantId};
+use tablo::{Membership, TenantEditor, TenantId};
 use topcoat::context::Cx;
 
 use super::{Member, Team, TeamRole, access};
 use crate::accounts::{SignedIn, User};
 
-/// The name a team takes.
+/// The name a team takes. Tablo trims it and refuses it blank, which is all either page asks.
 #[derive(tablo::FormInput)]
 pub struct NewTeam {
     pub name: String,
-}
-
-impl NewTeam {
-    fn errors(&self) -> FieldErrors {
-        let mut errors = FieldErrors::new();
-        if self.name.trim().is_empty() {
-            errors.add_field("name", tablo::text!("error-team-name-required"));
-        }
-        errors
-    }
 }
 
 /// Writes `name`'s team with `user` as its owner, on the caller's transaction.
@@ -29,7 +19,7 @@ pub async fn create_team(
     user: &User,
 ) -> topcoat::Result<Team> {
     let team = toasty::create!(Team {
-        name: name.trim().to_string(),
+        name: name.to_string(),
     })
     .exec(&mut *ex)
     .await?;
@@ -50,16 +40,6 @@ pub struct Teams;
 impl tablo::TenantRegistrar for Teams {
     type User = SignedIn;
     type Input = NewTeam;
-
-    async fn validate(
-        &self,
-        _cx: &Cx,
-        _user: &SignedIn,
-        input: &NewTeam,
-        _ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<FieldErrors> {
-        Ok(input.errors())
-    }
 
     async fn register(
         &self,
@@ -95,17 +75,6 @@ impl TenantEditor for Teams {
         })
     }
 
-    async fn validate(
-        &self,
-        _cx: &Cx,
-        _user: &SignedIn,
-        _team: &Membership,
-        input: &NewTeam,
-        _ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<FieldErrors> {
-        Ok(input.errors())
-    }
-
     async fn save(
         &self,
         _cx: &Cx,
@@ -116,7 +85,7 @@ impl TenantEditor for Teams {
     ) -> topcoat::Result<()> {
         Team::filter_by_id(team.tenant.get())
             .update()
-            .name(input.name.trim().to_string())
+            .name(input.name)
             .exec(ex)
             .await?;
         Ok(())

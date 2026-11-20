@@ -20,22 +20,15 @@ use tablo_saas::{
 };
 use topcoat::router::{Body, StatusCode};
 
-const CSRF: &str = "3f0f6d3a-8f43-4f4d-9c59-2d3b3b1f4a11";
-
 /// Where the signed-in user answers the invitations addressed to them.
 const INCOMING_URL: &str = "/app/settings/invitations";
 
 /// Posts the invite form the members page opens.
 async fn invite(client: &TestClient<'_>, email: &str, role: &str) -> http::Response<Body> {
     client
-        .csrf(CSRF)
-        .post_form(
+        .submit(
             "/app/settings/members/-/actions/invite",
-            form_body(&[
-                ("email", email),
-                ("role", role),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-            ]),
+            &form_body(&[("email", email), ("role", role)]),
         )
         .await
 }
@@ -225,7 +218,7 @@ async fn inviting_an_address_twice_renews_the_invitation() {
 }
 
 #[tokio::test]
-async fn an_invitation_refuses_a_current_member_and_an_owner_role() {
+async fn an_invitation_refuses_a_current_member_an_owner_role_and_a_malformed_address() {
     let harness = harness().await;
     let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
     let (grace, _) = person(&harness.db, "Grace", "grace@example.com").await;
@@ -233,6 +226,7 @@ async fn an_invitation_refuses_a_current_member_and_an_owner_role() {
     let client = client_for(&harness, &ada, &team).await;
     invite(&client, "grace@example.com", "member").await;
     invite(&client, "hopper@example.com", "owner").await;
+    invite(&client, "hopper.example.com", "member").await;
     assert!(invitations(&harness).await.is_empty());
 }
 

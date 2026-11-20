@@ -183,7 +183,6 @@ pub async fn staff_client<'a>(
     role: StaffRole,
 ) -> TestClient<'a> {
     const PASSWORD: &str = "correct horse battery staple";
-    const CSRF: &str = "3f0f6d3a-8f43-4f4d-9c59-2d3b3b1f4a11";
     let (user, _) = person(&harness.db, "Staff", email).await;
     User::filter_by_id(user.id)
         .update()
@@ -204,26 +203,19 @@ pub async fn staff_client<'a>(
         .await;
 
     let started = client
-        .csrf(CSRF)
-        .post_form(
+        .submit(
             "/admin/two-factor",
-            form_body(&[
-                ("intent", "start"),
-                ("current_password", PASSWORD),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-            ]),
+            &form_body(&[("intent", "start"), ("current_password", PASSWORD)]),
         )
         .await;
     let html = body_string(started).await;
     let secret = two_factor_secret(&html).expect("the set-up shows its key");
     let confirmed = client
-        .csrf(CSRF)
-        .post_form(
+        .submit(
             "/admin/two-factor",
-            form_body(&[
+            &form_body(&[
                 ("intent", "confirm"),
                 ("code", &authenticator_code(&secret)),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
             ]),
         )
         .await;

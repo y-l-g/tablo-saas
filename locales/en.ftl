@@ -8,10 +8,6 @@ page-home = Home
 ## Refusals
 
 error-email-taken = This email address is already in use.
-error-name-required = Enter your name.
-error-email-invalid = Enter a valid email address.
-error-team-name-required = Enter a team name.
-error-owner-by-transfer = The owner changes only by transferring ownership.
 error-already-member = This person is already on the team.
 error-transfer-one = Transfer ownership to one member at a time.
 error-no-user = Sign in again.
@@ -60,7 +56,6 @@ billing-seats = { $used } seats
 billing-seats-limited = { $used } of { $limit } seats
 error-no-billing-account = This team has no billing account yet. Choose a plan first.
 error-billing-unavailable = Billing is unavailable right now. Try again in a minute.
-error-plan-invalid = Pick one of the plans on offer.
 billing-off = Billing isn't configured on this server. Set the STRIPE_ variables to turn it on.
 billing-per-seat = { $price } per seat per month
 billing-monthly = Billed monthly

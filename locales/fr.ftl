@@ -7,10 +7,6 @@ page-home = Accueil
 ## Refus
 
 error-email-taken = Cette adresse e-mail est déjà utilisée.
-error-name-required = Saisissez votre nom.
-error-email-invalid = Saisissez une adresse e-mail valide.
-error-team-name-required = Saisissez un nom d'équipe.
-error-owner-by-transfer = Le propriétaire ne change que par transfert de propriété.
 error-already-member = Cette personne fait déjà partie de l'équipe.
 error-transfer-one = Transférez la propriété à un seul membre à la fois.
 error-no-user = Reconnectez-vous.
@@ -64,7 +60,6 @@ billing-seats = { $used } sièges
 billing-seats-limited = { $used } sièges sur { $limit }
 error-no-billing-account = Cette équipe n'a pas encore de compte de facturation. Choisissez d'abord une offre.
 error-billing-unavailable = La facturation est indisponible pour le moment. Réessayez dans une minute.
-error-plan-invalid = Choisissez l'une des offres proposées.
 billing-off = La facturation n'est pas configurée sur ce serveur. Renseignez les variables STRIPE_ pour l'activer.
 billing-per-seat = { $price } par siège et par mois
 billing-monthly = Facturé chaque mois

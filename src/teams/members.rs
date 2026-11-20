@@ -38,6 +38,9 @@ impl Resource for MemberResource {
                     .run::<RemoveMember, _>(may_change)
                     .run::<TransferOwnership, _>(|cx, _| current_role(cx) == Some(TeamRole::Owner))
                     .run::<LeaveTeam, _>(|cx, member| own_id(cx) == Some(member.user_id))
+                    // Staff acting as a customer invite nobody, themselves least of all: an
+                    // accepted invitation would outlast the session. Tablo's impersonation is
+                    // read-only, so it is.
                     .run_header::<InviteMember>(may_manage_members),
             )
             .header_action::<InviteMember>()
@@ -71,7 +74,8 @@ pub struct RoleChange {
     pub role: TeamRole,
 }
 
-/// The roles a person can be given: the owner's seat moves only by a transfer.
+/// The roles a person can be given: the owner's seat moves only by a transfer. Tablo refuses a
+/// posted role outside them, so a hand-built post cannot name the owner either.
 pub struct AssignableRole;
 
 impl tablo::Options for AssignableRole {
@@ -102,9 +106,7 @@ impl Action<MemberResource> for ChangeRole {
     const NAME: &'static str = "change-role";
 
     fn declare() -> ActionDef<MemberResource> {
-        ActionDef::new()
-            .places(Places::ROW)
-            .can_run(|cx, member: &Member| may_change(cx, member))
+        ActionDef::new().places(Places::ROW)
     }
 
     async fn run(
@@ -113,13 +115,6 @@ impl Action<MemberResource> for ChangeRole {
         change: RoleChange,
         ex: &mut dyn toasty::Executor,
     ) -> Result<Outcome, WriteError<RoleChange>> {
-        // The form offers no owner, and a hand-built post is refused here.
-        if change.role == TeamRole::Owner {
-            return Err(WriteError::<RoleChange>::field(
-                |f| f.role,
-                tablo::text!("error-owner-by-transfer"),
-            ));
-        }
         Member::filter(filter_keys(members))
             .update()
             .role(change.role)
@@ -141,7 +136,6 @@ impl Action<MemberResource> for RemoveMember {
             .places(Places::ROW)
             .confirm()
             .color(Color::Danger)
-            .can_run(|cx, member: &Member| may_change(cx, member))
     }
 
     async fn run(
@@ -171,9 +165,8 @@ impl Action<MemberResource> for TransferOwnership {
             .places(Places::ROW)
             .confirm()
             .color(Color::Warning)
-            .can_run(|cx, member: &Member| {
-                current_role(cx) == Some(TeamRole::Owner) && own_id(cx) != Some(member.user_id)
-            })
+            // Never onto the owner's own row: the seat moves to someone else.
+            .can_run(|_, member: &Member| member.role != TeamRole::Owner)
     }
 
     async fn run(
@@ -221,7 +214,7 @@ impl Action<MemberResource> for LeaveTeam {
             .can_run(|cx, member: &Member| {
                 let last_team =
                     auth::user::<SignedIn>(cx).is_none_or(|signed| signed.seats.len() < 2);
-                own_id(cx) == Some(member.user_id) && member.role != TeamRole::Owner && !last_team
+                member.role != TeamRole::Owner && !last_team
             })
     }
 

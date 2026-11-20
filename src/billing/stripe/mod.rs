@@ -40,98 +40,56 @@ pub trait Gateway: Send + Sync {
     fn invoices(&self, customer: String) -> Call<'_, Vec<Invoice>>;
 }
 
-/// The gateway the app reads from context, which refuses every call when Stripe is not configured,
-/// so a development checkout runs with no keys.
+/// The gateway the app reads from context, absent when Stripe is not configured, so a development
+/// checkout runs with no keys.
 #[derive(Clone)]
 pub struct Billing {
+    stripe: Option<Stripe>,
+}
+
+#[derive(Clone)]
+struct Stripe {
     gateway: Arc<dyn Gateway>,
-    webhook_secret: Option<String>,
-    enabled: bool,
+    webhook_secret: String,
 }
 
 impl Billing {
     pub fn new(settings: Option<&StripeSettings>) -> anyhow::Result<Self> {
-        Ok(match settings {
-            Some(settings) => Self {
+        let stripe = match settings {
+            Some(settings) => Some(Stripe {
                 gateway: Arc::new(StripeClient::new(&settings.secret_key, &settings.api_base)?),
-                webhook_secret: Some(settings.webhook_secret.clone()),
-                enabled: true,
-            },
-            None => Self {
-                gateway: Arc::new(Unconfigured),
-                webhook_secret: None,
-                enabled: false,
-            },
-        })
+                webhook_secret: settings.webhook_secret.clone(),
+            }),
+            None => None,
+        };
+        Ok(Self { stripe })
     }
 
     /// Billing through `gateway`, as a test states it.
     pub fn with_gateway(gateway: Arc<dyn Gateway>, webhook_secret: &str) -> Self {
         Self {
-            gateway,
-            webhook_secret: Some(webhook_secret.to_string()),
-            enabled: true,
+            stripe: Some(Stripe {
+                gateway,
+                webhook_secret: webhook_secret.to_string(),
+            }),
         }
     }
 
-    pub fn gateway(&self) -> &dyn Gateway {
-        self.gateway.as_ref()
+    /// Stripe, or [`StripeError::NotConfigured`] without its keys.
+    pub fn gateway(&self) -> Result<&dyn Gateway, StripeError> {
+        self.stripe
+            .as_ref()
+            .map(|stripe| stripe.gateway.as_ref())
+            .ok_or(StripeError::NotConfigured)
     }
 
     pub fn webhook_secret(&self) -> Option<&str> {
-        self.webhook_secret.as_deref()
+        self.stripe
+            .as_ref()
+            .map(|stripe| stripe.webhook_secret.as_str())
     }
 
     pub fn is_enabled(&self) -> bool {
-        self.enabled
-    }
-}
-
-/// Stands in when no Stripe key is set.
-struct Unconfigured;
-
-fn refuse<'a, T: Send + 'a>() -> Call<'a, T> {
-    Box::pin(async { Err(StripeError::NotConfigured) })
-}
-
-impl Gateway for Unconfigured {
-    fn product_exists(&self, _id: String) -> Call<'_, bool> {
-        refuse()
-    }
-    fn create_product(&self, _id: String, _name: String) -> Call<'_, ()> {
-        refuse()
-    }
-    fn price_by_lookup_key(&self, _key: String) -> Call<'_, Option<Price>> {
-        refuse()
-    }
-    fn create_price(&self, _price: NewPrice) -> Call<'_, Price> {
-        refuse()
-    }
-    fn configure_portal(&self, _products: Vec<PortalProduct>) -> Call<'_, ()> {
-        refuse()
-    }
-    fn create_customer(&self, _customer: NewCustomer) -> Call<'_, String> {
-        refuse()
-    }
-    fn create_checkout(&self, _checkout: NewCheckout) -> Call<'_, String> {
-        refuse()
-    }
-    fn create_portal_session(&self, _customer: String, _return_url: String) -> Call<'_, String> {
-        refuse()
-    }
-    fn subscription(&self, _id: String) -> Call<'_, Subscription> {
-        refuse()
-    }
-    fn customer_subscriptions(&self, _customer: String) -> Call<'_, Vec<Subscription>> {
-        refuse()
-    }
-    fn set_seats(&self, _change: SeatChange) -> Call<'_, ()> {
-        refuse()
-    }
-    fn cancel_subscription(&self, _id: String) -> Call<'_, ()> {
-        refuse()
-    }
-    fn invoices(&self, _customer: String) -> Call<'_, Vec<Invoice>> {
-        refuse()
+        self.stripe.is_some()
     }
 }

@@ -93,7 +93,7 @@ impl Cli {
             command: BillingCommand::SyncCatalog,
         } = command
         {
-            let synced = sync_catalog(billing.gateway()).await?;
+            let synced = sync_catalog(billing.gateway()?).await?;
             tracing::info!(?synced, "the plan catalog is on Stripe");
             return Ok(());
         }

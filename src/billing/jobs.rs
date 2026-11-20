@@ -193,7 +193,7 @@ impl Job for SyncSeats {
         }
         let billing = context::<Billing>(cx);
         billing
-            .gateway()
+            .gateway()?
             .set_seats(SeatChange {
                 subscription,
                 item,

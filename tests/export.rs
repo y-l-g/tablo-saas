@@ -5,7 +5,7 @@ mod support;
 use support::{Harness, client_for, harness, person, seat};
 use tablo::{
     audit::AuditEntry,
-    testing::{TestClient, body_string, form_body},
+    testing::{TestClient, body_string},
 };
 use tablo_saas::{
     billing::{BillingAccount, BillingStatus, PlanId},
@@ -16,8 +16,6 @@ use topcoat::router::{
     StatusCode,
     header::{CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_TYPE, LOCATION},
 };
-
-const CSRF: &str = "3f0f6d3a-8f43-4f4d-9c59-2d3b3b1f4a11";
 
 async fn project(harness: &Harness, team: &Team, name: &str) {
     toasty::create!(Project {
@@ -182,11 +180,7 @@ async fn the_profile_button_lands_on_the_download_and_a_stranger_gets_nothing() 
     let profile = body_string(client.get("/app/settings/profile").await).await;
     assert!(profile.contains("Download my data"), "{profile}");
     let response = client
-        .csrf(CSRF)
-        .post_form(
-            "/app/settings/profile/-/actions/export-account",
-            form_body(&[("csrf_token", tablo::csrf::mask(CSRF).as_str())]),
-        )
+        .submit("/app/settings/profile/-/actions/export-account", "")
         .await;
     assert!(response.status().is_redirection(), "{}", response.status());
     assert_eq!(response.headers()[LOCATION], EXPORT_URL);

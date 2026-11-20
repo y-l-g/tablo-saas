@@ -3,7 +3,7 @@
 mod support;
 
 use support::{Harness, client_for, harness, person};
-use tablo::testing::body_string;
+use tablo::testing::{body_string, stats};
 use tablo_saas::{
     billing::{BillingAccount, BillingStatus, PlanId},
     projects::{Project, ProjectResource, ProjectStatus},
@@ -138,6 +138,17 @@ async fn the_home_page_shows_the_plan_and_what_it_uses() {
     project(&harness, &team, "One").await;
     let client = client_for(&harness, &ada, &team).await;
     let html = body_string(client.get("/app").await).await;
-    assert!(html.contains("Free"), "{html}");
-    assert!(html.contains("1 / 3"), "{html}");
+    let tiles: Vec<(String, String)> = stats(&html)
+        .into_iter()
+        .map(|tile| (tile.label, tile.value))
+        .collect();
+    assert_eq!(
+        tiles,
+        [
+            ("Current plan".to_string(), "Free".to_string()),
+            ("Seats".to_string(), "1 / 3".to_string()),
+            ("Projects".to_string(), "1 / 3".to_string()),
+        ],
+        "{html}"
+    );
 }

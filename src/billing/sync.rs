@@ -27,7 +27,7 @@ pub async fn ensure_account(
         return Ok(account);
     }
     let customer = context::<Billing>(cx)
-        .gateway()
+        .gateway()?
         .create_customer(NewCustomer {
             team: team.get().to_string(),
             name: name.to_string(),
@@ -142,7 +142,7 @@ pub async fn refresh_customer(
         return Ok(None);
     };
     let subscriptions = billing
-        .gateway()
+        .gateway()?
         .customer_subscriptions(customer.to_string())
         .await?;
     let now = Timestamp::now();

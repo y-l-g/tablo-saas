@@ -27,7 +27,7 @@ impl Job for CancelSubscription {
 
     async fn run(self, cx: &Cx) -> topcoat::Result<()> {
         context::<Billing>(cx)
-            .gateway()
+            .gateway()?
             .cancel_subscription(self.subscription)
             .await?;
         Ok(())
@@ -154,7 +154,7 @@ impl HeaderAction for DeleteTeam {
     ) -> Result<Outcome, WriteError<TeamConfirmation>> {
         let membership = auth::membership(cx)
             .ok_or_else(|| WriteError::declined(tablo::text!("error-no-team")))?;
-        if input.name.trim() != membership.name {
+        if input.name != membership.name {
             return Err(WriteError::<TeamConfirmation>::field(
                 |f| f.name,
                 tablo::text!("error-team-name-mismatch"),
