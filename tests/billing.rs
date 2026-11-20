@@ -21,8 +21,6 @@ use tablo_saas::{
 };
 use topcoat::router::{Body, StatusCode, header::LOCATION};
 
-const CSRF: &str = "3f0f6d3a-8f43-4f4d-9c59-2d3b3b1f4a11";
-
 /// A row as `ensure_account` leaves it, without a trip through Checkout.
 async fn account(harness: &Harness, team: &Team, customer: &str) -> BillingAccount {
     toasty::create!(BillingAccount {
@@ -252,14 +250,9 @@ async fn an_owner_leaves_for_checkout_with_the_team_seat_count() {
 
     let client = client_for(&harness, &ada, &team).await;
     let response = client
-        .csrf(CSRF)
-        .post_form(
+        .submit(
             "/app/settings/billing/-/actions/checkout",
-            form_body(&[
-                ("plan", "pro"),
-                ("interval", "month"),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-            ]),
+            &form_body(&[("plan", "pro"), ("interval", "month")]),
         )
         .await;
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
@@ -283,13 +276,7 @@ async fn an_owner_leaves_for_the_billing_portal() {
     account(&harness, &team, "cus_1").await;
 
     let client = client_for(&harness, &ada, &team).await;
-    let response = client
-        .csrf(CSRF)
-        .post_form(
-            MANAGE_BILLING,
-            form_body(&[("csrf_token", tablo::csrf::mask(CSRF).as_str())]),
-        )
-        .await;
+    let response = client.submit(MANAGE_BILLING, "").await;
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
     assert_eq!(
         response.headers()[LOCATION],
@@ -307,13 +294,7 @@ async fn the_billing_portal_is_the_owner_s_alone() {
     account(&harness, &team, "cus_1").await;
 
     let client = client_for(&harness, &grace, &team).await;
-    let response = client
-        .csrf(CSRF)
-        .post_form(
-            MANAGE_BILLING,
-            form_body(&[("csrf_token", tablo::csrf::mask(CSRF).as_str())]),
-        )
-        .await;
+    let response = client.submit(MANAGE_BILLING, "").await;
     assert!(
         response
             .headers()
@@ -331,13 +312,7 @@ async fn a_team_without_an_account_stays_on_the_billing_page() {
     let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
 
     let client = client_for(&harness, &ada, &team).await;
-    let response = client
-        .csrf(CSRF)
-        .post_form(
-            MANAGE_BILLING,
-            form_body(&[("csrf_token", tablo::csrf::mask(CSRF).as_str())]),
-        )
-        .await;
+    let response = client.submit(MANAGE_BILLING, "").await;
     let location = response
         .headers()
         .get(LOCATION)
@@ -379,27 +354,20 @@ async fn only_the_owner_reaches_checkout_and_never_without_the_token() {
     let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
     let (grace, _) = person(&harness.db, "Grace", "grace@example.com").await;
     seat(&harness.db, &grace, &team, TeamRole::Admin).await;
-    let form = |token| {
-        form_body(&[
-            ("plan", "pro"),
-            ("interval", "month"),
-            ("csrf_token", token),
-        ])
-    };
+    let choice = form_body(&[("plan", "pro"), ("interval", "month")]);
 
     let admin = client_for(&harness, &grace, &team).await;
     let response = admin
-        .csrf(CSRF)
-        .post_form("/app/settings/billing/-/actions/checkout", form(CSRF))
+        .submit("/app/settings/billing/-/actions/checkout", &choice)
         .await;
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 
     let owner = client_for(&harness, &ada, &team).await;
     let response = owner
-        .csrf(CSRF)
+        .csrf("3f0f6d3a-8f43-4f4d-9c59-2d3b3b1f4a11")
         .post_form(
             "/app/settings/billing/-/actions/checkout",
-            form("00000000-0000-4000-8000-000000000000"),
+            format!("{choice}&csrf_token=00000000-0000-4000-8000-000000000000"),
         )
         .await;
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
@@ -407,8 +375,7 @@ async fn only_the_owner_reaches_checkout_and_never_without_the_token() {
 
     let stranger = TestClient::new(&harness.app);
     let response = stranger
-        .csrf(CSRF)
-        .post_form("/app/settings/billing/-/actions/checkout", form(CSRF))
+        .submit("/app/settings/billing/-/actions/checkout", &choice)
         .await;
     assert_ne!(response.status(), StatusCode::OK);
     assert_eq!(stripe.with(|state| state.checkouts.len()), 0);
@@ -431,14 +398,9 @@ async fn an_unverified_account_does_not_reach_checkout() {
 
     let client = client_for(&harness, &unverified, &team).await;
     let response = client
-        .csrf(CSRF)
-        .post_form(
+        .submit(
             "/app/settings/billing/-/actions/checkout",
-            form_body(&[
-                ("plan", "pro"),
-                ("interval", "month"),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-            ]),
+            &form_body(&[("plan", "pro"), ("interval", "month")]),
         )
         .await;
     assert_ne!(
@@ -463,14 +425,9 @@ async fn a_running_subscription_is_not_bought_twice() {
 
     let client = client_for(&harness, &ada, &team).await;
     let response = client
-        .csrf(CSRF)
-        .post_form(
+        .submit(
             "/app/settings/billing/-/actions/checkout",
-            form_body(&[
-                ("plan", "business"),
-                ("interval", "year"),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-            ]),
+            &form_body(&[("plan", "business"), ("interval", "year")]),
         )
         .await;
     assert_eq!(response.headers()[LOCATION], "/app/settings/billing");
@@ -574,14 +531,9 @@ async fn an_invitation_stops_at_the_free_plan_seat_limit() {
     let client = client_for(&harness, &ada, &team).await;
     for email in ["a@example.com", "b@example.com"] {
         client
-            .csrf(CSRF)
-            .post_form(
+            .submit(
                 "/app/settings/members/-/actions/invite",
-                form_body(&[
-                    ("email", email),
-                    ("role", "member"),
-                    ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-                ]),
+                &form_body(&[("email", email), ("role", "member")]),
             )
             .await;
     }

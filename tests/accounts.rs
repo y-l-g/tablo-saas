@@ -12,7 +12,7 @@ use tablo_saas::accounts::User;
 use topcoat::router::Body;
 use topcoat::router::header::LOCATION;
 
-/// Posts the sign-up form, with its CSRF pair.
+/// Posts the sign-up form.
 async fn sign_up(client: &TestClient<'_>, email: &str) -> http::Response<Body> {
     client
         .submit(

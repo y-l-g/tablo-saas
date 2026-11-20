@@ -20,22 +20,15 @@ use tablo_saas::{
 };
 use topcoat::router::{Body, StatusCode};
 
-const CSRF: &str = "3f0f6d3a-8f43-4f4d-9c59-2d3b3b1f4a11";
-
 /// Where the signed-in user answers the invitations addressed to them.
 const INCOMING_URL: &str = "/app/settings/invitations";
 
 /// Posts the invite form the members page opens.
 async fn invite(client: &TestClient<'_>, email: &str, role: &str) -> http::Response<Body> {
     client
-        .csrf(CSRF)
-        .post_form(
+        .submit(
             "/app/settings/members/-/actions/invite",
-            form_body(&[
-                ("email", email),
-                ("role", role),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-            ]),
+            &form_body(&[("email", email), ("role", role)]),
         )
         .await
 }

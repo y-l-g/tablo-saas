@@ -25,8 +25,6 @@ use tablo_saas::{
 };
 use topcoat::router::{StatusCode, header::LOCATION};
 
-const CSRF: &str = "3f0f6d3a-8f43-4f4d-9c59-2d3b3b1f4a11";
-
 /// When a factor was confirmed, relative to the `staff` command's grant, and on which panel.
 #[derive(Clone, Copy, PartialEq)]
 enum Factor {
@@ -476,14 +474,9 @@ async fn who_a_team_includes_stays_the_customers_call() {
     assert!(banner(&client).await.is_some());
 
     client
-        .csrf(CSRF)
-        .post_form(
+        .submit(
             "/app/settings/members/-/actions/invite",
-            form_body(&[
-                ("email", "sam@example.com"),
-                ("role", "admin"),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-            ]),
+            &form_body(&[("email", "sam@example.com"), ("role", "admin")]),
         )
         .await;
     let members = client.resource::<MemberResource>();
@@ -553,11 +546,7 @@ async fn the_billing_portal_stays_the_customers() {
     client.submit("/app/impersonate", &act_as(&ada)).await;
 
     let response = client
-        .csrf(CSRF)
-        .post_form(
-            "/app/settings/billing/-/actions/manage-billing",
-            form_body(&[("csrf_token", tablo::csrf::mask(CSRF).as_str())]),
-        )
+        .submit("/app/settings/billing/-/actions/manage-billing", "")
         .await;
     assert!(
         response

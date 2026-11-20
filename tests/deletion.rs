@@ -21,7 +21,6 @@ use topcoat::router::{
     header::{CONTENT_TYPE, SET_COOKIE},
 };
 
-const CSRF: &str = "3f0f6d3a-8f43-4f4d-9c59-2d3b3b1f4a11";
 const PASSWORD: &str = "correct horse battery staple";
 
 async fn subscribed(harness: &Harness, team: &Team) {
@@ -71,28 +70,18 @@ async fn deleting_a_team_cancels_its_subscription_through_a_job() {
 
     let client = client_for(&harness, &ada, &team).await;
     let wrong = client
-        .csrf(CSRF)
-        .post_form(
+        .submit(
             "/app/settings/team/-/actions/delete-team",
-            form_body(&[
-                ("name", "nope"),
-                ("confirm", "1"),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-            ]),
+            &form_body(&[("name", "nope"), ("confirm", "1")]),
         )
         .await;
     assert_eq!(wrong.status(), StatusCode::OK, "the form says why");
     assert_eq!(teams(&harness).await, 2);
 
     let response = client
-        .csrf(CSRF)
-        .post_form(
+        .submit(
             "/app/settings/team/-/actions/delete-team",
-            form_body(&[
-                ("name", "Analytical"),
-                ("confirm", "1"),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-            ]),
+            &form_body(&[("name", "Analytical"), ("confirm", "1")]),
         )
         .await;
     assert!(response.status().is_redirection(), "{}", response.status());
@@ -128,19 +117,14 @@ async fn a_member_cannot_delete_a_team_nor_an_owner_their_last() {
     let (ada, team) = person(&harness.db, "Ada", "ada@example.com").await;
     let (grace, _) = person(&harness.db, "Grace", "grace@example.com").await;
     seat(&harness.db, &grace, &team, TeamRole::Member).await;
-    let body = form_body(&[
-        ("name", "Ada's team"),
-        ("confirm", "1"),
-        ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-    ]);
+    let body = form_body(&[("name", "Ada's team"), ("confirm", "1")]);
 
     for client in [
         client_for(&harness, &grace, &team).await,
         client_for(&harness, &ada, &team).await,
     ] {
         let response = client
-            .csrf(CSRF)
-            .post_form("/app/settings/team/-/actions/delete-team", body.clone())
+            .submit("/app/settings/team/-/actions/delete-team", &body)
             .await;
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
@@ -157,14 +141,9 @@ async fn deleting_an_account_erases_it_with_the_teams_only_it_used() {
 
     let client = client_for(&harness, &ada, &team).await;
     let response = client
-        .csrf(CSRF)
-        .post_form(
+        .submit(
             "/app/settings/profile/-/actions/delete-account",
-            form_body(&[
-                ("password", PASSWORD),
-                ("confirm", "1"),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-            ]),
+            &form_body(&[("password", PASSWORD), ("confirm", "1")]),
         )
         .await;
     assert!(response.status().is_redirection(), "{}", response.status());
@@ -211,14 +190,9 @@ async fn other_teams_keep_the_trail_without_the_name_of_who_left() {
 
     let client = client_for(&harness, &ada, &personal).await;
     let response = client
-        .csrf(CSRF)
-        .post_form(
+        .submit(
             "/app/settings/profile/-/actions/delete-account",
-            form_body(&[
-                ("password", PASSWORD),
-                ("confirm", "1"),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-            ]),
+            &form_body(&[("password", PASSWORD), ("confirm", "1")]),
         )
         .await;
     assert!(response.status().is_redirection(), "{}", response.status());
@@ -263,14 +237,9 @@ async fn deleting_an_account_keeps_what_its_staff_did_in_the_back_office() {
 
     let client = client_for(&harness, &ada, &personal).await;
     let response = client
-        .csrf(CSRF)
-        .post_form(
+        .submit(
             "/app/settings/profile/-/actions/delete-account",
-            form_body(&[
-                ("password", PASSWORD),
-                ("confirm", "1"),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-            ]),
+            &form_body(&[("password", PASSWORD), ("confirm", "1")]),
         )
         .await;
     assert!(response.status().is_redirection(), "{}", response.status());
@@ -299,14 +268,9 @@ async fn an_owner_of_a_shared_team_transfers_before_leaving() {
 
     let client = client_for(&harness, &ada, &team).await;
     client
-        .csrf(CSRF)
-        .post_form(
+        .submit(
             "/app/settings/profile/-/actions/delete-account",
-            form_body(&[
-                ("password", PASSWORD),
-                ("confirm", "1"),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-            ]),
+            &form_body(&[("password", PASSWORD), ("confirm", "1")]),
         )
         .await;
     assert_eq!(teams(&harness).await, 2);
@@ -435,14 +399,9 @@ async fn deleting_an_account_leaves_no_session_factor_or_notification_behind() {
     let client = client_for(&harness, &ada, &team).await;
     assert_eq!(traces_of(&harness, &ada).await, [1; 6]);
     let response = client
-        .csrf(CSRF)
-        .post_form(
+        .submit(
             "/app/settings/profile/-/actions/delete-account",
-            form_body(&[
-                ("password", PASSWORD),
-                ("confirm", "1"),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-            ]),
+            &form_body(&[("password", PASSWORD), ("confirm", "1")]),
         )
         .await;
     assert!(response.status().is_redirection(), "{}", response.status());
@@ -461,14 +420,9 @@ async fn a_wrong_password_deletes_nothing() {
     let ada = with_password(&harness, &ada).await;
     let client = client_for(&harness, &ada, &team).await;
     client
-        .csrf(CSRF)
-        .post_form(
+        .submit(
             "/app/settings/profile/-/actions/delete-account",
-            form_body(&[
-                ("password", "wrong"),
-                ("confirm", "1"),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-            ]),
+            &form_body(&[("password", "wrong"), ("confirm", "1")]),
         )
         .await;
     assert_eq!(teams(&harness).await, 1);
@@ -513,14 +467,7 @@ async fn the_language_switch_sets_the_site_and_both_panels_in_one_post() {
     let harness = harness().await;
     let client = tablo::testing::TestClient::new(&harness.app);
     let switched = client
-        .csrf(CSRF)
-        .post_form(
-            "/locale",
-            form_body(&[
-                ("locale", "fr"),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-            ]),
-        )
+        .submit("/locale", &form_body(&[("locale", "fr")]))
         .await;
     assert_eq!(switched.status(), StatusCode::SEE_OTHER);
     let cookies: Vec<_> = switched
@@ -541,14 +488,7 @@ async fn the_language_switch_sets_the_site_and_both_panels_in_one_post() {
     assert!(page.contains("Deux panneaux"), "{page}");
 
     let refused = client
-        .csrf(CSRF)
-        .post_form(
-            "/locale",
-            form_body(&[
-                ("locale", "xx"),
-                ("csrf_token", tablo::csrf::mask(CSRF).as_str()),
-            ]),
-        )
+        .submit("/locale", &form_body(&[("locale", "xx")]))
         .await;
     assert_eq!(refused.status(), StatusCode::FORBIDDEN);
 }
